@@ -11,3 +11,23 @@ uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000
 `--reload` → restarts on file changes.
 
 `--port 8000` → serves on localhost port 8000.
+
+----
+
+**Docker**
+
+Build the image 
+```bash
+docker build -t backend .
+```
+
+Run in the Docker container.
+```bash
+docker compose run --rm app
+```
+or (persistent in the bg)
+```bash
+docker compose up -d
+docker compose exec app bash
+docker compose down
+```
