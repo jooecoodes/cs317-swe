@@ -21,7 +21,7 @@ Build the image
 docker build -t backend .
 ```
 
-Run in the Docker container.
+Run the Docker container.
 ```bash
 docker compose run --rm app
 ```
