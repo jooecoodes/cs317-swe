@@ -183,6 +183,16 @@
       .field.token input {
         width: 130px;
       }
+      .base-mod {
+        color: var(--warn);
+        font-size: 14px;
+        display: none;
+        line-height: 1;
+        margin-left: -2px;
+      }
+      .base-mod.on {
+        display: inline;
+      }
 
       .dot {
         width: 8px;
@@ -1174,6 +1184,12 @@
               spellcheck="false"
               placeholder="http://127.0.0.1:8000"
             />
+            <span
+              id="baseModified"
+              class="base-mod"
+              title="Overriding CONFIG.BASE_URL — click ↺ to reset"
+              >●</span
+            >
           </div>
           <div class="field token">
             <label>Token</label>
@@ -1184,6 +1200,13 @@
               placeholder="X-Admin-Token"
             />
           </div>
+          <button
+            class="btn"
+            id="resetConfig"
+            title="Reset Base URL and Token to CONFIG defaults"
+          >
+            ↺
+          </button>
           <button class="btn" id="pingBtn">
             <span class="dot" id="statusDot"></span> Ping
           </button>
@@ -1303,12 +1326,44 @@
 
     <script>
       /* ============================================================
+   ⚙️  CONFIG — EDIT THIS BEFORE SHIPPING
+   ────────────────────────────────────────────────────────────
+   The ONLY block you need to change to point the app at a
+   different API server. Everything below reads from here.
+   ──────────────────────────────────────────────────────────── */
+      const CONFIG = {
+        // API base URL. Examples:
+        //   'http://127.0.0.1:8000'                 — local dev
+        //   'http://192.168.1.42:8000'              — LAN / office box
+        //   'https://api.violation-tracker.example' — production
+        //   ''                                       — same-origin (use behind a proxy)
+        BASE_URL: "http://127.0.0.1:8000",
+
+        // Optional default admin token. Leave '' to start blank.
+        // Users can still type one in live — this is just the seed.
+        ADMIN_TOKEN: "",
+      };
+
+      /* Invalidate stale localStorage overrides when BASE_URL above changes.
+   Edit CONFIG.BASE_URL, reload, and the new value wins — no manual reset. */
+      const STORAGE_KEYS = {
+        baseUrl: "vt.baseUrl",
+        token: "vt.token",
+        configBase: "vt.configBase",
+      };
+      if (localStorage.getItem(STORAGE_KEYS.configBase) !== CONFIG.BASE_URL) {
+        localStorage.setItem(STORAGE_KEYS.configBase, CONFIG.BASE_URL);
+        localStorage.removeItem(STORAGE_KEYS.baseUrl);
+        localStorage.removeItem(STORAGE_KEYS.token);
+      }
+
+      /* ============================================================
    STATE
    ============================================================ */
       const state = {
         view: "dashboard",
-        baseUrl: localStorage.getItem("vt.baseUrl") || "http://127.0.0.1:8000",
-        token: localStorage.getItem("vt.token") || "",
+        baseUrl: localStorage.getItem(STORAGE_KEYS.baseUrl) || CONFIG.BASE_URL,
+        token: localStorage.getItem(STORAGE_KEYS.token) || CONFIG.ADMIN_TOKEN,
         connected: null,
         explorerEp: null,
         analyticsTab: "activity",
@@ -4110,14 +4165,42 @@ app.add_middleware(
       baseUrlInput.value = state.baseUrl;
       tokenInput.value = state.token;
 
+      const baseModifiedEl = document.getElementById("baseModified");
+
+      function refreshOverrideDot() {
+        const overriding =
+          state.baseUrl !== CONFIG.BASE_URL ||
+          state.token !== CONFIG.ADMIN_TOKEN;
+        baseModifiedEl.classList.toggle("on", overriding);
+        baseModifiedEl.title = overriding
+          ? "Overriding CONFIG defaults — click ↺ to reset"
+          : "Using CONFIG defaults";
+      }
+      refreshOverrideDot();
+
       baseUrlInput.addEventListener("change", () => {
-        state.baseUrl = baseUrlInput.value.trim() || "http://127.0.0.1:8000";
-        localStorage.setItem("vt.baseUrl", state.baseUrl);
+        state.baseUrl = baseUrlInput.value.trim() || CONFIG.BASE_URL;
+        localStorage.setItem(STORAGE_KEYS.baseUrl, state.baseUrl);
+        refreshOverrideDot();
       });
       tokenInput.addEventListener("change", () => {
         state.token = tokenInput.value;
-        localStorage.setItem("vt.token", state.token);
+        localStorage.setItem(STORAGE_KEYS.token, state.token);
+        refreshOverrideDot();
       });
+
+      document.getElementById("resetConfig").addEventListener("click", () => {
+        state.baseUrl = CONFIG.BASE_URL;
+        state.token = CONFIG.ADMIN_TOKEN;
+        localStorage.removeItem(STORAGE_KEYS.baseUrl);
+        localStorage.removeItem(STORAGE_KEYS.token);
+        baseUrlInput.value = state.baseUrl;
+        tokenInput.value = state.token;
+        refreshOverrideDot();
+        setStatus("", "Reset to CONFIG defaults");
+        toast("Reset to defaults", CONFIG.BASE_URL || "(same-origin)", "ok");
+      });
+
       document.getElementById("pingBtn").addEventListener("click", ping);
 
       navigate("dashboard");
