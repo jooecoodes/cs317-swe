@@ -23,7 +23,7 @@ docker build -t backend .
 
 Run the Docker container.
 ```bash
-docker compose run --rm app
+docker compose run --rm --service-ports app
 ```
 or (persistent in the bg)
 ```bash
