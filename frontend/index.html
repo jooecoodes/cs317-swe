@@ -1,0 +1,4127 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Violation Tracker — API Showcase</title>
+    <style>
+      :root {
+        --bg: #0a0d13;
+        --surface: #11151d;
+        --surface-2: #171c26;
+        --surface-3: #1e2532;
+        --border: #232b3a;
+        --border-2: #2e3849;
+        --text: #e4e8f0;
+        --muted: #8892a6;
+        --faint: #5a6478;
+        --accent: #6d8cff;
+        --accent-2: #8b6dff;
+        --ok: #34d399;
+        --warn: #fbbf24;
+        --danger: #f87171;
+        --mono:
+          "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas,
+          monospace;
+        --sans:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto,
+          sans-serif;
+        --r: 10px;
+        --r-sm: 7px;
+        --shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--sans);
+        font-size: 14px;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+        overflow: hidden;
+      }
+      button,
+      input,
+      select,
+      textarea {
+        font: inherit;
+        color: inherit;
+      }
+      button {
+        cursor: pointer;
+        background: none;
+        border: none;
+      }
+      a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+      ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #2a3344;
+        border-radius: 6px;
+        border: 2px solid var(--bg);
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #3a465c;
+      }
+
+      /* ---------- layout ---------- */
+      .app {
+        display: grid;
+        grid-template-rows: auto 1fr;
+        height: 100vh;
+      }
+      .shell {
+        display: grid;
+        grid-template-columns: 230px 1fr;
+        min-height: 0;
+      }
+      main {
+        min-width: 0;
+        overflow-y: auto;
+        padding: 26px 30px 60px;
+      }
+
+      /* ---------- topbar ---------- */
+      .topbar {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        flex-wrap: wrap;
+        padding: 12px 22px;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        position: relative;
+        z-index: 20;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        min-width: 210px;
+      }
+      .logo {
+        width: 34px;
+        height: 34px;
+        border-radius: 9px;
+        flex: 0 0 auto;
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        display: grid;
+        place-items: center;
+        font-weight: 800;
+        font-size: 13px;
+        letter-spacing: -0.5px;
+        color: #fff;
+        box-shadow: 0 4px 14px rgba(109, 140, 255, 0.35);
+      }
+      .brand h1 {
+        font-size: 14px;
+        font-weight: 650;
+        letter-spacing: -0.2px;
+        line-height: 1.15;
+      }
+      .brand p {
+        font-size: 11px;
+        color: var(--faint);
+        letter-spacing: 0.3px;
+        text-transform: uppercase;
+        font-weight: 600;
+      }
+
+      .conn {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-left: auto;
+        flex-wrap: wrap;
+      }
+      .field {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: var(--r-sm);
+        padding: 0 10px;
+        height: 34px;
+      }
+      .field label {
+        font-size: 11px;
+        color: var(--faint);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        white-space: nowrap;
+      }
+      .field input {
+        background: none;
+        border: none;
+        outline: none;
+        font-size: 12.5px;
+        font-family: var(--mono);
+        width: 190px;
+        color: var(--text);
+      }
+      .field input::placeholder {
+        color: var(--faint);
+      }
+      .field.token input {
+        width: 130px;
+      }
+
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--faint);
+        flex: 0 0 auto;
+        transition: 0.25s;
+      }
+      .dot.ok {
+        background: var(--ok);
+        box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.15);
+      }
+      .dot.err {
+        background: var(--danger);
+        box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.15);
+      }
+      .dot.busy {
+        background: var(--warn);
+        animation: pulse 1s infinite;
+      }
+      @keyframes pulse {
+        50% {
+          opacity: 0.35;
+        }
+      }
+
+      /* ---------- buttons ---------- */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 34px;
+        padding: 0 13px;
+        border-radius: var(--r-sm);
+        background: var(--surface-2);
+        border: 1px solid var(--border-2);
+        font-size: 12.5px;
+        font-weight: 550;
+        color: var(--text);
+        transition: 0.14s;
+        white-space: nowrap;
+      }
+      .btn:hover {
+        background: var(--surface-3);
+        border-color: #3d4a60;
+      }
+      .btn:active {
+        transform: translateY(1px);
+      }
+      .btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+        transform: none;
+      }
+      .btn.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+      .btn.primary:hover {
+        background: #5c7cf5;
+        border-color: #5c7cf5;
+      }
+      .btn.ghost {
+        background: transparent;
+        border-color: transparent;
+        color: var(--muted);
+      }
+      .btn.ghost:hover {
+        background: var(--surface-2);
+        color: var(--text);
+      }
+      .btn.danger {
+        color: var(--danger);
+        border-color: rgba(248, 113, 113, 0.3);
+      }
+      .btn.danger:hover {
+        background: rgba(248, 113, 113, 0.12);
+        border-color: rgba(248, 113, 113, 0.5);
+      }
+      .btn.sm {
+        height: 27px;
+        padding: 0 9px;
+        font-size: 11.5px;
+        border-radius: 6px;
+      }
+      .btn.icon {
+        width: 34px;
+        padding: 0;
+        justify-content: center;
+      }
+
+      /* ---------- sidenav ---------- */
+      .sidenav {
+        background: var(--surface);
+        border-right: 1px solid var(--border);
+        padding: 16px 12px;
+        overflow-y: auto;
+      }
+      .nav-label {
+        font-size: 10.5px;
+        font-weight: 700;
+        letter-spacing: 0.9px;
+        text-transform: uppercase;
+        color: var(--faint);
+        padding: 14px 10px 6px;
+      }
+      .nav-label:first-child {
+        padding-top: 2px;
+      }
+      .nav-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        padding: 8px 10px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--muted);
+        transition: 0.13s;
+        text-align: left;
+      }
+      .nav-item:hover {
+        background: var(--surface-2);
+        color: var(--text);
+      }
+      .nav-item.active {
+        background: rgba(109, 140, 255, 0.13);
+        color: var(--accent);
+      }
+      .nav-item svg {
+        flex: 0 0 auto;
+        opacity: 0.85;
+      }
+
+      /* ---------- page ---------- */
+      .page-head {
+        display: flex;
+        align-items: flex-start;
+        gap: 16px;
+        margin-bottom: 22px;
+        flex-wrap: wrap;
+      }
+      .page-head h2 {
+        font-size: 21px;
+        font-weight: 650;
+        letter-spacing: -0.4px;
+      }
+      .page-head .sub {
+        font-size: 13px;
+        color: var(--muted);
+        margin-top: 3px;
+      }
+      .page-head .actions {
+        margin-left: auto;
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--r);
+        overflow: hidden;
+      }
+      .card + .card {
+        margin-top: 18px;
+      }
+      .card-head {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 13px 16px;
+        border-bottom: 1px solid var(--border);
+      }
+      .card-head h3 {
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: -0.1px;
+      }
+      .card-head .hint {
+        font-size: 11.5px;
+        color: var(--faint);
+        font-family: var(--mono);
+      }
+      .card-head .right {
+        margin-left: auto;
+        display: flex;
+        gap: 6px;
+        align-items: center;
+      }
+      .card-body {
+        padding: 16px;
+      }
+      .card-body.tight {
+        padding: 0;
+      }
+
+      /* ---------- stats ---------- */
+      .stat-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 14px;
+        margin-bottom: 18px;
+      }
+      .stat {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--r);
+        padding: 16px 18px;
+        position: relative;
+        overflow: hidden;
+      }
+      .stat::before {
+        content: "";
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 3px;
+        background: linear-gradient(180deg, var(--accent), var(--accent-2));
+        opacity: 0.85;
+      }
+      .stat .k {
+        font-size: 11px;
+        font-weight: 650;
+        letter-spacing: 0.7px;
+        text-transform: uppercase;
+        color: var(--faint);
+      }
+      .stat .v {
+        font-size: 28px;
+        font-weight: 700;
+        letter-spacing: -1px;
+        margin-top: 6px;
+        font-variant-numeric: tabular-nums;
+      }
+      .stat .m {
+        font-size: 11.5px;
+        color: var(--muted);
+        margin-top: 2px;
+      }
+      .stat.warn::before {
+        background: linear-gradient(180deg, #fbbf24, #f59e0b);
+      }
+      .stat.danger::before {
+        background: linear-gradient(180deg, #f87171, #ef4444);
+      }
+      .stat.ok::before {
+        background: linear-gradient(180deg, #34d399, #10b981);
+      }
+
+      /* ---------- grid helpers ---------- */
+      .grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+      }
+      .grid-3 {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 18px;
+      }
+      @media (max-width: 1000px) {
+        .grid-2 {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      /* ---------- table ---------- */
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+      thead th {
+        text-align: left;
+        font-size: 10.5px;
+        font-weight: 700;
+        letter-spacing: 0.7px;
+        text-transform: uppercase;
+        color: var(--faint);
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface-2);
+        position: sticky;
+        top: 0;
+        z-index: 2;
+      }
+      tbody td {
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--border);
+        vertical-align: middle;
+      }
+      tbody tr:last-child td {
+        border-bottom: none;
+      }
+      tbody tr.clickable {
+        cursor: pointer;
+      }
+      tbody tr.clickable:hover {
+        background: var(--surface-2);
+      }
+      td.num,
+      th.num {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        font-family: var(--mono);
+        font-size: 12.5px;
+      }
+      .mono {
+        font-family: var(--mono);
+        font-size: 12.5px;
+      }
+
+      /* ---------- badges ---------- */
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 2px 8px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.2px;
+        white-space: nowrap;
+      }
+      .badge.ok {
+        background: rgba(52, 211, 153, 0.13);
+        color: #4ade80;
+      }
+      .badge.off {
+        background: rgba(136, 146, 166, 0.13);
+        color: var(--muted);
+      }
+      .badge.warn {
+        background: rgba(251, 191, 36, 0.13);
+        color: #fbbf24;
+      }
+      .badge.danger {
+        background: rgba(248, 113, 113, 0.13);
+        color: #f87171;
+      }
+      .badge.info {
+        background: rgba(109, 140, 255, 0.13);
+        color: #8ba4ff;
+      }
+      .badge.strike {
+        background: rgba(248, 113, 113, 0.15);
+        color: #f87171;
+      }
+
+      .method {
+        display: inline-block;
+        padding: 2px 7px;
+        border-radius: 5px;
+        font-family: var(--mono);
+        font-size: 10.5px;
+        font-weight: 700;
+        letter-spacing: 0.4px;
+      }
+      .method.GET {
+        background: rgba(109, 140, 255, 0.15);
+        color: #8ba4ff;
+      }
+      .method.POST {
+        background: rgba(52, 211, 153, 0.15);
+        color: #4ade80;
+      }
+      .method.PATCH {
+        background: rgba(251, 191, 36, 0.15);
+        color: #fbbf24;
+      }
+      .method.DELETE {
+        background: rgba(248, 113, 113, 0.15);
+        color: #f87171;
+      }
+      .lock {
+        font-size: 11px;
+        color: var(--warn);
+        opacity: 0.9;
+      }
+
+      /* ---------- forms ---------- */
+      .filters {
+        display: flex;
+        gap: 9px;
+        flex-wrap: wrap;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--border);
+        align-items: center;
+      }
+      input[type="text"],
+      input[type="number"],
+      input[type="password"],
+      input[type="datetime-local"],
+      select,
+      textarea {
+        background: var(--surface-2);
+        border: 1px solid var(--border-2);
+        border-radius: var(--r-sm);
+        padding: 0 11px;
+        height: 34px;
+        font-size: 13px;
+        outline: none;
+        transition: 0.14s;
+        width: 100%;
+      }
+      textarea {
+        height: auto;
+        padding: 9px 11px;
+        font-family: var(--mono);
+        font-size: 12.5px;
+        resize: vertical;
+        line-height: 1.55;
+      }
+      input:focus,
+      select:focus,
+      textarea:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(109, 140, 255, 0.14);
+      }
+      input::placeholder,
+      textarea::placeholder {
+        color: var(--faint);
+      }
+      .filters input {
+        width: 150px;
+        height: 32px;
+      }
+      .chk {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 12.5px;
+        color: var(--muted);
+        cursor: pointer;
+        user-select: none;
+        white-space: nowrap;
+      }
+      .chk input {
+        width: auto;
+        height: auto;
+        accent-color: var(--accent);
+        cursor: pointer;
+      }
+      .form-row {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-bottom: 14px;
+      }
+      .form-row label {
+        font-size: 11.5px;
+        font-weight: 600;
+        color: var(--muted);
+        letter-spacing: 0.2px;
+      }
+      .form-row label .opt {
+        color: var(--faint);
+        font-weight: 400;
+      }
+      .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0 14px;
+      }
+      .form-grid .full {
+        grid-column: 1/-1;
+      }
+
+      /* ---------- pager ---------- */
+      .pager {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 16px;
+        border-top: 1px solid var(--border);
+        flex-wrap: wrap;
+      }
+      .pager .info {
+        font-size: 12px;
+        color: var(--muted);
+        font-family: var(--mono);
+      }
+      .pager .spacer {
+        margin-left: auto;
+      }
+
+      /* ---------- chart ---------- */
+      .chart-wrap {
+        padding: 18px 16px 10px;
+      }
+      .chart {
+        display: flex;
+        align-items: flex-end;
+        gap: 3px;
+        height: 150px;
+        position: relative;
+      }
+      .chart .bar {
+        flex: 1;
+        min-width: 2px;
+        border-radius: 3px 3px 1px 1px;
+        background: linear-gradient(180deg, #6d8cff, #3d5bd9);
+        min-height: 2px;
+        transition: 0.15s;
+        position: relative;
+        cursor: default;
+      }
+      .chart .bar.zero {
+        background: #232b3a;
+        min-height: 2px;
+      }
+      .chart .bar:hover {
+        filter: brightness(1.35);
+      }
+      .chart .bar:hover::after {
+        content: attr(data-tip);
+        position: absolute;
+        bottom: calc(100% + 7px);
+        left: 50%;
+        transform: translateX(-50%);
+        background: #0a0d13;
+        border: 1px solid var(--border-2);
+        padding: 5px 9px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-family: var(--mono);
+        white-space: nowrap;
+        z-index: 10;
+        color: var(--text);
+        box-shadow: var(--shadow);
+        pointer-events: none;
+      }
+      .xaxis {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 8px;
+        font-size: 10.5px;
+        color: var(--faint);
+        font-family: var(--mono);
+      }
+
+      /* ---------- feed ---------- */
+      .feed-item {
+        display: flex;
+        gap: 13px;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border);
+        align-items: flex-start;
+      }
+      .feed-item:last-child {
+        border-bottom: none;
+      }
+      .feed-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        flex: 0 0 auto;
+        background: linear-gradient(135deg, #2a3344, #1e2532);
+        display: grid;
+        place-items: center;
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--muted);
+        border: 1px solid var(--border-2);
+      }
+      .feed-body {
+        flex: 1;
+        min-width: 0;
+      }
+      .feed-body .line1 {
+        font-size: 13px;
+        display: flex;
+        gap: 7px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .feed-body .who {
+        font-weight: 600;
+      }
+      .feed-body .line2 {
+        font-size: 11.5px;
+        color: var(--faint);
+        margin-top: 3px;
+        font-family: var(--mono);
+      }
+      .feed-meta {
+        margin-left: auto;
+        text-align: right;
+        flex: 0 0 auto;
+      }
+
+      /* ---------- json viewer ---------- */
+      .json {
+        font-family: var(--mono);
+        font-size: 12.5px;
+        line-height: 1.65;
+        background: #0c1017;
+        border: 1px solid var(--border);
+        border-radius: var(--r-sm);
+        padding: 14px 16px;
+        overflow: auto;
+        max-height: 460px;
+        white-space: pre;
+        tab-size: 2;
+      }
+      .j-key {
+        color: #8ba4ff;
+      }
+      .j-str {
+        color: #7ee2b8;
+      }
+      .j-num {
+        color: #fbbf24;
+      }
+      .j-bool {
+        color: #c792ea;
+      }
+      .j-null {
+        color: #f87171;
+      }
+
+      /* ---------- explorer ---------- */
+      .explorer {
+        display: grid;
+        grid-template-columns: 320px 1fr;
+        gap: 20px;
+        align-items: start;
+      }
+      @media (max-width: 1100px) {
+        .explorer {
+          grid-template-columns: 1fr;
+        }
+      }
+      .ep-group {
+        margin-bottom: 4px;
+      }
+      .ep-group-title {
+        font-size: 10.5px;
+        font-weight: 700;
+        letter-spacing: 0.8px;
+        text-transform: uppercase;
+        color: var(--faint);
+        padding: 12px 12px 5px;
+      }
+      .ep-item {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        width: 100%;
+        text-align: left;
+        padding: 7px 12px;
+        border-radius: 7px;
+        font-size: 12.5px;
+        color: var(--muted);
+        transition: 0.12s;
+      }
+      .ep-item:hover {
+        background: var(--surface-2);
+        color: var(--text);
+      }
+      .ep-item.active {
+        background: rgba(109, 140, 255, 0.13);
+        color: var(--text);
+      }
+      .ep-item .path {
+        font-family: var(--mono);
+        font-size: 11.5px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .res-status {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .status-pill {
+        font-family: var(--mono);
+        font-size: 12px;
+        font-weight: 700;
+        padding: 3px 10px;
+        border-radius: 6px;
+      }
+      .status-pill.s2 {
+        background: rgba(52, 211, 153, 0.15);
+        color: #4ade80;
+      }
+      .status-pill.s4 {
+        background: rgba(251, 191, 36, 0.15);
+        color: #fbbf24;
+      }
+      .status-pill.s5 {
+        background: rgba(248, 113, 113, 0.15);
+        color: #f87171;
+      }
+      .status-pill.s0 {
+        background: rgba(136, 146, 166, 0.15);
+        color: var(--muted);
+      }
+
+      .kv {
+        display: flex;
+        gap: 10px;
+        font-size: 12px;
+        padding: 3px 0;
+      }
+      .kv .k {
+        color: var(--faint);
+        min-width: 70px;
+        font-family: var(--mono);
+      }
+
+      /* ---------- modal ---------- */
+      #modalRoot {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        display: none;
+      }
+      #modalRoot.open {
+        display: block;
+      }
+      .modal-backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(5, 7, 11, 0.75);
+        backdrop-filter: blur(4px);
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        animation: fade 0.16s ease;
+      }
+      @keyframes fade {
+        from {
+          opacity: 0;
+        }
+      }
+      .modal {
+        background: var(--surface);
+        border: 1px solid var(--border-2);
+        border-radius: 14px;
+        width: 100%;
+        max-width: 560px;
+        max-height: 86vh;
+        display: flex;
+        flex-direction: column;
+        box-shadow: var(--shadow);
+        animation: pop 0.18s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+      }
+      @keyframes pop {
+        from {
+          transform: scale(0.96) translateY(8px);
+          opacity: 0;
+        }
+      }
+      .modal.wide {
+        max-width: 860px;
+      }
+      .modal-head {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--border);
+      }
+      .modal-head h3 {
+        font-size: 15px;
+        font-weight: 650;
+      }
+      .modal-head .close {
+        margin-left: auto;
+        width: 30px;
+        height: 30px;
+        border-radius: 7px;
+        display: grid;
+        place-items: center;
+        color: var(--muted);
+      }
+      .modal-head .close:hover {
+        background: var(--surface-2);
+        color: var(--text);
+      }
+      .modal-body {
+        padding: 20px;
+        overflow-y: auto;
+      }
+      .modal-foot {
+        display: flex;
+        gap: 9px;
+        justify-content: flex-end;
+        padding: 14px 20px;
+        border-top: 1px solid var(--border);
+      }
+
+      /* ---------- toasts ---------- */
+      #toasts {
+        position: fixed;
+        bottom: 22px;
+        right: 22px;
+        z-index: 200;
+        display: flex;
+        flex-direction: column;
+        gap: 9px;
+        pointer-events: none;
+      }
+      .toast {
+        background: var(--surface-2);
+        border: 1px solid var(--border-2);
+        border-left: 3px solid var(--accent);
+        border-radius: 9px;
+        padding: 11px 15px;
+        font-size: 13px;
+        box-shadow: var(--shadow);
+        max-width: 380px;
+        animation: slideIn 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+        pointer-events: auto;
+      }
+      .toast.ok {
+        border-left-color: var(--ok);
+      }
+      .toast.err {
+        border-left-color: var(--danger);
+      }
+      .toast.warn {
+        border-left-color: var(--warn);
+      }
+      .toast .t {
+        font-weight: 600;
+        margin-bottom: 2px;
+      }
+      .toast .d {
+        font-size: 12px;
+        color: var(--muted);
+        font-family: var(--mono);
+        word-break: break-word;
+      }
+      @keyframes slideIn {
+        from {
+          transform: translateX(20px);
+          opacity: 0;
+        }
+      }
+
+      /* ---------- misc ---------- */
+      .empty {
+        padding: 38px 20px;
+        text-align: center;
+        color: var(--faint);
+        font-size: 13px;
+      }
+      .empty .big {
+        font-size: 26px;
+        margin-bottom: 8px;
+        opacity: 0.4;
+      }
+      .loading {
+        padding: 38px;
+        text-align: center;
+        color: var(--faint);
+        font-size: 13px;
+      }
+      .spinner {
+        width: 18px;
+        height: 18px;
+        border: 2px solid var(--border-2);
+        border-top-color: var(--accent);
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+        display: inline-block;
+        vertical-align: -3px;
+        margin-right: 9px;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .callout {
+        display: flex;
+        gap: 12px;
+        padding: 14px 16px;
+        border-radius: var(--r);
+        background: rgba(251, 191, 36, 0.07);
+        border: 1px solid rgba(251, 191, 36, 0.25);
+        font-size: 12.5px;
+        color: #e8d9a8;
+        margin-bottom: 18px;
+        line-height: 1.6;
+      }
+      .callout.err {
+        background: rgba(248, 113, 113, 0.07);
+        border-color: rgba(248, 113, 113, 0.25);
+        color: #f5b8b8;
+      }
+      .callout .ic {
+        font-size: 16px;
+        flex: 0 0 auto;
+        line-height: 1.3;
+      }
+      .callout code {
+        font-family: var(--mono);
+        background: rgba(0, 0, 0, 0.3);
+        padding: 1px 5px;
+        border-radius: 4px;
+        font-size: 11.5px;
+      }
+      .callout pre {
+        font-family: var(--mono);
+        font-size: 11.5px;
+        background: rgba(0, 0, 0, 0.35);
+        padding: 10px 12px;
+        border-radius: 7px;
+        margin-top: 9px;
+        overflow-x: auto;
+        color: #c8d0e0;
+        line-height: 1.6;
+      }
+      .divider {
+        height: 1px;
+        background: var(--border);
+        margin: 18px 0;
+      }
+      .tabs {
+        display: flex;
+        gap: 4px;
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 18px;
+        overflow-x: auto;
+      }
+      .tab {
+        padding: 9px 14px;
+        font-size: 12.5px;
+        font-weight: 550;
+        color: var(--muted);
+        border-bottom: 2px solid transparent;
+        transition: 0.13s;
+        white-space: nowrap;
+      }
+      .tab:hover {
+        color: var(--text);
+      }
+      .tab.active {
+        color: var(--accent);
+        border-bottom-color: var(--accent);
+      }
+      .trunc {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 220px;
+      }
+      .row-flex {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .faint {
+        color: var(--faint);
+      }
+      .right {
+        margin-left: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">
+          <div class="logo">VT</div>
+          <div>
+            <h1>Violation Tracker</h1>
+            <p>API Showcase</p>
+          </div>
+        </div>
+        <div class="conn">
+          <div class="field">
+            <label>Base</label>
+            <input
+              id="baseUrl"
+              spellcheck="false"
+              placeholder="http://127.0.0.1:8000"
+            />
+          </div>
+          <div class="field token">
+            <label>Token</label>
+            <input
+              id="adminToken"
+              type="password"
+              spellcheck="false"
+              placeholder="X-Admin-Token"
+            />
+          </div>
+          <button class="btn" id="pingBtn">
+            <span class="dot" id="statusDot"></span> Ping
+          </button>
+        </div>
+      </header>
+
+      <div class="shell">
+        <aside class="sidenav" id="sidenav">
+          <div class="nav-label">Overview</div>
+          <button class="nav-item active" data-nav="dashboard">
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            >
+              <rect x="3" y="3" width="7" height="9" />
+              <rect x="14" y="3" width="7" height="5" />
+              <rect x="14" y="12" width="7" height="9" />
+              <rect x="3" y="16" width="7" height="5" />
+            </svg>
+            Dashboard
+          </button>
+          <div class="nav-label">Data</div>
+          <button class="nav-item" data-nav="employees">
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            >
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+            </svg>
+            Employees
+          </button>
+          <button class="nav-item" data-nav="types">
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            >
+              <path
+                d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+              />
+              <path d="M14 2v6h6" />
+              <path d="M9 13h6M9 17h4" />
+            </svg>
+            Violation Types
+          </button>
+          <button class="nav-item" data-nav="violations">
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            >
+              <path
+                d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
+              />
+              <path d="M12 9v4M12 17h.01" />
+            </svg>
+            Violations
+          </button>
+          <div class="nav-label">Insight</div>
+          <button class="nav-item" data-nav="analytics">
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            >
+              <path d="M3 3v18h18" />
+              <path d="m19 9-5 5-4-4-3 3" />
+            </svg>
+            Analytics
+          </button>
+          <button class="nav-item" data-nav="explorer">
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            >
+              <path d="m16 18 6-6-6-6M8 6l-6 6 6 6" />
+            </svg>
+            API Explorer
+          </button>
+        </aside>
+
+        <main id="view"></main>
+      </div>
+    </div>
+
+    <div id="modalRoot"></div>
+    <div id="toasts"></div>
+
+    <script>
+      /* ============================================================
+   STATE
+   ============================================================ */
+      const state = {
+        view: "dashboard",
+        baseUrl: localStorage.getItem("vt.baseUrl") || "http://127.0.0.1:8000",
+        token: localStorage.getItem("vt.token") || "",
+        connected: null,
+        explorerEp: null,
+        analyticsTab: "activity",
+      };
+
+      const view = document.getElementById("view");
+      const modalRoot = document.getElementById("modalRoot");
+      const statusDot = document.getElementById("statusDot");
+      const baseUrlInput = document.getElementById("baseUrl");
+      const tokenInput = document.getElementById("adminToken");
+
+      /* ============================================================
+   HELPERS
+   ============================================================ */
+      const esc = (s) =>
+        String(s ?? "").replace(
+          /[&<>"']/g,
+          (c) =>
+            ({
+              "&": "&amp;",
+              "<": "&lt;",
+              ">": "&gt;",
+              '"': "&quot;",
+              "'": "&#39;",
+            })[c],
+        );
+
+      function parseUTC(s) {
+        if (!s) return null;
+        let str = String(s);
+        // Backend may serialize naive datetimes (no Z, no offset) — treat all as UTC.
+        if (!/[Zz]$|[+-]\d{2}:?\d{2}$/.test(str)) str += "Z";
+        const d = new Date(str);
+        return isNaN(d) ? null : d;
+      }
+
+      function fmtDate(iso) {
+        const d = parseUTC(iso);
+        if (!d) return "—";
+        return d.toLocaleString(undefined, {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+      }
+
+      function fmtDateShort(iso) {
+        const d = parseUTC(iso);
+        if (!d) return "—";
+        return d.toLocaleDateString(undefined, {
+          month: "short",
+          day: "numeric",
+        });
+      }
+
+      function relTime(iso) {
+        const d = parseUTC(iso);
+        if (!d) return "—";
+        const diff = Date.now() - d.getTime();
+        const m = Math.round(diff / 60000);
+        if (m < 1) return "just now";
+        if (m < 60) return m + "m ago";
+        const h = Math.round(m / 60);
+        if (h < 24) return h + "h ago";
+        const days = Math.round(h / 24);
+        if (days < 30) return days + "d ago";
+        return fmtDateShort(iso);
+      }
+
+      function initials(name) {
+        if (!name) return "?";
+        return name
+          .split(/\s+/)
+          .slice(0, 2)
+          .map((w) => w[0])
+          .join("")
+          .toUpperCase();
+      }
+
+      function toast(title, detail, kind = "") {
+        const el = document.createElement("div");
+        el.className = "toast " + kind;
+        el.innerHTML = `<div class="t">${esc(title)}</div>${detail ? `<div class="d">${esc(detail)}</div>` : ""}`;
+        document.getElementById("toasts").appendChild(el);
+        setTimeout(() => {
+          el.style.transition = "opacity .3s, transform .3s";
+          el.style.opacity = "0";
+          el.style.transform = "translateX(20px)";
+          setTimeout(() => el.remove(), 320);
+        }, 4200);
+      }
+
+      function highlightJSON(data) {
+        const json = JSON.stringify(data, null, 2);
+        if (json === undefined) return '<span class="faint">undefined</span>';
+        return json.replace(
+          /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
+          (m) => {
+            let cls = "j-num";
+            if (/^"/.test(m)) cls = /:$/.test(m) ? "j-key" : "j-str";
+            else if (/true|false/.test(m)) cls = "j-bool";
+            else if (/null/.test(m)) cls = "j-null";
+            return `<span class="${cls}">${esc(m)}</span>`;
+          },
+        );
+      }
+
+      /* ============================================================
+   HTTP LAYER
+   ============================================================ */
+      class ApiError extends Error {
+        constructor(kind, message, result) {
+          super(message);
+          this.kind = kind; // 'network' | 'http' | 'config'
+          this.result = result;
+        }
+      }
+
+      function buildQuery(query) {
+        if (!query) return "";
+        const usp = new URLSearchParams();
+        for (const [k, v] of Object.entries(query)) {
+          if (v === undefined || v === null || v === "") continue;
+          usp.append(k, v);
+        }
+        const s = usp.toString();
+        return s ? "?" + s : "";
+      }
+
+      async function req(method, path, { query, body, admin = false } = {}) {
+        const base = state.baseUrl.replace(/\/+$/, "");
+        const url = base + path + buildQuery(query);
+
+        const headers = {};
+        if (body !== undefined && body !== null)
+          headers["Content-Type"] = "application/json";
+        if (admin) {
+          if (!state.token) {
+            throw new ApiError(
+              "config",
+              "This endpoint requires an admin token. Set it in the top bar.",
+              null,
+            );
+          }
+          headers["X-Admin-Token"] = state.token;
+        }
+
+        const t0 = performance.now();
+        let res;
+        try {
+          res = await fetch(url, {
+            method,
+            headers,
+            body:
+              body !== undefined && body !== null
+                ? JSON.stringify(body)
+                : undefined,
+          });
+        } catch (e) {
+          throw new ApiError(
+            "network",
+            "Network error — API unreachable, or CORS is blocking the request.",
+            null,
+          );
+        }
+        const ms = Math.round(performance.now() - t0);
+
+        // 204 has no body — do not attempt to parse.
+        const text = await res.text();
+        let data = null;
+        if (text) {
+          try {
+            data = JSON.parse(text);
+          } catch {
+            data = text;
+          }
+        }
+
+        return { ok: res.ok, status: res.status, data, ms, url, method };
+      }
+
+      async function call(method, path, opts) {
+        const r = await req(method, path, opts);
+        if (!r.ok) throw new ApiError("http", `HTTP ${r.status}`, r);
+        return r.data;
+      }
+
+      /* Normalize the two error shapes (FastAPI 422 array vs. manual {detail,error}) */
+      function describeError(result) {
+        if (!result) return { title: "Request failed", detail: "", fields: [] };
+        const d = result.data;
+        if (!d || typeof d !== "object") {
+          return {
+            title: `HTTP ${result.status}`,
+            detail: typeof d === "string" ? d : "",
+            fields: [],
+          };
+        }
+        if (Array.isArray(d.detail)) {
+          return {
+            title: "Validation failed (422)",
+            detail: "",
+            fields: d.detail.map((f) => ({
+              loc: Array.isArray(f.loc) ? f.loc.join(".") : String(f.loc || ""),
+              msg: f.msg || "",
+            })),
+          };
+        }
+        return {
+          title: d.error || `HTTP ${result.status}`,
+          detail: d.detail || "",
+          fields: [],
+        };
+      }
+
+      function errorBanner(err) {
+        if (err.kind === "network") {
+          return `<div class="callout err">
+      <div class="ic">⚠</div>
+      <div>
+        <strong>Cannot reach the API.</strong> The server may be down, or CORS is blocking the browser.
+        <br>Add this to <code>app/main.py</code> on the backend (before including routers):
+        <pre>from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],   # or your exact frontend origin
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)</pre>
+      </div>
+    </div>`;
+        }
+        if (err.kind === "config") {
+          return `<div class="callout"><div class="ic">🔑</div><div>${esc(err.message)}</div></div>`;
+        }
+        const d = describeError(err.result);
+        let html = `<div class="callout err"><div class="ic">✕</div><div><strong>${esc(d.title)}</strong>`;
+        if (d.detail) html += `<br>${esc(d.detail)}`;
+        if (d.fields.length) {
+          html +=
+            "<br>" +
+            d.fields
+              .map((f) => `<code>${esc(f.loc)}</code> — ${esc(f.msg)}`)
+              .join("<br>");
+        }
+        html += "</div></div>";
+        return html;
+      }
+
+      /* ============================================================
+   CONNECTION
+   ============================================================ */
+      function setStatus(kind, title) {
+        statusDot.className = "dot " + kind;
+        statusDot.title = title || "";
+      }
+
+      async function ping() {
+        setStatus("busy", "Checking…");
+        try {
+          const r = await req("GET", "/violation-types");
+          if (r.ok) {
+            state.connected = true;
+            setStatus("ok", `Connected · ${r.ms}ms`);
+            toast("Connected", `${state.baseUrl} · ${r.ms}ms`, "ok");
+          } else {
+            state.connected = false;
+            setStatus("err", `HTTP ${r.status}`);
+            toast("Reached server", `Unexpected status ${r.status}`, "warn");
+          }
+        } catch (e) {
+          state.connected = false;
+          setStatus("err", "Unreachable");
+          toast("Connection failed", e.message, "err");
+        }
+        return state.connected;
+      }
+
+      /* ============================================================
+   MODAL
+   ============================================================ */
+      function openModal(html, opts = {}) {
+        modalRoot.innerHTML = `<div class="modal-backdrop"><div class="modal ${opts.wide ? "wide" : ""}">${html}</div></div>`;
+        modalRoot.classList.add("open");
+        const backdrop = modalRoot.querySelector(".modal-backdrop");
+        backdrop.addEventListener("click", (e) => {
+          if (e.target === backdrop) closeModal();
+        });
+        document.addEventListener("keydown", onEsc);
+        backdrop
+          .querySelectorAll("[data-close]")
+          .forEach((b) => b.addEventListener("click", closeModal));
+        if (opts.onMount) opts.onMount(backdrop.querySelector(".modal"));
+      }
+      function closeModal() {
+        modalRoot.classList.remove("open");
+        modalRoot.innerHTML = "";
+        document.removeEventListener("keydown", onEsc);
+      }
+      function onEsc(e) {
+        if (e.key === "Escape") closeModal();
+      }
+
+      function confirmModal({
+        title,
+        body,
+        confirmLabel = "Confirm",
+        danger = false,
+        onConfirm,
+      }) {
+        openModal(
+          `
+    <div class="modal-head">
+      <h3>${esc(title)}</h3>
+      <button class="close" data-close>✕</button>
+    </div>
+    <div class="modal-body">${body}</div>
+    <div class="modal-foot">
+      <button class="btn" data-close>Cancel</button>
+      <button class="btn ${danger ? "danger" : "primary"}" id="mConfirm">${esc(confirmLabel)}</button>
+    </div>
+  `,
+          {
+            onMount(m) {
+              m.querySelector("#mConfirm").addEventListener(
+                "click",
+                async () => {
+                  const btn = m.querySelector("#mConfirm");
+                  btn.disabled = true;
+                  try {
+                    await onConfirm();
+                  } finally {
+                    btn.disabled = false;
+                  }
+                },
+              );
+            },
+          },
+        );
+      }
+
+      /* ============================================================
+   NAV
+   ============================================================ */
+      const ROUTES = {
+        dashboard: renderDashboard,
+        employees: renderEmployees,
+        types: renderTypes,
+        violations: renderViolations,
+        analytics: renderAnalytics,
+        explorer: renderExplorer,
+      };
+
+      function navigate(name) {
+        state.view = name;
+        document
+          .querySelectorAll(".nav-item")
+          .forEach((b) => b.classList.toggle("active", b.dataset.nav === name));
+        view.scrollTop = 0;
+        ROUTES[name]();
+      }
+
+      document.getElementById("sidenav").addEventListener("click", (e) => {
+        const btn = e.target.closest(".nav-item");
+        if (btn) navigate(btn.dataset.nav);
+      });
+
+      /* ============================================================
+   VIEW: DASHBOARD
+   ============================================================ */
+      async function renderDashboard() {
+        view.innerHTML = `
+    <div class="page-head">
+      <div>
+        <h2>Dashboard</h2>
+        <p class="sub">Live overview pulled from every corner of the API.</p>
+      </div>
+      <div class="actions">
+        <button class="btn" id="refreshDash">↻ Refresh</button>
+      </div>
+    </div>
+    <div id="dashContent"><div class="loading"><span class="spinner"></span>Loading dashboard…</div></div>
+  `;
+        document
+          .getElementById("refreshDash")
+          .addEventListener("click", loadDashboard);
+        loadDashboard();
+      }
+
+      async function loadDashboard() {
+        const el = document.getElementById("dashContent");
+        el.innerHTML = `<div class="loading"><span class="spinner"></span>Loading dashboard…</div>`;
+
+        const [empRes, actRes, offRes, watchRes, feedRes, deptRes] =
+          await Promise.allSettled([
+            call("GET", "/employees", { query: { limit: 1 } }),
+            call("GET", "/analytics/activity", {
+              query: { days: 30, bucket: "day" },
+            }),
+            call("GET", "/analytics/top-offenders", {
+              query: { by: "points", limit: 6 },
+            }),
+            call("GET", "/analytics/watchlist", { query: { min_strikes: 2 } }),
+            call("GET", "/violations/recent", {
+              query: { days: 14, limit: 6 },
+            }),
+            call("GET", "/analytics/departments"),
+          ]);
+
+        // If literally everything failed with a network error, show the CORS/help banner.
+        const allFailed = [
+          empRes,
+          actRes,
+          offRes,
+          watchRes,
+          feedRes,
+          deptRes,
+        ].every((r) => r.status === "rejected");
+        if (allFailed) {
+          const err = empRes.reason;
+          el.innerHTML = errorBanner(err);
+          return;
+        }
+
+        const employees =
+          empRes.status === "fulfilled"
+            ? empRes.value
+            : { items: [], total: 0 };
+        const activity = actRes.status === "fulfilled" ? actRes.value : [];
+        const offenders = offRes.status === "fulfilled" ? offRes.value : [];
+        const watchlist = watchRes.status === "fulfilled" ? watchRes.value : [];
+        const feed = feedRes.status === "fulfilled" ? feedRes.value : [];
+        const departments = deptRes.status === "fulfilled" ? deptRes.value : [];
+
+        const totalPoints = departments.reduce(
+          (s, d) => s + (d.total_points || 0),
+          0,
+        );
+        const totalRecords = departments.reduce(
+          (s, d) => s + (d.total_records || 0),
+          0,
+        );
+        const filled = fillActivity(activity, 30, "day");
+
+        let html = "";
+
+        // Stat cards
+        html += `<div class="stat-grid">
+    <div class="stat">
+      <div class="k">Employees</div>
+      <div class="v">${empRes.status === "fulfilled" ? employees.total : "—"}</div>
+      <div class="m">active records on file</div>
+    </div>
+    <div class="stat danger">
+      <div class="k">Total Violations</div>
+      <div class="v">${deptRes.status === "fulfilled" ? totalRecords : "—"}</div>
+      <div class="m">across all departments</div>
+    </div>
+    <div class="stat warn">
+      <div class="k">Total Points</div>
+      <div class="v">${deptRes.status === "fulfilled" ? totalPoints : "—"}</div>
+      <div class="m">issued company-wide</div>
+    </div>
+    <div class="stat ok">
+      <div class="k">Watchlist</div>
+      <div class="v">${watchRes.status === "fulfilled" ? watchlist.length : "—"}</div>
+      <div class="m">at ≥ 2 strikes</div>
+    </div>
+  </div>`;
+
+        // Activity chart
+        html += `<div class="card">
+    <div class="card-head">
+      <h3>Violation Activity</h3>
+      <span class="hint">GET /analytics/activity?days=30&amp;bucket=day</span>
+      <div class="right"><span class="badge info">${filled.reduce((s, r) => s + r.count, 0)} events · 30d</span></div>
+    </div>
+    <div class="chart-wrap">
+      ${renderBarChart(filled)}
+    </div>
+  </div>`;
+
+        // Two-column: offenders + feed
+        html += `<div class="grid-2" style="margin-top:18px">`;
+
+        html += `<div class="card">
+    <div class="card-head">
+      <h3>Top Offenders</h3>
+      <span class="hint">by points</span>
+    </div>
+    <div class="card-body tight">
+      ${
+        offenders.length
+          ? `<table><tbody>${offenders
+              .map(
+                (o) => `
+        <tr class="clickable" data-emp="${o.id}">
+          <td style="width:36px">
+            <div class="feed-avatar" style="width:28px;height:28px;font-size:10px">${esc(initials(o.full_name))}</div>
+          </td>
+          <td>
+            <div style="font-weight:550">${esc(o.full_name)}</div>
+            <div class="faint" style="font-size:11.5px">${esc(o.employee_code)}${o.department ? " · " + esc(o.department) : ""}</div>
+          </td>
+          <td class="num">${o.total_points}</td>
+          <td class="num">${o.total_strikes > 0 ? `<span class="badge strike">${o.total_strikes}★</span>` : '<span class="faint">—</span>'}</td>
+        </tr>`,
+              )
+              .join("")}</tbody></table>`
+          : `<div class="empty">No offenders yet</div>`
+      }
+    </div>
+  </div>`;
+
+        html += `<div class="card">
+    <div class="card-head">
+      <h3>Recent Activity</h3>
+      <span class="hint">last 14 days</span>
+    </div>
+    <div class="card-body tight">
+      ${
+        feed.length
+          ? feed
+              .map(
+                (f) => `
+        <div class="feed-item">
+          <div class="feed-avatar">${esc(initials(f.employee ? f.employee.full_name : "?"))}</div>
+          <div class="feed-body">
+            <div class="line1">
+              <span class="who">${esc(f.employee ? f.employee.full_name : "Unknown")}</span>
+              ${f.is_strike ? '<span class="badge strike">strike</span>' : ""}
+            </div>
+            <div class="line2">${esc(f.violation_type_name || "—")} · +${f.points} pts</div>
+          </div>
+          <div class="feed-meta">
+            <div class="faint" style="font-size:11px">${esc(relTime(f.issued_at))}</div>
+          </div>
+        </div>`,
+              )
+              .join("")
+          : `<div class="empty">No recent violations</div>`
+      }
+    </div>
+  </div>`;
+
+        html += `</div>`; // grid-2
+
+        // Department rollup
+        if (departments.length) {
+          html += `<div class="card" style="margin-top:18px">
+      <div class="card-head">
+        <h3>Department Rollup</h3>
+        <span class="hint">GET /analytics/departments</span>
+      </div>
+      <div class="card-body tight">
+        <table>
+          <thead><tr>
+            <th>Department</th><th class="num">Employees</th><th class="num">Records</th>
+            <th class="num">Points</th><th class="num">Strikes</th>
+          </tr></thead>
+          <tbody>${departments
+            .map(
+              (d) => `
+            <tr>
+              <td>${d.department ? esc(d.department) : '<span class="faint">— unassigned —</span>'}</td>
+              <td class="num">${d.employees}</td>
+              <td class="num">${d.total_records}</td>
+              <td class="num">${d.total_points}</td>
+              <td class="num">${d.total_strikes}</td>
+            </tr>`,
+            )
+            .join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+        }
+
+        el.innerHTML = html;
+
+        // Row → employee modal
+        el.querySelectorAll("[data-emp]").forEach((row) => {
+          row.addEventListener("click", () =>
+            openEmployee(Number(row.dataset.emp)),
+          );
+        });
+      }
+
+      /* Zero-fill activity buckets — the API does not fill gaps (gotcha #12). */
+      function dayKey(d) {
+        return d.toISOString().slice(0, 10);
+      }
+      function monthKey(d) {
+        return d.toISOString().slice(0, 7);
+      }
+      function weekKey(date) {
+        const d = new Date(
+          Date.UTC(
+            date.getUTCFullYear(),
+            date.getUTCMonth(),
+            date.getUTCDate(),
+          ),
+        );
+        const dayNum = d.getUTCDay() || 7;
+        d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+        const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+        const week = Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
+        return `${d.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
+      }
+
+      function fillActivity(rows, days, bucket) {
+        const map = new Map(rows.map((r) => [r.bucket, r]));
+        const now = new Date();
+        const start = new Date(now.getTime() - (days - 1) * 86400000);
+        const keys = [];
+
+        if (bucket === "day") {
+          const d = new Date(
+            Date.UTC(
+              start.getUTCFullYear(),
+              start.getUTCMonth(),
+              start.getUTCDate(),
+            ),
+          );
+          const end = new Date(
+            Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+          );
+          while (d <= end) {
+            keys.push(dayKey(d));
+            d.setUTCDate(d.getUTCDate() + 1);
+          }
+        } else if (bucket === "week") {
+          const d = new Date(
+            Date.UTC(
+              start.getUTCFullYear(),
+              start.getUTCMonth(),
+              start.getUTCDate(),
+            ),
+          );
+          const dow = (d.getUTCDay() + 6) % 7; // Monday = 0
+          d.setUTCDate(d.getUTCDate() - dow);
+          while (d <= now) {
+            keys.push(weekKey(d));
+            d.setUTCDate(d.getUTCDate() + 7);
+          }
+        } else {
+          const d = new Date(
+            Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 1),
+          );
+          while (d <= now) {
+            keys.push(monthKey(d));
+            d.setUTCMonth(d.getUTCMonth() + 1);
+          }
+        }
+
+        const seen = new Set();
+        const out = [];
+        for (const k of keys) {
+          if (seen.has(k)) continue;
+          seen.add(k);
+          out.push(map.get(k) || { bucket: k, count: 0, points: 0 });
+        }
+        return out;
+      }
+
+      function renderBarChart(rows) {
+        if (!rows.length) return '<div class="empty">No data</div>';
+        const max = Math.max(...rows.map((r) => r.count), 1);
+        const bars = rows
+          .map((r) => {
+            const pct = r.count === 0 ? 0 : Math.max(3, (r.count / max) * 100);
+            return `<div class="bar ${r.count === 0 ? "zero" : ""}"
+      style="height:${pct}%"
+      data-tip="${esc(r.bucket)} · ${r.count} violation${r.count === 1 ? "" : "s"} · ${r.points} pts"></div>`;
+          })
+          .join("");
+        const first = rows[0].bucket,
+          last = rows[rows.length - 1].bucket;
+        return `<div class="chart">${bars}</div>
+    <div class="xaxis"><span>${esc(first)}</span><span>${esc(last)}</span></div>`;
+      }
+
+      /* ============================================================
+   VIEW: EMPLOYEES
+   ============================================================ */
+      const empState = { offset: 0, limit: 25, filters: {} };
+
+      async function renderEmployees() {
+        view.innerHTML = `
+    <div class="page-head">
+      <div>
+        <h2>Employees</h2>
+        <p class="sub">Search, filter, and manage every employee record.</p>
+      </div>
+      <div class="actions">
+        <button class="btn" id="bulkBtn">Bulk import</button>
+        <button class="btn primary" id="newEmpBtn">+ New Employee</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="filters">
+        <input type="text" id="fSearch" placeholder="Search name or code…">
+        <input type="text" id="fDept" placeholder="Department">
+        <input type="text" id="fPos" placeholder="Position">
+        <input type="number" id="fMinPts" min="0" placeholder="Min points" style="width:110px">
+        <input type="number" id="fMinStrikes" min="0" placeholder="Min strikes" style="width:110px">
+        <label class="chk"><input type="checkbox" id="fInactive"> Include inactive</label>
+        <button class="btn" id="fApply">Search</button>
+        <button class="btn ghost" id="fClear">Clear</button>
+      </div>
+      <div id="empWarn"></div>
+      <div id="empList"><div class="loading"><span class="spinner"></span>Loading…</div></div>
+      <div class="pager" id="empPager"></div>
+    </div>
+  `;
+
+        document.getElementById("fApply").addEventListener("click", () => {
+          empState.offset = 0;
+          loadEmployees();
+        });
+        document.getElementById("fClear").addEventListener("click", () => {
+          ["fSearch", "fDept", "fPos", "fMinPts", "fMinStrikes"].forEach(
+            (id) => (document.getElementById(id).value = ""),
+          );
+          document.getElementById("fInactive").checked = false;
+          empState.offset = 0;
+          loadEmployees();
+        });
+        document.getElementById("fSearch").addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            empState.offset = 0;
+            loadEmployees();
+          }
+        });
+        document
+          .getElementById("newEmpBtn")
+          .addEventListener("click", newEmployeeModal);
+        document
+          .getElementById("bulkBtn")
+          .addEventListener("click", bulkEmployeeModal);
+
+        loadEmployees();
+      }
+
+      function readEmpFilters() {
+        return {
+          search: document.getElementById("fSearch").value.trim(),
+          department: document.getElementById("fDept").value.trim(),
+          position: document.getElementById("fPos").value.trim(),
+          min_points: document.getElementById("fMinPts").value.trim(),
+          min_strikes: document.getElementById("fMinStrikes").value.trim(),
+          include_inactive: document.getElementById("fInactive").checked
+            ? "true"
+            : "",
+        };
+      }
+
+      async function loadEmployees() {
+        const list = document.getElementById("empList");
+        const pager = document.getElementById("empPager");
+        const warn = document.getElementById("empWarn");
+        list.innerHTML = `<div class="loading"><span class="spinner"></span>Loading…</div>`;
+        warn.innerHTML = "";
+        pager.innerHTML = "";
+
+        const f = readEmpFilters();
+        empState.filters = f;
+
+        try {
+          const data = await call("GET", "/employees", {
+            query: { ...f, limit: empState.limit, offset: empState.offset },
+          });
+
+          // Known backend limitation: `total` ignores search/position/min_* filters.
+          const unreliable =
+            f.search || f.position || f.min_points || f.min_strikes;
+          if (unreliable) {
+            warn.innerHTML = `<div class="callout" style="margin:0;border-radius:0;border-left:none;border-right:none">
+        <div class="ic">⚠</div>
+        <div><strong>Heads up:</strong> with <code>search</code>, <code>position</code>, <code>min_points</code> or <code>min_strikes</code> active,
+        the server's <code>total</code> is over-counted (rows are correct). Pagination is driven by row count instead.</div>
+      </div>`;
+          }
+
+          if (!data.items.length) {
+            list.innerHTML = `<div class="empty"><div class="big">◌</div>No employees match those filters.</div>`;
+            return;
+          }
+
+          list.innerHTML = `<table>
+      <thead><tr>
+        <th>Code</th><th>Name</th><th>Department</th><th>Position</th>
+        <th>Status</th><th class="num">Points</th><th class="num">Strikes</th><th></th>
+      </tr></thead>
+      <tbody>${data.items
+        .map(
+          (e) => `
+        <tr class="clickable" data-id="${e.id}">
+          <td class="mono">${esc(e.employee_code)}</td>
+          <td style="font-weight:550">${esc(e.full_name)}</td>
+          <td>${e.department ? esc(e.department) : '<span class="faint">—</span>'}</td>
+          <td>${e.position ? esc(e.position) : '<span class="faint">—</span>'}</td>
+          <td>${
+            e.status === "active"
+              ? '<span class="badge ok">active</span>'
+              : '<span class="badge off">inactive</span>'
+          }</td>
+          <td class="num">${e.total_points}</td>
+          <td class="num">${e.total_strikes > 0 ? `<span class="badge strike">${e.total_strikes}</span>` : '<span class="faint">0</span>'}</td>
+          <td style="width:32px"><span class="faint">›</span></td>
+        </tr>`,
+        )
+        .join("")}
+      </tbody>
+    </table>`;
+
+          list
+            .querySelectorAll("tr[data-id]")
+            .forEach((tr) =>
+              tr.addEventListener("click", () =>
+                openEmployee(Number(tr.dataset.id)),
+              ),
+            );
+
+          // Pager — use row count when total is untrustworthy
+          const shownEnd = empState.offset + data.items.length;
+          const total = unreliable ? null : data.total;
+          const hasNext = data.items.length === empState.limit;
+          pager.innerHTML = `
+      <span class="info">${empState.offset + 1}–${shownEnd}${total !== null ? " of " + total : ""}</span>
+      ${total === null ? '<span class="badge warn">total unreliable</span>' : ""}
+      <span class="spacer"></span>
+      <button class="btn sm" id="pPrev" ${empState.offset === 0 ? "disabled" : ""}>← Prev</button>
+      <button class="btn sm" id="pNext" ${!hasNext ? "disabled" : ""}>Next →</button>
+    `;
+          const prev = pager.querySelector("#pPrev");
+          const next = pager.querySelector("#pNext");
+          if (prev)
+            prev.addEventListener("click", () => {
+              empState.offset = Math.max(0, empState.offset - empState.limit);
+              loadEmployees();
+            });
+          if (next)
+            next.addEventListener("click", () => {
+              empState.offset += empState.limit;
+              loadEmployees();
+            });
+        } catch (e) {
+          list.innerHTML = errorBanner(e);
+        }
+      }
+
+      /* ---------- employee detail modal ---------- */
+      async function openEmployee(id) {
+        openModal(
+          `
+    <div class="modal-head">
+      <h3>Employee</h3>
+      <button class="close" data-close>✕</button>
+    </div>
+    <div class="modal-body"><div class="loading"><span class="spinner"></span>Loading…</div></div>
+  `,
+          { wide: true },
+        );
+
+        try {
+          const emp = await call("GET", `/employees/${id}`);
+          const modal = modalRoot.querySelector(".modal");
+          renderEmployeeDetail(modal, emp);
+        } catch (e) {
+          modalRoot.querySelector(".modal-body").innerHTML = errorBanner(e);
+        }
+      }
+
+      function renderEmployeeDetail(modal, emp) {
+        const isActive = emp.status === "active";
+        const records = emp.violation_records || [];
+
+        modal.querySelector(".modal-head").innerHTML = `
+    <div class="feed-avatar" style="width:38px;height:38px;font-size:13px">${esc(initials(emp.full_name))}</div>
+    <div style="min-width:0">
+      <h3 style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(emp.full_name)}</h3>
+      <div class="faint mono" style="font-size:11.5px">${esc(emp.employee_code)}</div>
+    </div>
+    <button class="close" data-close>✕</button>
+  `;
+        modal.querySelector(".close").addEventListener("click", closeModal);
+
+        modal.querySelector(".modal-body").innerHTML = `
+    <div class="row-flex" style="gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      ${isActive ? '<span class="badge ok">active</span>' : '<span class="badge off">inactive</span>'}
+      ${emp.department ? `<span class="badge info">${esc(emp.department)}</span>` : ""}
+      ${emp.position ? `<span class="badge info">${esc(emp.position)}</span>` : ""}
+      <span class="right faint mono" style="font-size:11px">updated ${esc(relTime(emp.updated_at || emp.created_at))}</span>
+    </div>
+
+    <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:18px">
+      <div class="stat" style="padding:12px 14px"><div class="k">Points</div><div class="v" style="font-size:22px">${emp.total_points}</div></div>
+      <div class="stat danger" style="padding:12px 14px"><div class="k">Strikes</div><div class="v" style="font-size:22px">${emp.total_strikes}</div></div>
+      <div class="stat" style="padding:12px 14px"><div class="k">Records</div><div class="v" style="font-size:22px">${records.length}</div></div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div style="display:flex;align-items:center;margin-bottom:10px">
+      <strong style="font-size:13px">Violation history</strong>
+      <span class="right faint mono" style="font-size:11px">newest first</span>
+    </div>
+
+    ${
+      records.length
+        ? `<div style="border:1px solid var(--border);border-radius:9px;overflow:hidden">
+      ${records
+        .map(
+          (r) => `
+        <div class="feed-item" style="padding:11px 14px">
+          <div class="feed-body">
+            <div class="line1">
+              <span class="who">${esc(r.violation_type_name || (r.violation_type ? r.violation_type.name : "Unknown"))}</span>
+              ${r.is_strike ? '<span class="badge strike">strike</span>' : ""}
+              <span class="badge info">+${r.points}</span>
+            </div>
+            <div class="line2">
+              ${esc(fmtDate(r.issued_at))}${r.issued_by ? " · by " + esc(r.issued_by) : ""}
+              ${r.notes ? "<br>" + esc(r.notes) : ""}
+            </div>
+          </div>
+          <div class="feed-meta">
+            <button class="btn sm danger" data-del-rec="${r.id}" title="Delete record (admin)">✕</button>
+          </div>
+        </div>`,
+        )
+        .join("")}
+    </div>`
+        : '<div class="empty" style="padding:24px">Clean record — no violations.</div>'
+    }
+
+    <div class="divider"></div>
+    <div class="row-flex" style="flex-wrap:wrap;gap:8px">
+      <button class="btn primary" id="mIssue">+ Issue violation</button>
+      ${
+        isActive
+          ? '<button class="btn" id="mDeactivate">Deactivate</button>'
+          : '<button class="btn" id="mReactivate">Reactivate</button>'
+      }
+      <button class="btn" id="mEdit">Edit details</button>
+      <span class="right"></span>
+      <button class="btn danger" id="mAmnesty">Amnesty (clear all)</button>
+      <button class="btn danger" id="mDelete">Delete</button>
+    </div>
+    <div class="faint" style="font-size:11px;margin-top:10px">
+      Amnesty and Delete require an admin token. Delete cascades — it also removes every violation record.
+    </div>
+  `;
+
+        const body = modal.querySelector(".modal-body");
+
+        body
+          .querySelector("#mIssue")
+          .addEventListener("click", () => issueViolationModal(emp));
+        body
+          .querySelector("#mEdit")
+          .addEventListener("click", () =>
+            editEmployeeModal(emp, () => openEmployee(emp.id)),
+          );
+
+        const dact = body.querySelector("#mDeactivate");
+        if (dact)
+          dact.addEventListener("click", () =>
+            simpleAction(
+              "POST",
+              `/employees/${emp.id}/deactivate`,
+              "Employee deactivated",
+              () => openEmployee(emp.id),
+            ),
+          );
+        const ract = body.querySelector("#mReactivate");
+        if (ract)
+          ract.addEventListener("click", () =>
+            simpleAction(
+              "POST",
+              `/employees/${emp.id}/reactivate`,
+              "Employee reactivated",
+              () => openEmployee(emp.id),
+            ),
+          );
+
+        body.querySelector("#mAmnesty").addEventListener("click", () => {
+          confirmModal({
+            title: "Clear all violations?",
+            danger: true,
+            confirmLabel: "Clear all",
+            body: `<p style="font-size:13px;color:var(--muted)">This permanently deletes <strong>every</strong> violation record for <strong>${esc(emp.full_name)}</strong>. This cannot be undone.</p>`,
+            onConfirm: async () => {
+              try {
+                const r = await call(
+                  "DELETE",
+                  `/employees/${emp.id}/violations`,
+                  { admin: true },
+                );
+                toast(
+                  "Amnesty applied",
+                  `${r.deleted} record(s) deleted`,
+                  "ok",
+                );
+                closeModal();
+                if (state.view === "employees") loadEmployees();
+              } catch (e) {
+                toast("Failed", describeError(e.result).title, "err");
+              }
+            },
+          });
+        });
+
+        body.querySelector("#mDelete").addEventListener("click", () => {
+          confirmModal({
+            title: "Delete employee?",
+            danger: true,
+            confirmLabel: "Delete permanently",
+            body: `<p style="font-size:13px;color:var(--muted)">Hard-deletes <strong>${esc(emp.full_name)}</strong> and cascades to all of their violation records. Consider <em>deactivate</em> instead.</p>`,
+            onConfirm: async () => {
+              try {
+                await call("DELETE", `/employees/${emp.id}`, { admin: true });
+                toast("Employee deleted", emp.full_name, "ok");
+                closeModal();
+                if (state.view === "employees") loadEmployees();
+              } catch (e) {
+                toast("Delete failed", describeError(e.result).title, "err");
+              }
+            },
+          });
+        });
+
+        body.querySelectorAll("[data-del-rec]").forEach((b) => {
+          b.addEventListener("click", () => {
+            const rid = b.dataset.delRec;
+            confirmModal({
+              title: "Delete violation record?",
+              danger: true,
+              confirmLabel: "Delete",
+              body: `<p style="font-size:13px;color:var(--muted)">This removes violation record <code>#${rid}</code>.</p>`,
+              onConfirm: async () => {
+                try {
+                  await call("DELETE", `/violations/${rid}`, { admin: true });
+                  toast("Record deleted", `#${rid}`, "ok");
+                  openEmployee(emp.id);
+                } catch (e) {
+                  toast("Delete failed", describeError(e.result).title, "err");
+                }
+              },
+            });
+          });
+        });
+      }
+
+      async function simpleAction(method, path, okMsg, after) {
+        try {
+          await call(method, path, {
+            admin: path.includes("/employees/") && method === "DELETE",
+          });
+          toast(okMsg, "", "ok");
+          if (after) after();
+          if (state.view === "employees") loadEmployees();
+        } catch (e) {
+          toast("Action failed", describeError(e.result).title, "err");
+        }
+      }
+
+      /* ---------- new employee ---------- */
+      function newEmployeeModal() {
+        openModal(
+          `
+    <div class="modal-head"><h3>New Employee</h3><button class="close" data-close>✕</button></div>
+    <div class="modal-body">
+      <div id="neErr"></div>
+      <div class="form-grid">
+        <div class="form-row"><label>Employee code</label><input type="text" id="neCode" placeholder="EMP-001"></div>
+        <div class="form-row"><label>Department <span class="opt">optional</span></label><input type="text" id="neDept"></div>
+        <div class="form-row"><label>First name</label><input type="text" id="neFirst"></div>
+        <div class="form-row"><label>Last name</label><input type="text" id="neLast"></div>
+        <div class="form-row full"><label>Position <span class="opt">optional</span></label><input type="text" id="nePos"></div>
+      </div>
+      <div class="faint" style="font-size:11.5px">New employees are always created with status <code>active</code>.</div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" data-close>Cancel</button>
+      <button class="btn primary" id="neSave">Create</button>
+    </div>
+  `,
+          {
+            onMount(m) {
+              m.querySelector("#neSave").addEventListener("click", async () => {
+                const errBox = m.querySelector("#neErr");
+                errBox.innerHTML = "";
+                const payload = {
+                  employee_code: m.querySelector("#neCode").value.trim(),
+                  first_name: m.querySelector("#neFirst").value.trim(),
+                  last_name: m.querySelector("#neLast").value.trim(),
+                  department: m.querySelector("#neDept").value.trim() || null,
+                  position: m.querySelector("#nePos").value.trim() || null,
+                };
+                try {
+                  const created = await call("POST", "/employees", {
+                    body: payload,
+                  });
+                  toast(
+                    "Employee created",
+                    `${created.full_name} · ${created.employee_code}`,
+                    "ok",
+                  );
+                  closeModal();
+                  empState.offset = 0;
+                  loadEmployees();
+                } catch (e) {
+                  errBox.innerHTML = errorBanner(e);
+                }
+              });
+            },
+          },
+        );
+      }
+
+      /* ---------- edit employee ---------- */
+      function editEmployeeModal(emp, after) {
+        openModal(
+          `
+    <div class="modal-head"><h3>Edit Employee</h3><button class="close" data-close>✕</button></div>
+    <div class="modal-body">
+      <div id="eeErr"></div>
+      <div class="form-grid">
+        <div class="form-row"><label>Employee code</label><input type="text" id="eeCode" value="${esc(emp.employee_code)}"></div>
+        <div class="form-row"><label>Department</label><input type="text" id="eeDept" value="${esc(emp.department || "")}"></div>
+        <div class="form-row"><label>First name</label><input type="text" id="eeFirst" value="${esc(emp.first_name)}"></div>
+        <div class="form-row"><label>Last name</label><input type="text" id="eeLast" value="${esc(emp.last_name)}"></div>
+        <div class="form-row full"><label>Position</label><input type="text" id="eePos" value="${esc(emp.position || "")}"></div>
+      </div>
+      <div class="callout" style="margin:0">
+        <div class="ic">⚠</div>
+        <div><strong>Known limitation:</strong> sending <code>null</code> is a no-op — you cannot currently clear a field through the API.</div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" data-close>Cancel</button>
+      <button class="btn primary" id="eeSave">Save changes</button>
+    </div>
+  `,
+          {
+            onMount(m) {
+              m.querySelector("#eeSave").addEventListener("click", async () => {
+                const errBox = m.querySelector("#eeErr");
+                errBox.innerHTML = "";
+                const payload = {};
+                const code = m.querySelector("#eeCode").value.trim();
+                const first = m.querySelector("#eeFirst").value.trim();
+                const last = m.querySelector("#eeLast").value.trim();
+                const dept = m.querySelector("#eeDept").value.trim();
+                const pos = m.querySelector("#eePos").value.trim();
+                if (code && code !== emp.employee_code)
+                  payload.employee_code = code;
+                if (first && first !== emp.first_name)
+                  payload.first_name = first;
+                if (last && last !== emp.last_name) payload.last_name = last;
+                if (dept && dept !== (emp.department || ""))
+                  payload.department = dept;
+                if (pos && pos !== (emp.position || "")) payload.position = pos;
+
+                if (!Object.keys(payload).length) {
+                  toast("Nothing to update", "No fields changed", "warn");
+                  return;
+                }
+
+                try {
+                  await call("PATCH", `/employees/${emp.id}`, {
+                    body: payload,
+                  });
+                  toast("Employee updated", emp.full_name, "ok");
+                  closeModal();
+                  if (after) after();
+                  if (state.view === "employees") loadEmployees();
+                } catch (e) {
+                  errBox.innerHTML = errorBanner(e);
+                }
+              });
+            },
+          },
+        );
+      }
+
+      /* ---------- bulk import ---------- */
+      function bulkEmployeeModal() {
+        const sample = JSON.stringify(
+          [
+            {
+              employee_code: "EMP-101",
+              first_name: "Ada",
+              last_name: "Lovelace",
+              department: "Engineering",
+            },
+            {
+              employee_code: "EMP-102",
+              first_name: "Alan",
+              last_name: "Turing",
+              department: "Engineering",
+            },
+          ],
+          null,
+          2,
+        );
+
+        openModal(
+          `
+    <div class="modal-head"><h3>Bulk Import Employees</h3><button class="close" data-close>✕</button></div>
+    <div class="modal-body">
+      <div id="biErr"></div>
+      <div class="callout" style="margin-bottom:14px">
+        <div class="ic">⚠</div>
+        <div><strong>All-or-nothing.</strong> If any <code>employee_code</code> already exists, the entire batch fails with <code>409</code> and nothing is inserted.</div>
+      </div>
+      <div class="form-row">
+        <label>JSON array of EmployeeCreate</label>
+        <textarea id="biBody" rows="12" spellcheck="false">${esc(sample)}</textarea>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" data-close>Cancel</button>
+      <button class="btn primary" id="biSend">Import</button>
+    </div>
+  `,
+          {
+            wide: true,
+            onMount(m) {
+              m.querySelector("#biSend").addEventListener("click", async () => {
+                const errBox = m.querySelector("#biErr");
+                errBox.innerHTML = "";
+                let payload;
+                try {
+                  payload = JSON.parse(m.querySelector("#biBody").value);
+                } catch (e) {
+                  errBox.innerHTML = `<div class="callout err"><div class="ic">✕</div><div>Invalid JSON: ${esc(e.message)}</div></div>`;
+                  return;
+                }
+                try {
+                  const res = await call("POST", "/employees/bulk", {
+                    body: payload,
+                  });
+                  toast(
+                    "Bulk import complete",
+                    `${res.created} employee(s) created`,
+                    "ok",
+                  );
+                  closeModal();
+                  empState.offset = 0;
+                  loadEmployees();
+                } catch (e) {
+                  errBox.innerHTML = errorBanner(e);
+                }
+              });
+            },
+          },
+        );
+      }
+
+      /* ---------- issue violation ---------- */
+      async function issueViolationModal(emp) {
+        let types = [];
+        try {
+          types = await call("GET", "/violation-types");
+        } catch (e) {
+          toast(
+            "Could not load violation types",
+            describeError(e.result).title,
+            "err",
+          );
+          return;
+        }
+
+        if (!types.length) {
+          toast(
+            "No violation types",
+            "Create one first, or all types are deactivated.",
+            "warn",
+          );
+          return;
+        }
+
+        openModal(
+          `
+    <div class="modal-head">
+      <h3>Issue violation</h3>
+      <div class="faint mono" style="font-size:11.5px">${esc(emp.full_name)} · ${esc(emp.employee_code)}</div>
+      <button class="close" data-close>✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="ivErr"></div>
+      <div class="form-row">
+        <label>Violation type</label>
+        <select id="ivType">
+          ${types.map((t) => `<option value="${t.id}">${esc(t.name)} — ${t.default_points} pts${t.is_strike ? " · strike" : ""}</option>`).join("")}
+        </select>
+      </div>
+      <div class="callout" style="margin:0 0 14px">
+        <div class="ic">ℹ</div>
+        <div><code>points</code> and <code>is_strike</code> are snapshotted from the type — they are not sent in the request body and historical records never change if the type is later edited.</div>
+      </div>
+      <div class="form-grid">
+        <div class="form-row"><label>Issued by <span class="opt">optional</span></label><input type="text" id="ivBy" placeholder="Supervisor name"></div>
+        <div class="form-row"><label>Issued at <span class="opt">optional</span></label><input type="datetime-local" id="ivAt"></div>
+        <div class="form-row full"><label>Notes <span class="opt">optional</span></label><textarea id="ivNotes" rows="3" placeholder="Context…"></textarea></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" data-close>Cancel</button>
+      <button class="btn primary" id="ivSend">Issue violation</button>
+    </div>
+  `,
+          {
+            onMount(m) {
+              m.querySelector("#ivSend").addEventListener("click", async () => {
+                const errBox = m.querySelector("#ivErr");
+                errBox.innerHTML = "";
+                const payload = {
+                  violation_type_id: Number(m.querySelector("#ivType").value),
+                };
+                const by = m.querySelector("#ivBy").value.trim();
+                const notes = m.querySelector("#ivNotes").value.trim();
+                const at = m.querySelector("#ivAt").value;
+                if (by) payload.issued_by = by;
+                if (notes) payload.notes = notes;
+                if (at) payload.issued_at = new Date(at).toISOString();
+
+                try {
+                  const rec = await call(
+                    "POST",
+                    `/employees/${emp.id}/violations`,
+                    { body: payload },
+                  );
+                  toast(
+                    "Violation issued",
+                    `${rec.violation_type_name || "Record"} · +${rec.points} pts`,
+                    "ok",
+                  );
+                  closeModal();
+                  if (state.view === "violations") loadRecentFeed();
+                  if (state.view === "employees") loadEmployees();
+                } catch (e) {
+                  errBox.innerHTML = errorBanner(e);
+                }
+              });
+            },
+          },
+        );
+      }
+
+      /* ============================================================
+   VIEW: VIOLATION TYPES
+   ============================================================ */
+      const typeState = { includeInactive: true, onlyStrikes: "" };
+
+      async function renderTypes() {
+        view.innerHTML = `
+    <div class="page-head">
+      <div>
+        <h2>Violation Types</h2>
+        <p class="sub">The rulebook. Editing a type never rewrites historical records.</p>
+      </div>
+      <div class="actions">
+        <button class="btn primary" id="newTypeBtn">+ New Type</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="filters">
+        <label class="chk"><input type="checkbox" id="tInactive" checked> Include inactive</label>
+        <select id="tStrikes" style="width:160px">
+          <option value="">All types</option>
+          <option value="true">Strikes only</option>
+          <option value="false">Non-strike only</option>
+        </select>
+        <button class="btn" id="tApply">Apply</button>
+      </div>
+      <div id="typeList"><div class="loading"><span class="spinner"></span>Loading…</div></div>
+    </div>
+  `;
+        document.getElementById("tApply").addEventListener("click", loadTypes);
+        document
+          .getElementById("tInactive")
+          .addEventListener("change", loadTypes);
+        document
+          .getElementById("tStrikes")
+          .addEventListener("change", loadTypes);
+        document
+          .getElementById("newTypeBtn")
+          .addEventListener("click", newTypeModal);
+        loadTypes();
+      }
+
+      async function loadTypes() {
+        const el = document.getElementById("typeList");
+        el.innerHTML = `<div class="loading"><span class="spinner"></span>Loading…</div>`;
+
+        const includeInactive = document.getElementById("tInactive").checked
+          ? "true"
+          : "false";
+        const onlyStrikes = document.getElementById("tStrikes").value;
+
+        try {
+          const types = await call("GET", "/violation-types/all", {
+            query: {
+              include_inactive: includeInactive,
+              only_strikes: onlyStrikes || null,
+            },
+          });
+
+          if (!types.length) {
+            el.innerHTML = `<div class="empty"><div class="big">◌</div>No violation types.</div>`;
+            return;
+          }
+
+          el.innerHTML = `<table>
+      <thead><tr>
+        <th>Name</th><th>Description</th><th class="num">Default pts</th>
+        <th>Strike</th><th>Status</th><th></th>
+      </tr></thead>
+      <tbody>${types
+        .map(
+          (t) => `
+        <tr>
+          <td style="font-weight:550">${esc(t.name)}</td>
+          <td class="faint trunc" title="${esc(t.description || "")}">${t.description ? esc(t.description) : "—"}</td>
+          <td class="num">${t.default_points}</td>
+          <td>${t.is_strike ? '<span class="badge strike">strike</span>' : '<span class="faint">—</span>'}</td>
+          <td>${t.is_active ? '<span class="badge ok">active</span>' : '<span class="badge off">inactive</span>'}</td>
+          <td style="text-align:right;white-space:nowrap">
+            <button class="btn sm" data-edit="${t.id}">Edit</button>
+            ${
+              t.is_active
+                ? `<button class="btn sm" data-deact="${t.id}">Deactivate</button>`
+                : `<button class="btn sm" data-act="${t.id}">Activate</button>`
+            }
+            <button class="btn sm danger" data-del="${t.id}">Delete</button>
+          </td>
+        </tr>`,
+        )
+        .join("")}
+      </tbody>
+    </table>`;
+
+          el.querySelectorAll("[data-edit]").forEach((b) =>
+            b.addEventListener("click", () => {
+              const t = types.find((x) => x.id === Number(b.dataset.edit));
+              editTypeModal(t, loadTypes);
+            }),
+          );
+
+          el.querySelectorAll("[data-act]").forEach((b) =>
+            b.addEventListener("click", () =>
+              typeAction(
+                `/violation-types/${b.dataset.act}/activate`,
+                "Type activated",
+              ),
+            ),
+          );
+
+          el.querySelectorAll("[data-deact]").forEach((b) =>
+            b.addEventListener("click", () =>
+              typeAction(
+                `/violation-types/${b.dataset.deact}/deactivate`,
+                "Type deactivated",
+              ),
+            ),
+          );
+
+          el.querySelectorAll("[data-del]").forEach((b) =>
+            b.addEventListener("click", () => {
+              const t = types.find((x) => x.id === Number(b.dataset.del));
+              deleteTypeFlow(t);
+            }),
+          );
+        } catch (e) {
+          el.innerHTML = errorBanner(e);
+        }
+      }
+
+      async function typeAction(path, okMsg) {
+        try {
+          await call("POST", path, { admin: true });
+          toast(okMsg, "", "ok");
+          loadTypes();
+        } catch (e) {
+          const d = describeError(e.result);
+          toast(
+            "Action failed",
+            d.title + (d.detail ? " — " + d.detail : ""),
+            "err",
+          );
+        }
+      }
+
+      function deleteTypeFlow(t) {
+        confirmModal({
+          title: "Delete violation type?",
+          danger: true,
+          confirmLabel: "Delete",
+          body: `<p style="font-size:13px;color:var(--muted)">Deleting <strong>${esc(t.name)}</strong> only works if no violation record references it. Otherwise the server returns <code>409</code>.</p>`,
+          onConfirm: async () => {
+            try {
+              await call("DELETE", `/violation-types/${t.id}`, { admin: true });
+              toast("Type deleted", t.name, "ok");
+              closeModal();
+              loadTypes();
+            } catch (e) {
+              const d = describeError(e.result);
+              if (e.result && e.result.status === 409) {
+                // Offer deactivate-instead — that's the whole reason the 409 exists.
+                closeModal();
+                confirmModal({
+                  title: "Type is in use",
+                  confirmLabel: "Deactivate instead",
+                  body: `<p style="font-size:13px;color:var(--muted)">${esc(d.detail || "This violation type is referenced by existing records and cannot be deleted.")}</p>
+                   <p style="font-size:13px;color:var(--muted);margin-top:10px">Deactivating hides it from the issue dropdown while preserving history.</p>`,
+                  onConfirm: async () => {
+                    try {
+                      await call(
+                        "POST",
+                        `/violation-types/${t.id}/deactivate`,
+                        { admin: true },
+                      );
+                      toast("Type deactivated", t.name, "ok");
+                      closeModal();
+                      loadTypes();
+                    } catch (e2) {
+                      toast("Failed", describeError(e2.result).title, "err");
+                    }
+                  },
+                });
+              } else {
+                toast("Delete failed", d.title, "err");
+              }
+            }
+          },
+        });
+      }
+
+      function newTypeModal() {
+        typeFormModal(null, null);
+      }
+
+      function editTypeModal(t, after) {
+        typeFormModal(t, after);
+      }
+
+      function typeFormModal(existing, after) {
+        const isEdit = !!existing;
+        openModal(
+          `
+    <div class="modal-head">
+      <h3>${isEdit ? "Edit Violation Type" : "New Violation Type"}</h3>
+      <button class="close" data-close>✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="tpErr"></div>
+      <div class="form-row">
+        <label>Name</label>
+        <input type="text" id="tpName" value="${existing ? esc(existing.name) : ""}" placeholder="Late Arrival">
+      </div>
+      <div class="form-row">
+        <label>Description <span class="opt">optional</span></label>
+        <textarea id="tpDesc" rows="2" placeholder="Short explanation…">${existing && existing.description ? esc(existing.description) : ""}</textarea>
+      </div>
+      <div class="form-grid">
+        <div class="form-row">
+          <label>Default points</label>
+          <input type="number" id="tpPoints" min="0" value="${existing ? existing.default_points : 0}">
+        </div>
+        <div class="form-row" style="justify-content:flex-end">
+          <label>&nbsp;</label>
+          <label class="chk" style="height:34px"><input type="checkbox" id="tpStrike" ${existing && existing.is_strike ? "checked" : ""}> Counts as a strike</label>
+        </div>
+      </div>
+      ${
+        isEdit
+          ? `<div class="callout" style="margin:0"><div class="ic">⚠</div>
+        <div>Changing <code>default_points</code> or <code>is_strike</code> does <strong>not</strong> rewrite historical violation records — they keep their snapshotted values.</div></div>`
+          : ""
+      }
+    </div>
+    <div class="modal-foot">
+      <button class="btn" data-close>Cancel</button>
+      <button class="btn primary" id="tpSave">${isEdit ? "Save changes" : "Create type"}</button>
+    </div>
+  `,
+          {
+            onMount(m) {
+              m.querySelector("#tpSave").addEventListener("click", async () => {
+                const errBox = m.querySelector("#tpErr");
+                errBox.innerHTML = "";
+                const name = m.querySelector("#tpName").value.trim();
+                const desc = m.querySelector("#tpDesc").value.trim();
+                const points = Number(m.querySelector("#tpPoints").value) || 0;
+                const strike = m.querySelector("#tpStrike").checked;
+
+                if (!name) {
+                  errBox.innerHTML = `<div class="callout err"><div class="ic">✕</div><div>Name is required.</div></div>`;
+                  return;
+                }
+
+                try {
+                  if (isEdit) {
+                    const payload = {};
+                    if (name !== existing.name) payload.name = name;
+                    if (desc && desc !== (existing.description || ""))
+                      payload.description = desc;
+                    if (points !== existing.default_points)
+                      payload.default_points = points;
+                    if (strike !== existing.is_strike)
+                      payload.is_strike = strike;
+                    if (!Object.keys(payload).length) {
+                      toast("Nothing to update", "", "warn");
+                      return;
+                    }
+                    await call("PATCH", `/violation-types/${existing.id}`, {
+                      body: payload,
+                      admin: true,
+                    });
+                    toast("Type updated", name, "ok");
+                  } else {
+                    const payload = {
+                      name,
+                      default_points: points,
+                      is_strike: strike,
+                    };
+                    if (desc) payload.description = desc;
+                    await call("POST", "/violation-types", {
+                      body: payload,
+                      admin: true,
+                    });
+                    toast("Type created", name, "ok");
+                  }
+                  closeModal();
+                  if (after) after();
+                  else loadTypes();
+                } catch (e) {
+                  errBox.innerHTML = errorBanner(e);
+                }
+              });
+            },
+          },
+        );
+      }
+
+      /* ============================================================
+   VIEW: VIOLATIONS
+   ============================================================ */
+      let feedDays = 30;
+
+      async function renderViolations() {
+        view.innerHTML = `
+    <div class="page-head">
+      <div>
+        <h2>Violations</h2>
+        <p class="sub">Company-wide activity feed — every record, newest first.</p>
+      </div>
+      <div class="actions">
+        <button class="btn" id="issueBtn">+ Issue violation</button>
+        <button class="btn" id="feedRefresh">↻ Refresh</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="filters">
+        <label class="chk">Look-back</label>
+        <select id="feedDays" style="width:130px">
+          <option value="7">7 days</option>
+          <option value="30" selected>30 days</option>
+          <option value="90">90 days</option>
+          <option value="365">365 days</option>
+        </select>
+        <label class="chk"><input type="checkbox" id="feedStrikes"> Strikes only</label>
+        <input type="number" id="feedLimit" value="50" min="1" max="200" style="width:100px" title="Limit (1-200)">
+      </div>
+      <div id="feedList"><div class="loading"><span class="spinner"></span>Loading…</div></div>
+    </div>
+  `;
+        document
+          .getElementById("feedRefresh")
+          .addEventListener("click", loadRecentFeed);
+        document
+          .getElementById("feedDays")
+          .addEventListener("change", loadRecentFeed);
+        document
+          .getElementById("feedStrikes")
+          .addEventListener("change", loadRecentFeed);
+        document
+          .getElementById("feedLimit")
+          .addEventListener("change", loadRecentFeed);
+        document
+          .getElementById("issueBtn")
+          .addEventListener("click", issueByLookupModal);
+        loadRecentFeed();
+      }
+
+      async function loadRecentFeed() {
+        const el = document.getElementById("feedList");
+        el.innerHTML = `<div class="loading"><span class="spinner"></span>Loading…</div>`;
+
+        const days = document.getElementById("feedDays").value;
+        const onlyStrikes = document.getElementById("feedStrikes").checked
+          ? "true"
+          : "false";
+        const limit = Math.min(
+          200,
+          Math.max(1, Number(document.getElementById("feedLimit").value) || 50),
+        );
+
+        try {
+          const items = await call("GET", "/violations/recent", {
+            query: { days, only_strikes: onlyStrikes, limit },
+          });
+
+          if (!items.length) {
+            el.innerHTML = `<div class="empty"><div class="big">◌</div>No violations in the last ${days} days.</div>`;
+            return;
+          }
+
+          el.innerHTML = items
+            .map(
+              (f) => `
+      <div class="feed-item">
+        <div class="feed-avatar">${esc(initials(f.employee ? f.employee.full_name : "?"))}</div>
+        <div class="feed-body">
+          <div class="line1">
+            <span class="who">${f.employee ? esc(f.employee.full_name) : "Unknown employee"}</span>
+            ${f.employee ? `<span class="faint mono" style="font-size:11px">${esc(f.employee.employee_code)}</span>` : ""}
+            ${f.is_strike ? '<span class="badge strike">strike</span>' : ""}
+          </div>
+          <div class="line2">
+            ${esc(f.violation_type_name || (f.violation_type ? f.violation_type.name : "—"))}
+            · +${f.points} pts
+            ${f.issued_by ? " · " + esc(f.issued_by) : ""}
+            ${f.notes ? '<br><span style="color:var(--muted)">' + esc(f.notes) + "</span>" : ""}
+          </div>
+        </div>
+        <div class="feed-meta">
+          <div style="font-size:11.5px" class="muted">${esc(fmtDateShort(f.issued_at))}</div>
+          <div class="faint" style="font-size:11px">${esc(relTime(f.issued_at))}</div>
+          <button class="btn sm danger" data-del="${f.id}" style="margin-top:6px">Delete</button>
+        </div>
+      </div>`,
+            )
+            .join("");
+
+          el.querySelectorAll("[data-del]").forEach((b) =>
+            b.addEventListener("click", () => {
+              confirmModal({
+                title: "Delete violation record?",
+                danger: true,
+                confirmLabel: "Delete",
+                body: `<p style="font-size:13px;color:var(--muted)">Removes record <code>#${b.dataset.del}</code> permanently.</p>`,
+                onConfirm: async () => {
+                  try {
+                    await call("DELETE", `/violations/${b.dataset.del}`, {
+                      admin: true,
+                    });
+                    toast("Record deleted", `#${b.dataset.del}`, "ok");
+                    closeModal();
+                    loadRecentFeed();
+                  } catch (e) {
+                    toast(
+                      "Delete failed",
+                      describeError(e.result).title,
+                      "err",
+                    );
+                  }
+                },
+              });
+            }),
+          );
+        } catch (e) {
+          el.innerHTML = errorBanner(e);
+        }
+      }
+
+      /* Issue a violation by employee lookup (from the Violations tab) */
+      function issueByLookupModal() {
+        openModal(
+          `
+    <div class="modal-head"><h3>Issue a violation</h3><button class="close" data-close>✕</button></div>
+    <div class="modal-body">
+      <div id="lkErr"></div>
+      <div class="form-row">
+        <label>Employee code or search</label>
+        <div class="row-flex">
+          <input type="text" id="lkCode" placeholder="EMP-001">
+          <button class="btn" id="lkFind" style="flex:0 0 auto">Find</button>
+        </div>
+      </div>
+      <div id="lkResults"></div>
+    </div>
+    <div class="modal-foot"><button class="btn" data-close>Cancel</button></div>
+  `,
+          {
+            onMount(m) {
+              const doFind = async () => {
+                const q = m.querySelector("#lkCode").value.trim();
+                const box = m.querySelector("#lkResults");
+                const errBox = m.querySelector("#lkErr");
+                errBox.innerHTML = "";
+                if (!q) return;
+                box.innerHTML = `<div class="loading"><span class="spinner"></span>Searching…</div>`;
+                try {
+                  // Try exact code first; fall back to a search query.
+                  let results;
+                  try {
+                    const one = await call(
+                      "GET",
+                      `/employees/by-code/${encodeURIComponent(q)}`,
+                    );
+                    results = [one];
+                  } catch {
+                    const page = await call("GET", "/employees", {
+                      query: { search: q, limit: 10 },
+                    });
+                    results = page.items;
+                  }
+                  if (!results.length) {
+                    box.innerHTML = `<div class="empty" style="padding:20px">No match.</div>`;
+                    return;
+                  }
+                  box.innerHTML = results
+                    .map(
+                      (e) => `
+            <button class="ep-item" data-pick="${e.id}" style="width:100%;padding:10px 12px;border:1px solid var(--border);margin-bottom:6px;border-radius:8px">
+              <div class="feed-avatar" style="width:26px;height:26px;font-size:10px">${esc(initials(e.full_name))}</div>
+              <div style="text-align:left;min-width:0">
+                <div style="font-weight:550;font-size:13px">${esc(e.full_name)}</div>
+                <div class="faint mono" style="font-size:11px">${esc(e.employee_code)}</div>
+              </div>
+            </button>`,
+                    )
+                    .join("");
+
+                  box.querySelectorAll("[data-pick]").forEach((b) =>
+                    b.addEventListener("click", async () => {
+                      const id = Number(b.dataset.pick);
+                      // Fetch the full EmployeeRead (search results are summaries).
+                      try {
+                        const full = await call("GET", `/employees/${id}`);
+                        closeModal();
+                        issueViolationModal(full);
+                      } catch (e) {
+                        errBox.innerHTML = errorBanner(e);
+                      }
+                    }),
+                  );
+                } catch (e) {
+                  box.innerHTML = "";
+                  errBox.innerHTML = errorBanner(e);
+                }
+              };
+              m.querySelector("#lkFind").addEventListener("click", doFind);
+              m.querySelector("#lkCode").addEventListener("keydown", (e) => {
+                if (e.key === "Enter") doFind();
+              });
+            },
+          },
+        );
+      }
+
+      /* ============================================================
+   VIEW: ANALYTICS
+   ============================================================ */
+      async function renderAnalytics() {
+        view.innerHTML = `
+    <div class="page-head">
+      <div>
+        <h2>Analytics</h2>
+        <p class="sub">Six read-only endpoints. All return bare arrays, never envelopes.</p>
+      </div>
+      <div class="actions"><button class="btn" id="anRefresh">↻ Refresh</button></div>
+    </div>
+    <div class="tabs" id="anTabs">
+      <button class="tab" data-tab="activity">Activity</button>
+      <button class="tab" data-tab="offenders">Top offenders</button>
+      <button class="tab" data-tab="watchlist">Watchlist</button>
+      <button class="tab" data-tab="departments">Departments</button>
+      <button class="tab" data-tab="types">Rulebook usage</button>
+      <button class="tab" data-tab="clean">Clean employees</button>
+    </div>
+    <div id="anBody"></div>
+  `;
+
+        document.getElementById("anTabs").addEventListener("click", (e) => {
+          const t = e.target.closest(".tab");
+          if (!t) return;
+          state.analyticsTab = t.dataset.tab;
+          renderAnalyticsTab();
+        });
+        document
+          .getElementById("anRefresh")
+          .addEventListener("click", renderAnalyticsTab);
+
+        renderAnalyticsTab();
+      }
+
+      function renderAnalyticsTab() {
+        document
+          .querySelectorAll("#anTabs .tab")
+          .forEach((t) =>
+            t.classList.toggle("active", t.dataset.tab === state.analyticsTab),
+          );
+        ({
+          activity: anActivity,
+          offenders: anOffenders,
+          watchlist: anWatchlist,
+          departments: anDepartments,
+          types: anTypes,
+          clean: anClean,
+        })[state.analyticsTab]();
+      }
+
+      async function anActivity() {
+        const el = document.getElementById("anBody");
+        el.innerHTML = `<div class="card"><div class="loading"><span class="spinner"></span>Loading activity…</div></div>`;
+        try {
+          const rows = await call("GET", "/analytics/activity", {
+            query: { days: 30, bucket: "day" },
+          });
+          const filled = fillActivity(rows, 30, "day");
+          const totalCount = filled.reduce((s, r) => s + r.count, 0);
+          const totalPoints = filled.reduce((s, r) => s + r.points, 0);
+
+          el.innerHTML = `
+      <div class="stat-grid" style="grid-template-columns:repeat(3,1fr)">
+        <div class="stat"><div class="k">Events · 30d</div><div class="v">${totalCount}</div></div>
+        <div class="stat warn"><div class="k">Points · 30d</div><div class="v">${totalPoints}</div></div>
+        <div class="stat ok"><div class="k">Daily avg</div><div class="v">${(totalCount / 30).toFixed(1)}</div></div>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <h3>Daily activity</h3>
+          <span class="hint">GET /analytics/activity?days=30&amp;bucket=day</span>
+          <div class="right"><span class="badge warn">gaps zero-filled client-side</span></div>
+        </div>
+        <div class="chart-wrap">${renderBarChart(filled)}</div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>Raw buckets</h3><span class="hint">only ${rows.length} bucket(s) returned by the server</span></div>
+        <div class="card-body tight">
+          <table>
+            <thead><tr><th>Bucket</th><th class="num">Count</th><th class="num">Points</th></tr></thead>
+            <tbody>${rows
+              .map(
+                (r) => `<tr>
+              <td class="mono">${esc(r.bucket)}</td>
+              <td class="num">${r.count}</td>
+              <td class="num">${r.points}</td>
+            </tr>`,
+              )
+              .join("")}</tbody>
+          </table>
+        </div>
+      </div>`;
+        } catch (e) {
+          el.innerHTML = `<div class="card"><div class="card-body">${errorBanner(e)}</div></div>`;
+        }
+      }
+
+      async function anOffenders() {
+        const el = document.getElementById("anBody");
+        el.innerHTML = `
+    <div class="card">
+      <div class="filters">
+        <label class="chk">Rank by</label>
+        <select id="offBy" style="width:150px">
+          <option value="points">Points</option>
+          <option value="strikes">Strikes</option>
+          <option value="records">Records</option>
+        </select>
+        <input type="number" id="offLimit" value="10" min="1" max="100" style="width:90px" title="Limit">
+      </div>
+      <div id="offBody"><div class="loading"><span class="spinner"></span>Loading…</div></div>
+    </div>`;
+        const load = async () => {
+          const body = document.getElementById("offBody");
+          body.innerHTML = `<div class="loading"><span class="spinner"></span>Loading…</div>`;
+          try {
+            const by = document.getElementById("offBy").value;
+            const limit = document.getElementById("offLimit").value;
+            const rows = await call("GET", "/analytics/top-offenders", {
+              query: { by, limit },
+            });
+            if (!rows.length) {
+              body.innerHTML = `<div class="empty">No data.</div>`;
+              return;
+            }
+            body.innerHTML = `<table>
+        <thead><tr><th style="width:40px">#</th><th>Employee</th><th>Department</th>
+        <th class="num">Points</th><th class="num">Strikes</th></tr></thead>
+        <tbody>${rows
+          .map(
+            (r, i) => `
+          <tr class="clickable" data-emp="${r.id}">
+            <td class="mono faint">${i + 1}</td>
+            <td>
+              <div style="font-weight:550">${esc(r.full_name)}</div>
+              <div class="faint mono" style="font-size:11px">${esc(r.employee_code)}</div>
+            </td>
+            <td>${r.department ? esc(r.department) : '<span class="faint">—</span>'}</td>
+            <td class="num">${r.total_points}</td>
+            <td class="num">${r.total_strikes > 0 ? `<span class="badge strike">${r.total_strikes}</span>` : '<span class="faint">0</span>'}</td>
+          </tr>`,
+          )
+          .join("")}
+        </tbody></table>`;
+            body
+              .querySelectorAll("[data-emp]")
+              .forEach((tr) =>
+                tr.addEventListener("click", () =>
+                  openEmployee(Number(tr.dataset.emp)),
+                ),
+              );
+          } catch (e) {
+            body.innerHTML = errorBanner(e);
+          }
+        };
+        document.getElementById("offBy").addEventListener("change", load);
+        document.getElementById("offLimit").addEventListener("change", load);
+        load();
+      }
+
+      async function anWatchlist() {
+        const el = document.getElementById("anBody");
+        el.innerHTML = `
+    <div class="card">
+      <div class="filters">
+        <label class="chk">Minimum strikes</label>
+        <input type="number" id="wlMin" value="2" min="1" style="width:90px">
+        <button class="btn" id="wlGo">Apply</button>
+      </div>
+      <div id="wlBody"><div class="loading"><span class="spinner"></span>Loading…</div></div>
+    </div>`;
+        const load = async () => {
+          const body = document.getElementById("wlBody");
+          body.innerHTML = `<div class="loading"><span class="spinner"></span>Loading…</div>`;
+          try {
+            const rows = await call("GET", "/analytics/watchlist", {
+              query: { min_strikes: document.getElementById("wlMin").value },
+            });
+            if (!rows.length) {
+              body.innerHTML = `<div class="empty">Nobody on the watchlist. </div>`;
+              return;
+            }
+            body.innerHTML = `<table>
+        <thead><tr><th>Employee</th><th>Department</th><th class="num">Strikes</th><th class="num">Points</th></tr></thead>
+        <tbody>${rows
+          .map(
+            (r) => `
+          <tr class="clickable" data-emp="${r.id}">
+            <td>
+              <div style="font-weight:550">${esc(r.full_name)}</div>
+              <div class="faint mono" style="font-size:11px">${esc(r.employee_code)}</div>
+            </td>
+            <td>${r.department ? esc(r.department) : '<span class="faint">—</span>'}</td>
+            <td class="num"><span class="badge strike">${r.total_strikes}</span></td>
+            <td class="num">${r.total_points}</td>
+          </tr>`,
+          )
+          .join("")}
+        </tbody></table>`;
+            body
+              .querySelectorAll("[data-emp]")
+              .forEach((tr) =>
+                tr.addEventListener("click", () =>
+                  openEmployee(Number(tr.dataset.emp)),
+                ),
+              );
+          } catch (e) {
+            body.innerHTML = errorBanner(e);
+          }
+        };
+        document.getElementById("wlGo").addEventListener("click", load);
+        load();
+      }
+
+      async function anDepartments() {
+        const el = document.getElementById("anBody");
+        el.innerHTML = `<div class="card"><div class="loading"><span class="spinner"></span>Loading…</div></div>`;
+        try {
+          const rows = await call("GET", "/analytics/departments");
+          if (!rows.length) {
+            el.innerHTML = `<div class="card"><div class="empty">No department data.</div></div>`;
+            return;
+          }
+          const max = Math.max(...rows.map((r) => r.total_points), 1);
+          el.innerHTML = `<div class="card">
+      <div class="card-head"><h3>Per-department rollup</h3><span class="hint">GET /analytics/departments</span></div>
+      <div class="card-body tight">
+        <table>
+          <thead><tr><th>Department</th><th class="num">Employees</th><th class="num">Records</th>
+            <th class="num">Points</th><th class="num">Strikes</th><th style="width:140px"></th></tr></thead>
+          <tbody>${rows
+            .map(
+              (r) => `
+            <tr>
+              <td>${r.department ? esc(r.department) : '<span class="faint">— unassigned —</span>'}</td>
+              <td class="num">${r.employees}</td>
+              <td class="num">${r.total_records}</td>
+              <td class="num">${r.total_points}</td>
+              <td class="num">${r.total_strikes}</td>
+              <td>
+                <div style="height:6px;background:var(--surface-3);border-radius:4px;overflow:hidden">
+                  <div style="height:100%;width:${((r.total_points / max) * 100).toFixed(1)}%;background:linear-gradient(90deg,#6d8cff,#8b6dff);border-radius:4px"></div>
+                </div>
+              </td>
+            </tr>`,
+            )
+            .join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+        } catch (e) {
+          el.innerHTML = `<div class="card"><div class="card-body">${errorBanner(e)}</div></div>`;
+        }
+      }
+
+      async function anTypes() {
+        const el = document.getElementById("anBody");
+        el.innerHTML = `<div class="card"><div class="loading"><span class="spinner"></span>Loading…</div></div>`;
+        try {
+          const rows = await call("GET", "/analytics/violation-types", {
+            query: { limit: 20 },
+          });
+          if (!rows.length) {
+            el.innerHTML = `<div class="card"><div class="empty">No usage data.</div></div>`;
+            return;
+          }
+          const max = Math.max(...rows.map((r) => r.times_issued), 1);
+          el.innerHTML = `<div class="card">
+      <div class="card-head"><h3>Rulebook usage</h3><span class="hint">GET /analytics/violation-types</span></div>
+      <div class="card-body tight">
+        <table>
+          <thead><tr><th>Type</th><th class="num">Default pts</th><th>Strike</th>
+            <th class="num">Issued</th><th class="num">Total pts</th><th style="width:120px"></th></tr></thead>
+          <tbody>${rows
+            .map(
+              (r) => `
+            <tr>
+              <td style="font-weight:550">${esc(r.name)}</td>
+              <td class="num">${r.default_points}</td>
+              <td>${r.is_strike ? '<span class="badge strike">strike</span>' : '<span class="faint">—</span>'}</td>
+              <td class="num">${r.times_issued}</td>
+              <td class="num">${r.total_points}</td>
+              <td>
+                <div style="height:6px;background:var(--surface-3);border-radius:4px;overflow:hidden">
+                  <div style="height:100%;width:${((r.times_issued / max) * 100).toFixed(1)}%;background:linear-gradient(90deg,#fbbf24,#f59e0b);border-radius:4px"></div>
+                </div>
+              </td>
+            </tr>`,
+            )
+            .join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+        } catch (e) {
+          el.innerHTML = `<div class="card"><div class="card-body">${errorBanner(e)}</div></div>`;
+        }
+      }
+
+      async function anClean() {
+        const el = document.getElementById("anBody");
+        el.innerHTML = `
+    <div class="card">
+      <div class="filters">
+        <label class="chk">Clean since <span class="faint">(leave blank for "never, ever")</span></label>
+        <input type="date" id="clSince" style="width:170px">
+        <button class="btn" id="clGo">Apply</button>
+        <button class="btn ghost" id="clClear">Reset</button>
+      </div>
+      <div id="clBody"><div class="loading"><span class="spinner"></span>Loading…</div></div>
+    </div>`;
+        const load = async () => {
+          const body = document.getElementById("clBody");
+          body.innerHTML = `<div class="loading"><span class="spinner"></span>Loading…</div>`;
+          const since = document.getElementById("clSince").value;
+          try {
+            const rows = await call("GET", "/analytics/clean-employees", {
+              query: since
+                ? { since: new Date(since + "T00:00:00Z").toISOString() }
+                : {},
+            });
+            if (!rows.length) {
+              body.innerHTML = `<div class="empty">Nobody matches.</div>`;
+              return;
+            }
+            body.innerHTML = `<table>
+        <thead><tr><th>Employee</th><th>Department</th></tr></thead>
+        <tbody>${rows
+          .map(
+            (r) => `
+          <tr class="clickable" data-emp="${r.id}">
+            <td>
+              <div style="font-weight:550">${esc(r.full_name)}</div>
+              <div class="faint mono" style="font-size:11px">${esc(r.employee_code)}</div>
+            </td>
+            <td>${r.department ? esc(r.department) : '<span class="faint">—</span>'}</td>
+          </tr>`,
+          )
+          .join("")}
+        </tbody></table>`;
+            body
+              .querySelectorAll("[data-emp]")
+              .forEach((tr) =>
+                tr.addEventListener("click", () =>
+                  openEmployee(Number(tr.dataset.emp)),
+                ),
+              );
+          } catch (e) {
+            body.innerHTML = errorBanner(e);
+          }
+        };
+        document.getElementById("clGo").addEventListener("click", load);
+        document.getElementById("clClear").addEventListener("click", () => {
+          document.getElementById("clSince").value = "";
+          load();
+        });
+        load();
+      }
+
+      /* ============================================================
+   VIEW: API EXPLORER
+   ============================================================ */
+      const ENDPOINTS = [
+        // ---- Employees ----
+        {
+          group: "Employees",
+          method: "GET",
+          path: "/employees",
+          desc: "Search, filter and paginate employees.",
+          admin: false,
+          query: {
+            search: "",
+            department: "",
+            position: "",
+            min_points: "",
+            min_strikes: "",
+            include_inactive: "",
+            limit: 50,
+            offset: 0,
+          },
+        },
+        {
+          group: "Employees",
+          method: "GET",
+          path: "/employees/by-code/:code",
+          desc: "Lookup by company employee code.",
+          admin: false,
+          query: {},
+        },
+        {
+          group: "Employees",
+          method: "GET",
+          path: "/employees/:employee_id/totals",
+          desc: "Cheap totals for one employee.",
+          admin: false,
+          query: {},
+        },
+        {
+          group: "Employees",
+          method: "GET",
+          path: "/employees/:employee_id",
+          desc: "Full profile plus violation history.",
+          admin: false,
+          query: {},
+        },
+        {
+          group: "Employees",
+          method: "POST",
+          path: "/employees",
+          desc: "Create an employee. Status is always active.",
+          admin: false,
+          body: {
+            employee_code: "EMP-001",
+            first_name: "Jane",
+            last_name: "Doe",
+            department: "Engineering",
+            position: "Analyst",
+          },
+        },
+        {
+          group: "Employees",
+          method: "POST",
+          path: "/employees/bulk",
+          desc: "Create many. All-or-nothing — one duplicate fails the batch.",
+          admin: false,
+          body: [
+            {
+              employee_code: "EMP-201",
+              first_name: "Ada",
+              last_name: "Lovelace",
+            },
+          ],
+        },
+        {
+          group: "Employees",
+          method: "PATCH",
+          path: "/employees/:employee_id",
+          desc: "Partial update. null is a no-op.",
+          admin: false,
+          body: { department: "Operations" },
+        },
+        {
+          group: "Employees",
+          method: "POST",
+          path: "/employees/:employee_id/deactivate",
+          desc: "Soft delete — status becomes inactive.",
+          admin: false,
+        },
+        {
+          group: "Employees",
+          method: "POST",
+          path: "/employees/:employee_id/reactivate",
+          desc: "Undo a soft delete.",
+          admin: false,
+        },
+        {
+          group: "Employees",
+          method: "DELETE",
+          path: "/employees/:employee_id",
+          desc: "Hard delete. Cascades to all violation records.",
+          admin: true,
+        },
+
+        // ---- Violation Types ----
+        {
+          group: "Violation Types",
+          method: "GET",
+          path: "/violation-types",
+          desc: "Active types only — populates the issue dropdown.",
+          admin: false,
+          query: {},
+        },
+        {
+          group: "Violation Types",
+          method: "GET",
+          path: "/violation-types/all",
+          desc: "All types including inactive.",
+          admin: false,
+          query: { include_inactive: "true", only_strikes: "" },
+        },
+        {
+          group: "Violation Types",
+          method: "GET",
+          path: "/violation-types/:violation_type_id",
+          desc: "Fetch one type.",
+          admin: false,
+          query: {},
+        },
+        {
+          group: "Violation Types",
+          method: "POST",
+          path: "/violation-types",
+          desc: "Create a violation type.",
+          admin: true,
+          body: {
+            name: "Late Arrival",
+            description: "Arriving after shift start",
+            default_points: 5,
+            is_strike: false,
+          },
+        },
+        {
+          group: "Violation Types",
+          method: "PATCH",
+          path: "/violation-types/:violation_type_id",
+          desc: "Update a type. Does not rewrite history.",
+          admin: true,
+          body: { default_points: 10 },
+        },
+        {
+          group: "Violation Types",
+          method: "POST",
+          path: "/violation-types/:violation_type_id/activate",
+          desc: "Activate a type.",
+          admin: true,
+        },
+        {
+          group: "Violation Types",
+          method: "POST",
+          path: "/violation-types/:violation_type_id/deactivate",
+          desc: "Deactivate a type.",
+          admin: true,
+        },
+        {
+          group: "Violation Types",
+          method: "DELETE",
+          path: "/violation-types/:violation_type_id",
+          desc: "Delete. 409 if referenced by records.",
+          admin: true,
+        },
+
+        // ---- Violation Records ----
+        {
+          group: "Violation Records",
+          method: "POST",
+          path: "/employees/:employee_id/violations",
+          desc: "Issue a violation. points/is_strike are snapshotted.",
+          admin: false,
+          body: {
+            violation_type_id: 1,
+            notes: "Third time this week",
+            issued_by: "Supervisor Kim",
+          },
+        },
+        {
+          group: "Violation Records",
+          method: "GET",
+          path: "/employees/:employee_id/violations",
+          desc: "List one employee's violations. Bare array.",
+          admin: false,
+          query: {
+            only_strikes: "",
+            since: "",
+            until: "",
+            limit: 50,
+            offset: 0,
+          },
+        },
+        {
+          group: "Violation Records",
+          method: "DELETE",
+          path: "/employees/:employee_id/violations",
+          desc: "Amnesty — deletes every record for the employee.",
+          admin: true,
+        },
+        {
+          group: "Violation Records",
+          method: "GET",
+          path: "/violations/recent",
+          desc: "Company-wide feed for the last N days.",
+          admin: false,
+          query: { days: 30, only_strikes: "false", limit: 50 },
+        },
+        {
+          group: "Violation Records",
+          method: "GET",
+          path: "/violations/:violation_id",
+          desc: "Fetch one record.",
+          admin: false,
+          query: {},
+        },
+        {
+          group: "Violation Records",
+          method: "PATCH",
+          path: "/violations/:violation_id",
+          desc: "Edit metadata only — not points or type.",
+          admin: false,
+          body: { notes: "Updated note", issued_by: "Supervisor Kim" },
+        },
+        {
+          group: "Violation Records",
+          method: "DELETE",
+          path: "/violations/:violation_id",
+          desc: "Delete one record.",
+          admin: true,
+        },
+
+        // ---- Analytics ----
+        {
+          group: "Analytics",
+          method: "GET",
+          path: "/analytics/top-offenders",
+          desc: "Leaderboard by points, strikes or records.",
+          admin: false,
+          query: { by: "points", limit: 10 },
+        },
+        {
+          group: "Analytics",
+          method: "GET",
+          path: "/analytics/departments",
+          desc: "Per-department rollup.",
+          admin: false,
+          query: {},
+        },
+        {
+          group: "Analytics",
+          method: "GET",
+          path: "/analytics/violation-types",
+          desc: "How often each type is issued.",
+          admin: false,
+          query: { limit: 20 },
+        },
+        {
+          group: "Analytics",
+          method: "GET",
+          path: "/analytics/activity",
+          desc: "Time series. Gaps are NOT filled.",
+          admin: false,
+          query: { days: 30, bucket: "day" },
+        },
+        {
+          group: "Analytics",
+          method: "GET",
+          path: "/analytics/watchlist",
+          desc: "Employees at or above a strike threshold.",
+          admin: false,
+          query: { min_strikes: 2 },
+        },
+        {
+          group: "Analytics",
+          method: "GET",
+          path: "/analytics/clean-employees",
+          desc: "Violation-free employees.",
+          admin: false,
+          query: { since: "" },
+        },
+      ];
+
+      const exState = { values: {}, query: {}, body: "" };
+
+      function renderExplorer() {
+        const groups = [...new Set(ENDPOINTS.map((e) => e.group))];
+        const active =
+          ENDPOINTS.find((e) => e.method + " " + e.path === state.explorerEp) ||
+          ENDPOINTS[0];
+        state.explorerEp = active.method + " " + active.path;
+
+        view.innerHTML = `
+    <div class="page-head">
+      <div>
+        <h2>API Explorer</h2>
+        <p class="sub">Every endpoint, live. Fill in the params and send.</p>
+      </div>
+      <div class="actions">
+        <span class="badge info">${ENDPOINTS.length} endpoints</span>
+      </div>
+    </div>
+    <div class="explorer">
+      <div class="card" style="max-height:calc(100vh - 190px);overflow-y:auto">
+        ${groups
+          .map(
+            (g) => `
+          <div class="ep-group">
+            <div class="ep-group-title">${esc(g)}</div>
+            ${ENDPOINTS.filter((e) => e.group === g)
+              .map((e) => {
+                const key = e.method + " " + e.path;
+                return `<button class="ep-item ${key === state.explorerEp ? "active" : ""}" data-ep="${esc(key)}">
+                <span class="method ${e.method}">${e.method}</span>
+                <span class="path">${esc(e.path)}</span>
+                ${e.admin ? '<span class="lock right">🔒</span>' : ""}
+              </button>`;
+              })
+              .join("")}
+          </div>`,
+          )
+          .join("")}
+      </div>
+      <div id="exPanel"></div>
+    </div>
+  `;
+
+        view.querySelectorAll(".ep-item").forEach((b) =>
+          b.addEventListener("click", () => {
+            state.explorerEp = b.dataset.ep;
+            renderExplorer();
+          }),
+        );
+
+        renderExplorerPanel(active);
+      }
+
+      function renderExplorerPanel(ep) {
+        const panel = document.getElementById("exPanel");
+        const pathParams = [...ep.path.matchAll(/:([a-z_]+)/gi)].map(
+          (m) => m[1],
+        );
+        const queryKeys = Object.keys(ep.query || {});
+
+        exState.values = {};
+        exState.query = { ...(ep.query || {}) };
+        exState.body =
+          ep.body !== undefined ? JSON.stringify(ep.body, null, 2) : "";
+
+        panel.innerHTML = `
+    <div class="card">
+      <div class="card-head">
+        <span class="method ${ep.method}">${ep.method}</span>
+        <h3 class="mono" style="font-size:13px">${esc(ep.path)}</h3>
+        ${ep.admin ? '<span class="lock">🔒 admin only</span>' : ""}
+      </div>
+      <div class="card-body">
+        <p class="muted" style="font-size:13px;margin-bottom:16px">${esc(ep.desc)}</p>
+
+        ${
+          pathParams.length
+            ? `
+          <div style="font-size:11px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--faint);margin-bottom:8px">Path params</div>
+          <div class="form-grid" style="margin-bottom:16px">
+            ${pathParams
+              .map(
+                (p) => `
+              <div class="form-row">
+                <label class="mono">:${p}</label>
+                <input type="text" data-path="${p}" placeholder="${p === "code" ? "EMP-001" : "1"}">
+              </div>`,
+              )
+              .join("")}
+          </div>`
+            : ""
+        }
+
+        ${
+          queryKeys.length
+            ? `
+          <div style="font-size:11px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--faint);margin-bottom:8px">Query params</div>
+          <div class="form-grid" style="margin-bottom:16px">
+            ${queryKeys
+              .map(
+                (k) => `
+              <div class="form-row">
+                <label class="mono">${k}</label>
+                <input type="text" data-query="${k}" value="${esc(ep.query[k])}" placeholder="omit to skip">
+              </div>`,
+              )
+              .join("")}
+          </div>`
+            : ""
+        }
+
+        ${
+          ep.body !== undefined
+            ? `
+          <div style="font-size:11px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--faint);margin-bottom:8px">Request body</div>
+          <div class="form-row">
+            <textarea id="exBody" rows="8" spellcheck="false">${esc(exState.body)}</textarea>
+          </div>`
+            : ""
+        }
+
+        <div class="row-flex" style="margin-top:6px">
+          <button class="btn primary" id="exSend">Send request</button>
+          <button class="btn" id="exCopy">Copy as cURL</button>
+          <span class="right faint mono" style="font-size:11px">${state.baseUrl}${ep.path}</span>
+        </div>
+      </div>
+      <div id="exResult"></div>
+    </div>
+  `;
+
+        panel.querySelectorAll("[data-path]").forEach((i) =>
+          i.addEventListener("input", () => {
+            exState.values[i.dataset.path] = i.value;
+          }),
+        );
+        panel.querySelectorAll("[data-query]").forEach((i) =>
+          i.addEventListener("input", () => {
+            exState.query[i.dataset.query] = i.value;
+          }),
+        );
+
+        panel
+          .querySelector("#exSend")
+          .addEventListener("click", () => sendExplorer(ep));
+        panel
+          .querySelector("#exCopy")
+          .addEventListener("click", () => copyCurl(ep));
+      }
+
+      function buildExplorerPath(ep) {
+        return ep.path.replace(/:([a-z_]+)/gi, (_, k) => {
+          const v = exState.values[k];
+          return v === undefined || v === "" ? ":" + k : encodeURIComponent(v);
+        });
+      }
+
+      async function sendExplorer(ep) {
+        const result = document.getElementById("exResult");
+        result.innerHTML = `<div class="card-body" style="border-top:1px solid var(--border)">
+    <div class="loading"><span class="spinner"></span>Sending…</div></div>`;
+
+        const pathParams = [...ep.path.matchAll(/:([a-z_]+)/gi)].map(
+          (m) => m[1],
+        );
+        const missing = pathParams.filter((p) => !exState.values[p]);
+        if (missing.length) {
+          result.innerHTML = `<div class="card-body" style="border-top:1px solid var(--border)">
+      <div class="callout err" style="margin:0"><div class="ic">✕</div>
+      <div>Missing path param(s): <code>${missing.map((m) => ":" + m).join("</code>, <code>")}</code></div></div></div>`;
+          return;
+        }
+
+        let body;
+        if (ep.body !== undefined) {
+          const raw = document.getElementById("exBody").value.trim();
+          if (raw) {
+            try {
+              body = JSON.parse(raw);
+            } catch (e) {
+              result.innerHTML = `<div class="card-body" style="border-top:1px solid var(--border)">
+          <div class="callout err" style="margin:0"><div class="ic">✕</div><div>Body is not valid JSON: ${esc(e.message)}</div></div></div>`;
+              return;
+            }
+          }
+        }
+
+        try {
+          const r = await req(ep.method, buildExplorerPath(ep), {
+            query: exState.query,
+            body,
+            admin: ep.admin,
+          });
+          renderExplorerResult(result, r);
+        } catch (e) {
+          result.innerHTML = `<div class="card-body" style="border-top:1px solid var(--border)">${errorBanner(e)}</div>`;
+        }
+      }
+
+      function renderExplorerResult(container, r) {
+        const sClass =
+          r.status === 0
+            ? "s0"
+            : r.status < 300
+              ? "s2"
+              : r.status < 500
+                ? "s4"
+                : "s5";
+
+        let bodyHtml;
+        if (r.status === 204) {
+          bodyHtml = `<div class="empty" style="padding:26px">
+      <div class="big">∅</div>
+      <strong>204 No Content</strong><br>
+      <span style="font-size:12px">Empty body — do not call <code>.json()</code> on this response.</span>
+    </div>`;
+        } else if (r.data === null) {
+          bodyHtml = `<div class="empty" style="padding:26px">Empty response body.</div>`;
+        } else {
+          bodyHtml = `<div class="json">${highlightJSON(r.data)}</div>`;
+        }
+
+        const errDetail = !r.ok
+          ? (() => {
+              const d = describeError(r);
+              let h = `<div class="callout err" style="margin:14px 0 0"><div class="ic">✕</div><div><strong>${esc(d.title)}</strong>`;
+              if (d.detail) h += `<br>${esc(d.detail)}`;
+              if (d.fields.length)
+                h +=
+                  "<br>" +
+                  d.fields
+                    .map((f) => `<code>${esc(f.loc)}</code> — ${esc(f.msg)}`)
+                    .join("<br>");
+              h += "</div></div>";
+              return h;
+            })()
+          : "";
+
+        container.innerHTML = `
+    <div class="card-body" style="border-top:1px solid var(--border)">
+      <div class="res-status" style="margin-bottom:14px">
+        <span class="status-pill ${sClass}">${r.status || "ERR"}</span>
+        <span class="badge ${r.ok ? "ok" : "danger"}">${r.ok ? "success" : "error"}</span>
+        <span class="faint mono" style="font-size:11.5px">${r.ms}ms</span>
+        <span class="right faint mono" style="font-size:11px;overflow:hidden;text-overflow:ellipsis;max-width:420px">${esc(r.url)}</span>
+      </div>
+      ${errDetail}
+      ${bodyHtml}
+    </div>`;
+      }
+
+      async function copyCurl(ep) {
+        const base = state.baseUrl.replace(/\/+$/, "");
+        const url = base + buildExplorerPath(ep) + buildQuery(exState.query);
+        const lines = [`curl -X ${ep.method} '${url}'`];
+        if (ep.admin && state.token)
+          lines.push(`  -H 'X-Admin-Token: ${state.token}'`);
+        if (ep.body !== undefined) {
+          const raw = document.getElementById("exBody").value.trim();
+          if (raw) {
+            lines.push(`  -H 'Content-Type: application/json'`);
+            lines.push(`  -d '${raw.replace(/'/g, "'\\''")}'`);
+          }
+        }
+        const cmd = lines.join(" \\\n");
+        try {
+          await navigator.clipboard.writeText(cmd);
+          toast("Copied to clipboard", "cURL command", "ok");
+        } catch {
+          toast("Copy failed", "Clipboard permission denied", "err");
+        }
+      }
+
+      /* ============================================================
+   BOOT
+   ============================================================ */
+      baseUrlInput.value = state.baseUrl;
+      tokenInput.value = state.token;
+
+      baseUrlInput.addEventListener("change", () => {
+        state.baseUrl = baseUrlInput.value.trim() || "http://127.0.0.1:8000";
+        localStorage.setItem("vt.baseUrl", state.baseUrl);
+      });
+      tokenInput.addEventListener("change", () => {
+        state.token = tokenInput.value;
+        localStorage.setItem("vt.token", state.token);
+      });
+      document.getElementById("pingBtn").addEventListener("click", ping);
+
+      navigate("dashboard");
+      ping();
+    </script>
+  </body>
+</html>
