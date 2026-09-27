@@ -6,6 +6,8 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.141.1",
+    "msgpack>=1.2.2",
+    "python-multipart>=0.0.32",
     "sqlalchemy>=2.0.52",
     "uvicorn>=0.52.4",
 ]
