@@ -1,9 +1,11 @@
 from fastapi import FastAPI, Form, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
 import msgpack
 import datetime
 from sqlalchemy import create_engine, Column, Integer, Date, LargeBinary, String
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
+
 
 # 1. Database Setup
 engine = create_engine("sqlite:///./tracking.db", connect_args={"check_same_thread": False})
@@ -22,6 +24,15 @@ class DailyTracking(Base):
 Base.metadata.create_all(bind=engine)
 
 gps_service = FastAPI()
+
+# Cors set up
+gps_service.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # Allows local HTML file to fetch data
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # 3. Database Dependency for FastAPI
 def get_db():
@@ -67,3 +78,19 @@ async def receive_location(
 
     db.commit()
     return {"status": "saved"}
+
+
+@gps_service.get("/route/{supervisor_id}")
+async def get_route(supervisor_id: str, db: Session = Depends(get_db)):
+    today = datetime.date.today()
+    record = db.query(DailyTracking).filter(
+        DailyTracking.supervisor_id == supervisor_id,
+        DailyTracking.date == today
+    ).first()
+    
+    if not record:
+        return {"error": "No route found for today"}
+        
+    # Unpack the binary blob back into a normal Python dictionary
+    path_list = msgpack.unpackb(record.path_blob)
+    return {"path": path_list}
