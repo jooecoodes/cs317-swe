@@ -1,0 +1,125 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Timestamp Camera</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        text-align: center;
+        padding: 20px;
+      }
+      video,
+      img {
+        width: 100%;
+        max-width: 400px;
+        border-radius: 8px;
+        margin-bottom: 10px;
+      }
+      .hidden {
+        display: none;
+      }
+      button {
+        padding: 10px 20px;
+        margin: 5px;
+        cursor: pointer;
+        font-size: 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>Capture Location Photo</h2>
+
+    <!-- Video stream and Canvas for capturing -->
+    <video id="cameraStream" autoplay playsinline></video>
+    <canvas id="snapshotCanvas" class="hidden"></canvas>
+
+    <!-- Preview image -->
+    <img id="photoPreview" class="hidden" />
+
+    <div>
+      <button id="btnStart">Start Camera</button>
+      <button id="btnCapture" class="hidden">Take Photo</button>
+      <button id="btnRetake" class="hidden">Retake</button>
+      <button id="btnUpload" class="hidden">Upload to Server</button>
+    </div>
+
+    <script>
+      const video = document.getElementById("cameraStream");
+      const canvas = document.getElementById("snapshotCanvas");
+      const preview = document.getElementById("photoPreview");
+
+      const btnStart = document.getElementById("btnStart");
+      const btnCapture = document.getElementById("btnCapture");
+      const btnRetake = document.getElementById("btnRetake");
+      const btnUpload = document.getElementById("btnUpload");
+
+      let currentBlob = null;
+
+      // Ask for camera permission and start video
+      btnStart.onclick = async () => {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" },
+        });
+        video.srcObject = stream;
+        btnStart.classList.add("hidden");
+        btnCapture.classList.remove("hidden");
+      };
+
+      // Snap the photo and hold it in memory
+      btnCapture.onclick = () => {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext("2d").drawImage(video, 0, 0);
+
+        // Convert to a Blob file
+        canvas.toBlob((blob) => {
+          currentBlob = blob;
+          preview.src = URL.createObjectURL(blob);
+
+          // Toggle UI to preview mode
+          video.classList.add("hidden");
+          preview.classList.remove("hidden");
+          btnCapture.classList.add("hidden");
+          btnRetake.classList.remove("hidden");
+          btnUpload.classList.remove("hidden");
+        }, "image/jpeg");
+      };
+
+      // Discard the photo and go back to live video
+      btnRetake.onclick = () => {
+        currentBlob = null;
+        preview.classList.add("hidden");
+        video.classList.remove("hidden");
+        btnRetake.classList.add("hidden");
+        btnUpload.classList.add("hidden");
+        btnCapture.classList.remove("hidden");
+      };
+
+      // Send to FastAPI
+      btnUpload.onclick = async () => {
+        const formData = new FormData();
+        formData.append("user_id", "47985355"); // Hardcoded for prototype
+        formData.append("file", currentBlob, "capture.jpg");
+
+        btnUpload.innerText = "Uploading...";
+
+        try {
+          const response = await fetch("/upload", {
+            method: "POST",
+            body: formData,
+          });
+          const result = await response.json();
+
+          if (result.status === "success") {
+            alert("Photo saved!");
+            btnRetake.click(); // Reset the UI
+            btnUpload.innerText = "Upload to Server";
+          }
+        } catch (error) {
+          alert("Upload failed. Make sure the backend is running.");
+          btnUpload.innerText = "Upload to Server";
+        }
+      };
+    </script>
+  </body>
+</html>
