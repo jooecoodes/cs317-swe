@@ -25,6 +25,28 @@ Base.metadata.create_all(bind=engine)
 
 gps_service = FastAPI()
 
+# websocket connection manager
+class ConnectionManager: 
+    def __init__(self):
+        self.active_connections: list[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+
+    async def broadcast(self, message: dict):
+        for connection in self.active_connections:
+            await connection.send_json(message)
+
+manager = ConnectionManager()
+
+# temporary RAM buffer
+point_buffer = []
+BUFFER_LIMIT = 5 # Condition: Save to DB every 5 pings
+
 # Cors set up
 gps_service.add_middleware(
     CORSMiddleware,
@@ -42,44 +64,56 @@ def get_db():
     finally:
         db.close()
 
-# 4. The Updated Endpoint
+# Live Tunnel Endpoint
+@gps_service.websocket("/ws/live")
+async def live_tracking(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            # Keeps the tunnel open waiting for client disconnects
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+
 @gps_service.post("/")
 async def receive_location(
     id: str = Form(...),
     lat: float = Form(...),
     lon: float = Form(...),
-    timestamp: Optional[int] = Form(None),
+    timestamp: int = Form(None),
     db: Session = Depends(get_db)
 ):
-    today = datetime.date.today()
+    new_point = {"id": id, "lat": lat, "lon": lon, "ts": timestamp}
     
-    # Clean the new coordinate
-    new_point = {"lat": lat, "lon": lon, "ts": timestamp}
+    # ACTION A: Instantly push the live location to the web dashboard (No DB hit)
+    await manager.broadcast(new_point)
+    
+    # ACTION B: Store in RAM buffer
+    point_buffer.append(new_point)
+    print(f"Live broadcasted! Buffer size: {len(point_buffer)}/{BUFFER_LIMIT}")
+    
+    # ACTION C: The Condition - Only hit the database if the buffer is full
+    if len(point_buffer) >= BUFFER_LIMIT:
+        today = datetime.date.today()
+        record = db.query(DailyTracking).filter(
+            DailyTracking.supervisor_id == id,
+            DailyTracking.date == today
+        ).first()
 
-    # Search for an existing trail for this supervisor today
-    record = db.query(DailyTracking).filter(
-        DailyTracking.supervisor_id == id,
-        DailyTracking.date == today
-    ).first()
+        if not record:
+            packed_data = msgpack.packb(point_buffer)
+            new_record = DailyTracking(supervisor_id=id, date=today, path_blob=packed_data)
+            db.add(new_record)
+        else:
+            path_list = msgpack.unpackb(record.path_blob)
+            path_list.extend(point_buffer) # Add all buffered points at once
+            record.path_blob = msgpack.packb(path_list)
 
-    if not record:
-        # First ping of the day: create a new array and pack it
-        initial_path = [new_point]
-        packed_data = msgpack.packb(initial_path)
-        new_record = DailyTracking(supervisor_id=id, date=today, path_blob=packed_data)
-        db.add(new_record)
-        print(f"Created new daily trail for {id}")
-    else:
-        # Subsequent pings: unpack the blob, add the point, repack it
-        path_list = msgpack.unpackb(record.path_blob)
-        path_list.append(new_point)
-        record.path_blob = msgpack.packb(path_list)
-        print(f"Appended point to daily trail for {id}. Total points: {len(path_list)}")
-
-    db.commit()
-    return {"status": "saved"}
-
-
+        db.commit()
+        point_buffer.clear()
+        print("Buffer full. Performed bulk write to database.")
+        
+    return {"status": "success"}
 @gps_service.get("/route/{supervisor_id}")
 async def get_route(supervisor_id: str, db: Session = Depends(get_db)):
     today = datetime.date.today()
