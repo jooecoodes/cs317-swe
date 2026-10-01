@@ -56,7 +56,7 @@
     <div id="map" class="flex-grow z-0"></div>
 
     <script>
-      // 1. Initialize Map (Standard OpenStreetMap layer - no API key needed)
+      // 1. Initialize Map
       const map = L.map("map").setView([8.4803, 124.6498], 13);
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 19,
@@ -64,6 +64,7 @@
       }).addTo(map);
 
       let marker = null;
+      let routeLine = null;
       let pollInterval = null;
       let isTracking = false;
 
@@ -74,18 +75,22 @@
       const statusDot = document.getElementById("statusDot");
       const statusText = document.getElementById("statusText");
 
-      // Load saved URL on startup
+      // Load saved URL from browser memory
       if (localStorage.getItem("serverUrl")) {
         serverInput.value = localStorage.getItem("serverUrl");
       }
 
-      // Save URL as user types
       serverInput.addEventListener("input", (e) => {
-        // Strip trailing slash if the user adds one to prevent duplicate slashes
         let url = e.target.value.trim();
         if (url.endsWith("/")) url = url.slice(0, -1);
         localStorage.setItem("serverUrl", url);
       });
+
+      function getBaseUrl() {
+        let baseUrl = serverInput.value.trim();
+        if (baseUrl.endsWith("/")) baseUrl = baseUrl.slice(0, -1);
+        return baseUrl;
+      }
 
       function toggleTracking() {
         if (isTracking) {
@@ -106,47 +111,81 @@
           trackBtn.className =
             "bg-red-600 hover:bg-red-500 px-6 py-2 rounded font-bold transition-colors";
 
+          // Clear old line if switching sessions/devices
+          if (routeLine) {
+            map.removeLayer(routeLine);
+            routeLine = null;
+          }
+
+          // Initialize empty polyline for today's trail
+          routeLine = L.polyline([], {
+            color: "#3b82f6", // Tailwind blue-500
+            weight: 4,
+            opacity: 0.8,
+          }).addTo(map);
+
+          // Fetch database history first, then poll for live pings
+          fetchRouteHistory();
           fetchLocation();
           pollInterval = setInterval(fetchLocation, 5000);
         }
       }
 
-      async function fetchLocation() {
-        // Ensure no trailing slash on the base URL
-        let baseUrl = serverInput.value.trim();
-        if (baseUrl.endsWith("/")) baseUrl = baseUrl.slice(0, -1);
-
+      async function fetchRouteHistory() {
+        const baseUrl = getBaseUrl();
         const id = deviceInput.value.trim();
 
         try {
-          // ADDED THE NGROK BYPASS HEADER HERE
+          const response = await fetch(`${baseUrl}/route/${id}`, {
+            headers: { "ngrok-skip-browser-warning": "true" },
+          });
+          const data = await response.json();
+
+          if (data.path && Array.isArray(data.path)) {
+            const latlngs = data.path.map((p) => [p.lat, p.lon]);
+            routeLine.setLatLngs(latlngs);
+          }
+        } catch (err) {
+          console.log("No route history found for today yet.");
+        }
+      }
+
+      async function fetchLocation() {
+        const baseUrl = getBaseUrl();
+        const id = deviceInput.value.trim();
+
+        try {
           const response = await fetch(`${baseUrl}/live/${id}`, {
-            headers: {
-              "ngrok-skip-browser-warning": "true",
-            },
+            headers: { "ngrok-skip-browser-warning": "true" },
           });
 
           const data = await response.json();
-
           updateStatus(data.status);
 
           if (data.status === "online") {
             const lat = data.lat;
             const lon = data.lon;
 
+            // Update or place marker
             if (!marker) {
               marker = L.marker([lat, lon]).addTo(map);
             } else {
               marker.setLatLng([lat, lon]);
             }
 
-            map.flyTo([lat, lon], 17, { animate: true, duration: 1 });
+            // Connect the newest dot to the trail
+            if (routeLine) {
+              routeLine.addLatLng([lat, lon]);
+            }
+
+            map.panTo([lat, lon], { animate: true, duration: 0.5 });
           }
         } catch (error) {
           console.error("Error fetching location:", error);
           updateStatus("disconnected");
         }
       }
+
       function updateStatus(status) {
         if (status === "online") {
           statusDot.className =
