@@ -15,7 +15,10 @@ const CONFIG = {
 
 /* Invalidate stale localStorage overrides when BASE_URL above changes.
    Edit CONFIG.BASE_URL, reload, and the new value wins — no manual reset. */
-const STORAGE_KEYS = { baseUrl: "vt.baseUrl", configBase: "vt.configBase" };
+const STORAGE_KEYS = {
+  baseUrl: "vt.baseUrl",
+  configBase: "vt.configBase",
+};
 if (localStorage.getItem(STORAGE_KEYS.configBase) !== CONFIG.BASE_URL) {
   localStorage.setItem(STORAGE_KEYS.configBase, CONFIG.BASE_URL);
   localStorage.removeItem(STORAGE_KEYS.baseUrl);
@@ -44,15 +47,18 @@ const esc = (s) =>
   String(s ?? "").replace(
     /[&<>"']/g,
     (c) =>
-      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
-        c
-      ],
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      })[c],
   );
 
 function parseUTC(s) {
   if (!s) return null;
   let str = String(s);
-  // Backend may serialize naive datetimes (no Z, no offset) — treat all as UTC.
   if (!/[Zz]$|[+-]\d{2}:?\d{2}$/.test(str)) str += "Z";
   const d = new Date(str);
   return isNaN(d) ? null : d;
@@ -73,7 +79,10 @@ function fmtDate(iso) {
 function fmtDateShort(iso) {
   const d = parseUTC(iso);
   if (!d) return "—";
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return d.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
 }
 
 function relTime(iso) {
@@ -134,7 +143,7 @@ function highlightJSON(data) {
 class ApiError extends Error {
   constructor(kind, message, result) {
     super(message);
-    this.kind = kind; // 'network' | 'http'
+    this.kind = kind;
     this.result = result;
   }
 }
@@ -176,7 +185,6 @@ async function req(method, path, { query, body } = {}) {
   }
   const ms = Math.round(performance.now() - t0);
 
-  // 204 has no body — do not attempt to parse.
   const text = await res.text();
   let data = null;
   if (text) {
@@ -196,7 +204,6 @@ async function call(method, path, opts) {
   return r.data;
 }
 
-/* Normalize the two error shapes (FastAPI 422 array vs. manual {detail,error}) */
 function describeError(result) {
   if (!result) return { title: "Request failed", detail: "", fields: [] };
   const d = result.data;
@@ -235,7 +242,7 @@ function errorBanner(err) {
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # or your exact frontend origin
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -347,8 +354,36 @@ function confirmModal({
 }
 
 /* ============================================================
-   NAV
+   NAV  +  mobile drawer
    ============================================================ */
+const elHamburger = document.getElementById("hamburger");
+const elSidenav = document.getElementById("sidenav");
+const elNavOverlay = document.getElementById("navOverlay");
+const MOBILE_BREAKPOINT = 900;
+
+function openNav() {
+  elSidenav.classList.add("open");
+  elNavOverlay.classList.add("open");
+  elHamburger.setAttribute("aria-expanded", "true");
+  document.body.classList.add("nav-open");
+}
+function closeNav() {
+  elSidenav.classList.remove("open");
+  elNavOverlay.classList.remove("open");
+  elHamburger.setAttribute("aria-expanded", "false");
+  document.body.classList.remove("nav-open");
+}
+elHamburger.addEventListener("click", () => {
+  elSidenav.classList.contains("open") ? closeNav() : openNav();
+});
+elNavOverlay.addEventListener("click", closeNav);
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && elSidenav.classList.contains("open")) closeNav();
+});
+window.addEventListener("resize", () => {
+  if (window.innerWidth > MOBILE_BREAKPOINT) closeNav();
+});
+
 const ROUTES = {
   dashboard: renderDashboard,
   employees: renderEmployees,
@@ -367,9 +402,12 @@ function navigate(name) {
   ROUTES[name]();
 }
 
-document.getElementById("sidenav").addEventListener("click", (e) => {
+elSidenav.addEventListener("click", (e) => {
   const btn = e.target.closest(".nav-item");
-  if (btn) navigate(btn.dataset.nav);
+  if (btn) {
+    navigate(btn.dataset.nav);
+    if (window.innerWidth <= MOBILE_BREAKPOINT) closeNav();
+  }
 });
 
 /* ============================================================
@@ -408,11 +446,12 @@ async function loadDashboard() {
         query: { by: "points", limit: 6 },
       }),
       call("GET", "/analytics/watchlist", { query: { min_strikes: 2 } }),
-      call("GET", "/violations/recent", { query: { days: 14, limit: 6 } }),
+      call("GET", "/violations/recent", {
+        query: { days: 14, limit: 6 },
+      }),
       call("GET", "/analytics/departments"),
     ]);
 
-  // If literally everything failed with a network error, show the CORS/help banner.
   const allFailed = [empRes, actRes, offRes, watchRes, feedRes, deptRes].every(
     (r) => r.status === "rejected",
   );
@@ -442,7 +481,6 @@ async function loadDashboard() {
 
   let html = "";
 
-  // Stat cards
   html += `<div class="stat-grid">
     <div class="stat">
       <div class="k">Employees</div>
@@ -466,7 +504,6 @@ async function loadDashboard() {
     </div>
   </div>`;
 
-  // Activity chart
   html += `<div class="card">
     <div class="card-head">
       <h3>Violation Activity</h3>
@@ -478,7 +515,6 @@ async function loadDashboard() {
     </div>
   </div>`;
 
-  // Two-column: offenders + feed
   html += `<div class="grid-2" style="margin-top:18px">`;
 
   html += `<div class="card">
@@ -541,9 +577,8 @@ async function loadDashboard() {
     </div>
   </div>`;
 
-  html += `</div>`; // grid-2
+  html += `</div>`;
 
-  // Department rollup
   if (departments.length) {
     html += `<div class="card" style="margin-top:18px">
       <div class="card-head">
@@ -576,13 +611,11 @@ async function loadDashboard() {
 
   el.innerHTML = html;
 
-  // Row → employee modal
   el.querySelectorAll("[data-emp]").forEach((row) => {
     row.addEventListener("click", () => openEmployee(Number(row.dataset.emp)));
   });
 }
 
-/* Zero-fill activity buckets — the API does not fill gaps (gotcha #12). */
 function dayKey(d) {
   return d.toISOString().slice(0, 10);
 }
@@ -621,7 +654,7 @@ function fillActivity(rows, days, bucket) {
     const d = new Date(
       Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()),
     );
-    const dow = (d.getUTCDay() + 6) % 7; // Monday = 0
+    const dow = (d.getUTCDay() + 6) % 7;
     d.setUTCDate(d.getUTCDate() - dow);
     while (d <= now) {
       keys.push(weekKey(d));
@@ -755,7 +788,6 @@ async function loadEmployees() {
       query: { ...f, limit: empState.limit, offset: empState.offset },
     });
 
-    // Known backend limitation: `total` ignores search/position/min_* filters.
     const unreliable = f.search || f.position || f.min_points || f.min_strikes;
     if (unreliable) {
       warn.innerHTML = `<div class="callout" style="margin:0;border-radius:0;border-left:none;border-right:none">
@@ -803,7 +835,6 @@ async function loadEmployees() {
         tr.addEventListener("click", () => openEmployee(Number(tr.dataset.id))),
       );
 
-    // Pager — use row count when total is untrustworthy
     const shownEnd = empState.offset + data.items.length;
     const total = unreliable ? null : data.total;
     const hasNext = data.items.length === empState.limit;
@@ -831,7 +862,6 @@ async function loadEmployees() {
   }
 }
 
-/* ---------- employee detail modal ---------- */
 async function openEmployee(id) {
   openModal(
     `
@@ -917,7 +947,7 @@ function renderEmployeeDetail(modal, emp) {
     }
 
     <div class="divider"></div>
-    <div class="row-flex" style="flex-wrap:wrap;gap:8px">
+    <div class="row-flex modal-actions" style="flex-wrap:wrap;gap:8px">
       <button class="btn primary" id="mIssue">+ Issue violation</button>
       ${
         isActive
@@ -1037,7 +1067,6 @@ async function simpleAction(method, path, okMsg, after) {
   }
 }
 
-/* ---------- new employee ---------- */
 function newEmployeeModal() {
   openModal(
     `
@@ -1071,7 +1100,9 @@ function newEmployeeModal() {
             position: m.querySelector("#nePos").value.trim() || null,
           };
           try {
-            const created = await call("POST", "/employees", { body: payload });
+            const created = await call("POST", "/employees", {
+              body: payload,
+            });
             toast(
               "Employee created",
               `${created.full_name} · ${created.employee_code}`,
@@ -1089,7 +1120,6 @@ function newEmployeeModal() {
   );
 }
 
-/* ---------- edit employee ---------- */
 function editEmployeeModal(emp, after) {
   openModal(
     `
@@ -1137,7 +1167,9 @@ function editEmployeeModal(emp, after) {
           }
 
           try {
-            await call("PATCH", `/employees/${emp.id}`, { body: payload });
+            await call("PATCH", `/employees/${emp.id}`, {
+              body: payload,
+            });
             toast("Employee updated", emp.full_name, "ok");
             closeModal();
             if (after) after();
@@ -1151,7 +1183,6 @@ function editEmployeeModal(emp, after) {
   );
 }
 
-/* ---------- bulk import ---------- */
 function bulkEmployeeModal() {
   const sample = JSON.stringify(
     [
@@ -1225,7 +1256,6 @@ function bulkEmployeeModal() {
   );
 }
 
-/* ---------- issue violation ---------- */
 async function issueViolationModal(emp) {
   let types = [];
   try {
@@ -1317,8 +1347,6 @@ async function issueViolationModal(emp) {
 /* ============================================================
    VIEW: VIOLATION TYPES
    ============================================================ */
-const typeState = { includeInactive: true, onlyStrikes: "" };
-
 async function renderTypes() {
   view.innerHTML = `
     <div class="page-head">
@@ -1463,7 +1491,6 @@ function deleteTypeFlow(t) {
       } catch (e) {
         const d = describeError(e.result);
         if (e.result && e.result.status === 409) {
-          // Offer deactivate-instead — that's the whole reason the 409 exists.
           closeModal();
           confirmModal({
             title: "Type is in use",
@@ -1492,7 +1519,6 @@ function deleteTypeFlow(t) {
 function newTypeModal() {
   typeFormModal(null, null);
 }
-
 function editTypeModal(t, after) {
   typeFormModal(t, after);
 }
@@ -1714,7 +1740,6 @@ async function loadRecentFeed() {
   }
 }
 
-/* Issue a violation by employee lookup (from the Violations tab) */
 function issueByLookupModal() {
   openModal(
     `
@@ -1742,7 +1767,6 @@ function issueByLookupModal() {
           if (!q) return;
           box.innerHTML = `<div class="loading"><span class="spinner"></span>Searching…</div>`;
           try {
-            // Try exact code first; fall back to a search query.
             let results;
             try {
               const one = await call(
@@ -1776,7 +1800,6 @@ function issueByLookupModal() {
             box.querySelectorAll("[data-pick]").forEach((b) =>
               b.addEventListener("click", async () => {
                 const id = Number(b.dataset.pick);
-                // Fetch the full EmployeeRead (search results are summaries).
                 try {
                   const full = await call("GET", `/employees/${id}`);
                   closeModal();
@@ -2166,7 +2189,6 @@ async function anClean() {
    VIEW: API EXPLORER
    ============================================================ */
 const ENDPOINTS = [
-  // ---- Employees ----
   {
     group: "Employees",
     method: "GET",
@@ -2223,7 +2245,11 @@ const ENDPOINTS = [
     path: "/employees/bulk",
     desc: "Create many. All-or-nothing — one duplicate fails the batch.",
     body: [
-      { employee_code: "EMP-201", first_name: "Ada", last_name: "Lovelace" },
+      {
+        employee_code: "EMP-201",
+        first_name: "Ada",
+        last_name: "Lovelace",
+      },
     ],
   },
   {
@@ -2252,7 +2278,6 @@ const ENDPOINTS = [
     desc: "Hard delete. Cascades to all violation records.",
   },
 
-  // ---- Violation Types ----
   {
     group: "Violation Types",
     method: "GET",
@@ -2312,7 +2337,6 @@ const ENDPOINTS = [
     desc: "Delete. 409 if referenced by records.",
   },
 
-  // ---- Violation Records ----
   {
     group: "Violation Records",
     method: "POST",
@@ -2329,7 +2353,13 @@ const ENDPOINTS = [
     method: "GET",
     path: "/employees/:employee_id/violations",
     desc: "List one employee's violations. Bare array.",
-    query: { only_strikes: "", since: "", until: "", limit: 50, offset: 0 },
+    query: {
+      only_strikes: "",
+      since: "",
+      until: "",
+      limit: 50,
+      offset: 0,
+    },
   },
   {
     group: "Violation Records",
@@ -2365,7 +2395,6 @@ const ENDPOINTS = [
     desc: "Delete one record.",
   },
 
-  // ---- Analytics ----
   {
     group: "Analytics",
     method: "GET",
@@ -2430,7 +2459,7 @@ function renderExplorer() {
       </div>
     </div>
     <div class="explorer">
-      <div class="card" style="max-height:calc(100vh - 190px);overflow-y:auto">
+      <div class="card ep-list" style="max-height:calc(100vh - 190px);overflow-y:auto">
         ${groups
           .map(
             (g) => `
@@ -2457,6 +2486,12 @@ function renderExplorer() {
     b.addEventListener("click", () => {
       state.explorerEp = b.dataset.ep;
       renderExplorer();
+      if (window.innerWidth <= MOBILE_BREAKPOINT) {
+        requestAnimationFrame(() => {
+          const p = document.getElementById("exPanel");
+          if (p) p.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+      }
     }),
   );
 
@@ -2476,7 +2511,7 @@ function renderExplorerPanel(ep) {
     <div class="card">
       <div class="card-head">
         <span class="method ${ep.method}">${ep.method}</span>
-        <h3 class="mono" style="font-size:13px">${esc(ep.path)}</h3>
+        <h3 class="mono" style="font-size:13px;word-break:break-all">${esc(ep.path)}</h3>
       </div>
       <div class="card-body">
         <p class="muted" style="font-size:13px;margin-bottom:16px">${esc(ep.desc)}</p>
@@ -2527,10 +2562,10 @@ function renderExplorerPanel(ep) {
             : ""
         }
 
-        <div class="row-flex" style="margin-top:6px">
+        <div class="row-flex" style="margin-top:6px;flex-wrap:wrap;gap:8px">
           <button class="btn primary" id="exSend">Send request</button>
           <button class="btn" id="exCopy">Copy as cURL</button>
-          <span class="right faint mono" style="font-size:11px">${state.baseUrl}${ep.path}</span>
+          <span class="right faint mono" style="font-size:11px;word-break:break-all;min-width:0">${esc(state.baseUrl)}${esc(ep.path)}</span>
         </div>
       </div>
       <div id="exResult"></div>
@@ -2645,7 +2680,7 @@ function renderExplorerResult(container, r) {
         <span class="status-pill ${sClass}">${r.status || "ERR"}</span>
         <span class="badge ${r.ok ? "ok" : "danger"}">${r.ok ? "success" : "error"}</span>
         <span class="faint mono" style="font-size:11.5px">${r.ms}ms</span>
-        <span class="right faint mono" style="font-size:11px;overflow:hidden;text-overflow:ellipsis;max-width:420px">${esc(r.url)}</span>
+        <span class="right faint mono" style="font-size:11px;overflow:hidden;text-overflow:ellipsis;max-width:100%;word-break:break-all">${esc(r.url)}</span>
       </div>
       ${errDetail}
       ${bodyHtml}
