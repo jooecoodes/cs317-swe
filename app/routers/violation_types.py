@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 
-from app.deps import DbSession, require_admin
+from app.deps import DbSession
 from app.schemas.violation import (
     ViolationTypeCreate,
     ViolationTypeOption,
@@ -48,7 +48,6 @@ def get_one(db: DbSession, violation_type_id: Annotated[int, Path(ge=1)]):
     "",
     response_model=ViolationTypeRead,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_admin)],
 )
 def create(db: DbSession, payload: ViolationTypeCreate):
     return create_violation_type(db, **payload.model_dump())
@@ -57,7 +56,6 @@ def create(db: DbSession, payload: ViolationTypeCreate):
 @router.patch(
     "/{violation_type_id}",
     response_model=ViolationTypeRead,
-    dependencies=[Depends(require_admin)],
 )
 def update(
     db: DbSession,
@@ -70,7 +68,6 @@ def update(
 @router.post(
     "/{violation_type_id}/activate",
     response_model=ViolationTypeRead,
-    dependencies=[Depends(require_admin)],
 )
 def activate(db: DbSession, violation_type_id: Annotated[int, Path(ge=1)]):
     return set_violation_type_active(db, violation_type_id, True)
@@ -79,7 +76,6 @@ def activate(db: DbSession, violation_type_id: Annotated[int, Path(ge=1)]):
 @router.post(
     "/{violation_type_id}/deactivate",
     response_model=ViolationTypeRead,
-    dependencies=[Depends(require_admin)],
 )
 def deactivate(db: DbSession, violation_type_id: Annotated[int, Path(ge=1)]):
     return set_violation_type_active(db, violation_type_id, False)
@@ -88,7 +84,6 @@ def deactivate(db: DbSession, violation_type_id: Annotated[int, Path(ge=1)]):
 @router.delete(
     "/{violation_type_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(require_admin)],
 )
 def remove(db: DbSession, violation_type_id: Annotated[int, Path(ge=1)]):
     delete_violation_type(db, violation_type_id)

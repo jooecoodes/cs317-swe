@@ -1,7 +1,6 @@
-import os
 from typing import Annotated
 
-from fastapi import Depends, Header, HTTPException, Query
+from fastapi import Depends, Query
 from sqlalchemy.orm import Session
 
 from app.session import get_session
@@ -21,9 +20,3 @@ class Pagination:
 
 
 PaginationDep = Annotated[Pagination, Depends()]
-
-
-def require_admin(x_admin_token: Annotated[str | None, Header()] = None) -> None:
-    expected = os.getenv("ADMIN_TOKEN")
-    if not expected or x_admin_token != expected:
-        raise HTTPException(status_code=403, detail="Admin privileges required.")

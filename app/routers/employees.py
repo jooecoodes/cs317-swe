@@ -1,8 +1,8 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
+from fastapi import APIRouter, HTTPException, Path, Query, status
 
-from app.deps import DbSession, PaginationDep, require_admin
+from app.deps import DbSession, PaginationDep
 from app.schemas.common import Page
 from app.schemas.employee import (
     BulkCreateResult,
@@ -111,7 +111,6 @@ def reactivate(db: DbSession, employee_id: Annotated[int, Path(ge=1)]):
 @router.delete(
     "/{employee_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(require_admin)],
 )
 def hard_delete(db: DbSession, employee_id: Annotated[int, Path(ge=1)]):
     delete_employee(db, employee_id)

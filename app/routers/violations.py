@@ -1,10 +1,10 @@
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
+from fastapi import APIRouter, HTTPException, Path, Query, status
 from pydantic import BaseModel
 
-from app.deps import DbSession, PaginationDep, require_admin
+from app.deps import DbSession, PaginationDep
 from app.schemas.violation import (
     ViolationAssign,
     ViolationRecordFeedRead,
@@ -70,7 +70,6 @@ def list_for_employee(
 @router.delete(
     "/employees/{employee_id}/violations",
     response_model=ClearResult,
-    dependencies=[Depends(require_admin)],
     summary="Amnesty — wipe all records for this employee",
 )
 def clear_all(db: DbSession, employee_id: Annotated[int, Path(ge=1)]):
@@ -115,7 +114,6 @@ def update(
 @router.delete(
     "/violations/{violation_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(require_admin)],
 )
 def remove(db: DbSession, violation_id: Annotated[int, Path(ge=1)]):
     delete_violation_record(db, violation_id)
