@@ -11,23 +11,14 @@ const CONFIG = {
   //   'https://api.violation-tracker.example' — production
   //   ''                                       — same-origin (use behind a proxy)
   BASE_URL: "http://127.0.0.1:8000",
-
-  // Optional default admin token. Leave '' to start blank.
-  // Users can still type one in live — this is just the seed.
-  ADMIN_TOKEN: "",
 };
 
 /* Invalidate stale localStorage overrides when BASE_URL above changes.
    Edit CONFIG.BASE_URL, reload, and the new value wins — no manual reset. */
-const STORAGE_KEYS = {
-  baseUrl: "vt.baseUrl",
-  token: "vt.token",
-  configBase: "vt.configBase",
-};
+const STORAGE_KEYS = { baseUrl: "vt.baseUrl", configBase: "vt.configBase" };
 if (localStorage.getItem(STORAGE_KEYS.configBase) !== CONFIG.BASE_URL) {
   localStorage.setItem(STORAGE_KEYS.configBase, CONFIG.BASE_URL);
   localStorage.removeItem(STORAGE_KEYS.baseUrl);
-  localStorage.removeItem(STORAGE_KEYS.token);
 }
 
 /* ============================================================
@@ -36,7 +27,6 @@ if (localStorage.getItem(STORAGE_KEYS.configBase) !== CONFIG.BASE_URL) {
 const state = {
   view: "dashboard",
   baseUrl: localStorage.getItem(STORAGE_KEYS.baseUrl) || CONFIG.BASE_URL,
-  token: localStorage.getItem(STORAGE_KEYS.token) || CONFIG.ADMIN_TOKEN,
   connected: null,
   explorerEp: null,
   analyticsTab: "activity",
@@ -46,7 +36,6 @@ const view = document.getElementById("view");
 const modalRoot = document.getElementById("modalRoot");
 const statusDot = document.getElementById("statusDot");
 const baseUrlInput = document.getElementById("baseUrl");
-const tokenInput = document.getElementById("adminToken");
 
 /* ============================================================
    HELPERS
@@ -55,13 +44,9 @@ const esc = (s) =>
   String(s ?? "").replace(
     /[&<>"']/g,
     (c) =>
-      ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;",
-      })[c],
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
+        c
+      ],
   );
 
 function parseUTC(s) {
@@ -88,10 +73,7 @@ function fmtDate(iso) {
 function fmtDateShort(iso) {
   const d = parseUTC(iso);
   if (!d) return "—";
-  return d.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-  });
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 function relTime(iso) {
@@ -147,12 +129,12 @@ function highlightJSON(data) {
 }
 
 /* ============================================================
-   HTTP LAYER
+   HTTP LAYER  (no auth — the X-Admin-Token header is gone)
    ============================================================ */
 class ApiError extends Error {
   constructor(kind, message, result) {
     super(message);
-    this.kind = kind; // 'network' | 'http' | 'config'
+    this.kind = kind; // 'network' | 'http'
     this.result = result;
   }
 }
@@ -168,23 +150,13 @@ function buildQuery(query) {
   return s ? "?" + s : "";
 }
 
-async function req(method, path, { query, body, admin = false } = {}) {
+async function req(method, path, { query, body } = {}) {
   const base = state.baseUrl.replace(/\/+$/, "");
   const url = base + path + buildQuery(query);
 
   const headers = {};
   if (body !== undefined && body !== null)
     headers["Content-Type"] = "application/json";
-  if (admin) {
-    if (!state.token) {
-      throw new ApiError(
-        "config",
-        "This endpoint requires an admin token. Set it in the top bar.",
-        null,
-      );
-    }
-    headers["X-Admin-Token"] = state.token;
-  }
 
   const t0 = performance.now();
   let res;
@@ -270,9 +242,6 @@ app.add_middleware(
 )</pre>
       </div>
     </div>`;
-  }
-  if (err.kind === "config") {
-    return `<div class="callout"><div class="ic">🔑</div><div>${esc(err.message)}</div></div>`;
   }
   const d = describeError(err.result);
   let html = `<div class="callout err"><div class="ic">✕</div><div><strong>${esc(d.title)}</strong>`;
@@ -439,9 +408,7 @@ async function loadDashboard() {
         query: { by: "points", limit: 6 },
       }),
       call("GET", "/analytics/watchlist", { query: { min_strikes: 2 } }),
-      call("GET", "/violations/recent", {
-        query: { days: 14, limit: 6 },
-      }),
+      call("GET", "/violations/recent", { query: { days: 14, limit: 6 } }),
       call("GET", "/analytics/departments"),
     ]);
 
@@ -940,7 +907,7 @@ function renderEmployeeDetail(modal, emp) {
             </div>
           </div>
           <div class="feed-meta">
-            <button class="btn sm danger" data-del-rec="${r.id}" title="Delete record (admin)">✕</button>
+            <button class="btn sm danger" data-del-rec="${r.id}" title="Delete record">✕</button>
           </div>
         </div>`,
         )
@@ -963,7 +930,7 @@ function renderEmployeeDetail(modal, emp) {
       <button class="btn danger" id="mDelete">Delete</button>
     </div>
     <div class="faint" style="font-size:11px;margin-top:10px">
-      Amnesty and Delete require an admin token. Delete cascades — it also removes every violation record.
+      Delete cascades — it also removes every violation record.
     </div>
   `;
 
@@ -1007,9 +974,7 @@ function renderEmployeeDetail(modal, emp) {
       body: `<p style="font-size:13px;color:var(--muted)">This permanently deletes <strong>every</strong> violation record for <strong>${esc(emp.full_name)}</strong>. This cannot be undone.</p>`,
       onConfirm: async () => {
         try {
-          const r = await call("DELETE", `/employees/${emp.id}/violations`, {
-            admin: true,
-          });
+          const r = await call("DELETE", `/employees/${emp.id}/violations`);
           toast("Amnesty applied", `${r.deleted} record(s) deleted`, "ok");
           closeModal();
           if (state.view === "employees") loadEmployees();
@@ -1028,7 +993,7 @@ function renderEmployeeDetail(modal, emp) {
       body: `<p style="font-size:13px;color:var(--muted)">Hard-deletes <strong>${esc(emp.full_name)}</strong> and cascades to all of their violation records. Consider <em>deactivate</em> instead.</p>`,
       onConfirm: async () => {
         try {
-          await call("DELETE", `/employees/${emp.id}`, { admin: true });
+          await call("DELETE", `/employees/${emp.id}`);
           toast("Employee deleted", emp.full_name, "ok");
           closeModal();
           if (state.view === "employees") loadEmployees();
@@ -1049,7 +1014,7 @@ function renderEmployeeDetail(modal, emp) {
         body: `<p style="font-size:13px;color:var(--muted)">This removes violation record <code>#${rid}</code>.</p>`,
         onConfirm: async () => {
           try {
-            await call("DELETE", `/violations/${rid}`, { admin: true });
+            await call("DELETE", `/violations/${rid}`);
             toast("Record deleted", `#${rid}`, "ok");
             openEmployee(emp.id);
           } catch (e) {
@@ -1063,9 +1028,7 @@ function renderEmployeeDetail(modal, emp) {
 
 async function simpleAction(method, path, okMsg, after) {
   try {
-    await call(method, path, {
-      admin: path.includes("/employees/") && method === "DELETE",
-    });
+    await call(method, path);
     toast(okMsg, "", "ok");
     if (after) after();
     if (state.view === "employees") loadEmployees();
@@ -1108,9 +1071,7 @@ function newEmployeeModal() {
             position: m.querySelector("#nePos").value.trim() || null,
           };
           try {
-            const created = await call("POST", "/employees", {
-              body: payload,
-            });
+            const created = await call("POST", "/employees", { body: payload });
             toast(
               "Employee created",
               `${created.full_name} · ${created.employee_code}`,
@@ -1176,9 +1137,7 @@ function editEmployeeModal(emp, after) {
           }
 
           try {
-            await call("PATCH", `/employees/${emp.id}`, {
-              body: payload,
-            });
+            await call("PATCH", `/employees/${emp.id}`, { body: payload });
             toast("Employee updated", emp.full_name, "ok");
             closeModal();
             if (after) after();
@@ -1480,7 +1439,7 @@ async function loadTypes() {
 
 async function typeAction(path, okMsg) {
   try {
-    await call("POST", path, { admin: true });
+    await call("POST", path);
     toast(okMsg, "", "ok");
     loadTypes();
   } catch (e) {
@@ -1497,7 +1456,7 @@ function deleteTypeFlow(t) {
     body: `<p style="font-size:13px;color:var(--muted)">Deleting <strong>${esc(t.name)}</strong> only works if no violation record references it. Otherwise the server returns <code>409</code>.</p>`,
     onConfirm: async () => {
       try {
-        await call("DELETE", `/violation-types/${t.id}`, { admin: true });
+        await call("DELETE", `/violation-types/${t.id}`);
         toast("Type deleted", t.name, "ok");
         closeModal();
         loadTypes();
@@ -1513,9 +1472,7 @@ function deleteTypeFlow(t) {
                    <p style="font-size:13px;color:var(--muted);margin-top:10px">Deactivating hides it from the issue dropdown while preserving history.</p>`,
             onConfirm: async () => {
               try {
-                await call("POST", `/violation-types/${t.id}/deactivate`, {
-                  admin: true,
-                });
+                await call("POST", `/violation-types/${t.id}/deactivate`);
                 toast("Type deactivated", t.name, "ok");
                 closeModal();
                 loadTypes();
@@ -1610,7 +1567,6 @@ function typeFormModal(existing, after) {
               }
               await call("PATCH", `/violation-types/${existing.id}`, {
                 body: payload,
-                admin: true,
               });
               toast("Type updated", name, "ok");
             } else {
@@ -1620,10 +1576,7 @@ function typeFormModal(existing, after) {
                 is_strike: strike,
               };
               if (desc) payload.description = desc;
-              await call("POST", "/violation-types", {
-                body: payload,
-                admin: true,
-              });
+              await call("POST", "/violation-types", { body: payload });
               toast("Type created", name, "ok");
             }
             closeModal();
@@ -1641,8 +1594,6 @@ function typeFormModal(existing, after) {
 /* ============================================================
    VIEW: VIOLATIONS
    ============================================================ */
-let feedDays = 30;
-
 async function renderViolations() {
   view.innerHTML = `
     <div class="page-head">
@@ -1747,9 +1698,7 @@ async function loadRecentFeed() {
           body: `<p style="font-size:13px;color:var(--muted)">Removes record <code>#${b.dataset.del}</code> permanently.</p>`,
           onConfirm: async () => {
             try {
-              await call("DELETE", `/violations/${b.dataset.del}`, {
-                admin: true,
-              });
+              await call("DELETE", `/violations/${b.dataset.del}`);
               toast("Record deleted", `#${b.dataset.del}`, "ok");
               closeModal();
               loadRecentFeed();
@@ -2223,7 +2172,6 @@ const ENDPOINTS = [
     method: "GET",
     path: "/employees",
     desc: "Search, filter and paginate employees.",
-    admin: false,
     query: {
       search: "",
       department: "",
@@ -2240,7 +2188,6 @@ const ENDPOINTS = [
     method: "GET",
     path: "/employees/by-code/:code",
     desc: "Lookup by company employee code.",
-    admin: false,
     query: {},
   },
   {
@@ -2248,7 +2195,6 @@ const ENDPOINTS = [
     method: "GET",
     path: "/employees/:employee_id/totals",
     desc: "Cheap totals for one employee.",
-    admin: false,
     query: {},
   },
   {
@@ -2256,7 +2202,6 @@ const ENDPOINTS = [
     method: "GET",
     path: "/employees/:employee_id",
     desc: "Full profile plus violation history.",
-    admin: false,
     query: {},
   },
   {
@@ -2264,7 +2209,6 @@ const ENDPOINTS = [
     method: "POST",
     path: "/employees",
     desc: "Create an employee. Status is always active.",
-    admin: false,
     body: {
       employee_code: "EMP-001",
       first_name: "Jane",
@@ -2278,13 +2222,8 @@ const ENDPOINTS = [
     method: "POST",
     path: "/employees/bulk",
     desc: "Create many. All-or-nothing — one duplicate fails the batch.",
-    admin: false,
     body: [
-      {
-        employee_code: "EMP-201",
-        first_name: "Ada",
-        last_name: "Lovelace",
-      },
+      { employee_code: "EMP-201", first_name: "Ada", last_name: "Lovelace" },
     ],
   },
   {
@@ -2292,7 +2231,6 @@ const ENDPOINTS = [
     method: "PATCH",
     path: "/employees/:employee_id",
     desc: "Partial update. null is a no-op.",
-    admin: false,
     body: { department: "Operations" },
   },
   {
@@ -2300,21 +2238,18 @@ const ENDPOINTS = [
     method: "POST",
     path: "/employees/:employee_id/deactivate",
     desc: "Soft delete — status becomes inactive.",
-    admin: false,
   },
   {
     group: "Employees",
     method: "POST",
     path: "/employees/:employee_id/reactivate",
     desc: "Undo a soft delete.",
-    admin: false,
   },
   {
     group: "Employees",
     method: "DELETE",
     path: "/employees/:employee_id",
     desc: "Hard delete. Cascades to all violation records.",
-    admin: true,
   },
 
   // ---- Violation Types ----
@@ -2323,7 +2258,6 @@ const ENDPOINTS = [
     method: "GET",
     path: "/violation-types",
     desc: "Active types only — populates the issue dropdown.",
-    admin: false,
     query: {},
   },
   {
@@ -2331,7 +2265,6 @@ const ENDPOINTS = [
     method: "GET",
     path: "/violation-types/all",
     desc: "All types including inactive.",
-    admin: false,
     query: { include_inactive: "true", only_strikes: "" },
   },
   {
@@ -2339,7 +2272,6 @@ const ENDPOINTS = [
     method: "GET",
     path: "/violation-types/:violation_type_id",
     desc: "Fetch one type.",
-    admin: false,
     query: {},
   },
   {
@@ -2347,7 +2279,6 @@ const ENDPOINTS = [
     method: "POST",
     path: "/violation-types",
     desc: "Create a violation type.",
-    admin: true,
     body: {
       name: "Late Arrival",
       description: "Arriving after shift start",
@@ -2360,7 +2291,6 @@ const ENDPOINTS = [
     method: "PATCH",
     path: "/violation-types/:violation_type_id",
     desc: "Update a type. Does not rewrite history.",
-    admin: true,
     body: { default_points: 10 },
   },
   {
@@ -2368,21 +2298,18 @@ const ENDPOINTS = [
     method: "POST",
     path: "/violation-types/:violation_type_id/activate",
     desc: "Activate a type.",
-    admin: true,
   },
   {
     group: "Violation Types",
     method: "POST",
     path: "/violation-types/:violation_type_id/deactivate",
     desc: "Deactivate a type.",
-    admin: true,
   },
   {
     group: "Violation Types",
     method: "DELETE",
     path: "/violation-types/:violation_type_id",
     desc: "Delete. 409 if referenced by records.",
-    admin: true,
   },
 
   // ---- Violation Records ----
@@ -2391,7 +2318,6 @@ const ENDPOINTS = [
     method: "POST",
     path: "/employees/:employee_id/violations",
     desc: "Issue a violation. points/is_strike are snapshotted.",
-    admin: false,
     body: {
       violation_type_id: 1,
       notes: "Third time this week",
@@ -2403,28 +2329,19 @@ const ENDPOINTS = [
     method: "GET",
     path: "/employees/:employee_id/violations",
     desc: "List one employee's violations. Bare array.",
-    admin: false,
-    query: {
-      only_strikes: "",
-      since: "",
-      until: "",
-      limit: 50,
-      offset: 0,
-    },
+    query: { only_strikes: "", since: "", until: "", limit: 50, offset: 0 },
   },
   {
     group: "Violation Records",
     method: "DELETE",
     path: "/employees/:employee_id/violations",
     desc: "Amnesty — deletes every record for the employee.",
-    admin: true,
   },
   {
     group: "Violation Records",
     method: "GET",
     path: "/violations/recent",
     desc: "Company-wide feed for the last N days.",
-    admin: false,
     query: { days: 30, only_strikes: "false", limit: 50 },
   },
   {
@@ -2432,7 +2349,6 @@ const ENDPOINTS = [
     method: "GET",
     path: "/violations/:violation_id",
     desc: "Fetch one record.",
-    admin: false,
     query: {},
   },
   {
@@ -2440,7 +2356,6 @@ const ENDPOINTS = [
     method: "PATCH",
     path: "/violations/:violation_id",
     desc: "Edit metadata only — not points or type.",
-    admin: false,
     body: { notes: "Updated note", issued_by: "Supervisor Kim" },
   },
   {
@@ -2448,7 +2363,6 @@ const ENDPOINTS = [
     method: "DELETE",
     path: "/violations/:violation_id",
     desc: "Delete one record.",
-    admin: true,
   },
 
   // ---- Analytics ----
@@ -2457,7 +2371,6 @@ const ENDPOINTS = [
     method: "GET",
     path: "/analytics/top-offenders",
     desc: "Leaderboard by points, strikes or records.",
-    admin: false,
     query: { by: "points", limit: 10 },
   },
   {
@@ -2465,7 +2378,6 @@ const ENDPOINTS = [
     method: "GET",
     path: "/analytics/departments",
     desc: "Per-department rollup.",
-    admin: false,
     query: {},
   },
   {
@@ -2473,7 +2385,6 @@ const ENDPOINTS = [
     method: "GET",
     path: "/analytics/violation-types",
     desc: "How often each type is issued.",
-    admin: false,
     query: { limit: 20 },
   },
   {
@@ -2481,7 +2392,6 @@ const ENDPOINTS = [
     method: "GET",
     path: "/analytics/activity",
     desc: "Time series. Gaps are NOT filled.",
-    admin: false,
     query: { days: 30, bucket: "day" },
   },
   {
@@ -2489,7 +2399,6 @@ const ENDPOINTS = [
     method: "GET",
     path: "/analytics/watchlist",
     desc: "Employees at or above a strike threshold.",
-    admin: false,
     query: { min_strikes: 2 },
   },
   {
@@ -2497,7 +2406,6 @@ const ENDPOINTS = [
     method: "GET",
     path: "/analytics/clean-employees",
     desc: "Violation-free employees.",
-    admin: false,
     query: { since: "" },
   },
 ];
@@ -2534,7 +2442,6 @@ function renderExplorer() {
                 return `<button class="ep-item ${key === state.explorerEp ? "active" : ""}" data-ep="${esc(key)}">
                 <span class="method ${e.method}">${e.method}</span>
                 <span class="path">${esc(e.path)}</span>
-                ${e.admin ? '<span class="lock right">🔒</span>' : ""}
               </button>`;
               })
               .join("")}
@@ -2570,7 +2477,6 @@ function renderExplorerPanel(ep) {
       <div class="card-head">
         <span class="method ${ep.method}">${ep.method}</span>
         <h3 class="mono" style="font-size:13px">${esc(ep.path)}</h3>
-        ${ep.admin ? '<span class="lock">🔒 admin only</span>' : ""}
       </div>
       <div class="card-body">
         <p class="muted" style="font-size:13px;margin-bottom:16px">${esc(ep.desc)}</p>
@@ -2687,7 +2593,6 @@ async function sendExplorer(ep) {
     const r = await req(ep.method, buildExplorerPath(ep), {
       query: exState.query,
       body,
-      admin: ep.admin,
     });
     renderExplorerResult(result, r);
   } catch (e) {
@@ -2751,8 +2656,6 @@ async function copyCurl(ep) {
   const base = state.baseUrl.replace(/\/+$/, "");
   const url = base + buildExplorerPath(ep) + buildQuery(exState.query);
   const lines = [`curl -X ${ep.method} '${url}'`];
-  if (ep.admin && state.token)
-    lines.push(`  -H 'X-Admin-Token: ${state.token}'`);
   if (ep.body !== undefined) {
     const raw = document.getElementById("exBody").value.trim();
     if (raw) {
@@ -2773,17 +2676,15 @@ async function copyCurl(ep) {
    BOOT
    ============================================================ */
 baseUrlInput.value = state.baseUrl;
-tokenInput.value = state.token;
 
 const baseModifiedEl = document.getElementById("baseModified");
 
 function refreshOverrideDot() {
-  const overriding =
-    state.baseUrl !== CONFIG.BASE_URL || state.token !== CONFIG.ADMIN_TOKEN;
+  const overriding = state.baseUrl !== CONFIG.BASE_URL;
   baseModifiedEl.classList.toggle("on", overriding);
   baseModifiedEl.title = overriding
-    ? "Overriding CONFIG defaults — click ↺ to reset"
-    : "Using CONFIG defaults";
+    ? "Overriding CONFIG.BASE_URL — click ↺ to reset"
+    : "Using CONFIG.BASE_URL";
 }
 refreshOverrideDot();
 
@@ -2792,22 +2693,14 @@ baseUrlInput.addEventListener("change", () => {
   localStorage.setItem(STORAGE_KEYS.baseUrl, state.baseUrl);
   refreshOverrideDot();
 });
-tokenInput.addEventListener("change", () => {
-  state.token = tokenInput.value;
-  localStorage.setItem(STORAGE_KEYS.token, state.token);
-  refreshOverrideDot();
-});
 
 document.getElementById("resetConfig").addEventListener("click", () => {
   state.baseUrl = CONFIG.BASE_URL;
-  state.token = CONFIG.ADMIN_TOKEN;
   localStorage.removeItem(STORAGE_KEYS.baseUrl);
-  localStorage.removeItem(STORAGE_KEYS.token);
   baseUrlInput.value = state.baseUrl;
-  tokenInput.value = state.token;
   refreshOverrideDot();
-  setStatus("", "Reset to CONFIG defaults");
-  toast("Reset to defaults", CONFIG.BASE_URL || "(same-origin)", "ok");
+  setStatus("", "Reset to CONFIG.BASE_URL");
+  toast("Reset to default", CONFIG.BASE_URL || "(same-origin)", "ok");
 });
 
 document.getElementById("pingBtn").addEventListener("click", ping);

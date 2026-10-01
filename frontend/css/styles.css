@@ -165,14 +165,11 @@ main {
   outline: none;
   font-size: 12.5px;
   font-family: var(--mono);
-  width: 190px;
+  width: 230px;
   color: var(--text);
 }
 .field input::placeholder {
   color: var(--faint);
-}
-.field.token input {
-  width: 130px;
 }
 .base-mod {
   color: var(--warn);
@@ -561,11 +558,6 @@ th.num {
 .method.DELETE {
   background: rgba(248, 113, 113, 0.15);
   color: #f87171;
-}
-.lock {
-  font-size: 11px;
-  color: var(--warn);
-  opacity: 0.9;
 }
 
 /* ---------- forms ---------- */
