@@ -1,86 +1,168 @@
 <!doctype html>
-<html>
+<html lang="en">
   <head>
-    <title>Supervisor Tracker</title>
-    <!-- Load Leaflet CSS and JS -->
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Live GPS Dashboard</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
     <link
       rel="stylesheet"
       href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
     />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <style>
-      body {
-        margin: 0;
-        padding: 20px;
-        font-family: sans-serif;
-      }
-      #map {
-        height: 600px;
-        width: 100%;
-        border-radius: 8px;
-      }
-    </style>
   </head>
-  <body>
-    <h2>Live Supervisor Route</h2>
-    <div id="map"></div>
+  <body class="bg-gray-900 text-white h-screen flex flex-col font-sans">
+    <!-- Top Control Bar -->
+    <div
+      class="bg-gray-800 p-4 shadow-lg flex flex-wrap gap-4 items-center justify-between z-10 relative"
+    >
+      <div class="flex items-center gap-4 flex-wrap">
+        <h1 class="text-xl font-bold text-blue-400">Tracker Admin</h1>
+
+        <input
+          type="text"
+          id="serverUrl"
+          placeholder="Server URL (e.g., https://...ngrok-free.app)"
+          class="bg-gray-700 text-white px-4 py-2 rounded border border-gray-600 focus:outline-none focus:border-blue-400 w-72"
+        />
+
+        <input
+          type="text"
+          id="deviceId"
+          placeholder="Device ID"
+          class="bg-gray-700 text-white px-4 py-2 rounded border border-gray-600 focus:outline-none focus:border-blue-400"
+        />
+
+        <button
+          id="trackBtn"
+          onclick="toggleTracking()"
+          class="bg-blue-600 hover:bg-blue-500 px-6 py-2 rounded font-bold transition-colors"
+        >
+          Start Tracking
+        </button>
+      </div>
+
+      <!-- Status Indicator -->
+      <div class="flex items-center gap-2 bg-gray-700 px-4 py-2 rounded">
+        <div id="statusDot" class="w-3 h-3 rounded-full bg-gray-400"></div>
+        <span id="statusText" class="font-semibold text-gray-300"
+          >Not Connected</span
+        >
+      </div>
+    </div>
+
+    <!-- The Map -->
+    <div id="map" class="flex-grow z-0"></div>
 
     <script>
-      var map = L.map("map").setView([0, 0], 2);
-
+      // 1. Initialize Map (Standard OpenStreetMap layer - no API key needed)
+      const map = L.map("map").setView([8.4803, 124.6498], 13);
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "© OpenStreetMap contributors",
+        maxZoom: 19,
+        attribution: "&copy; OpenStreetMap contributors",
       }).addTo(map);
 
-      // REMEMBER: Change this to your actual Traccar device ID
-      fetch("http://localhost:8081/route/47985355")
-        .then((response) => response.json())
-        .then((data) => {
-          if (data.path && data.path.length > 0) {
-            var coordinates = data.path.map((point) => [point.lat, point.lon]);
+      let marker = null;
+      let pollInterval = null;
+      let isTracking = false;
 
-            // 1. Draw the red line connecting the path
-            var routeLine = L.polyline(coordinates, {
-              color: "red",
-              weight: 4,
-            }).addTo(map);
+      // UI Elements
+      const trackBtn = document.getElementById("trackBtn");
+      const serverInput = document.getElementById("serverUrl");
+      const deviceInput = document.getElementById("deviceId");
+      const statusDot = document.getElementById("statusDot");
+      const statusText = document.getElementById("statusText");
 
-            // 2. Draw a small blue dot for EVERY individual ping
-            coordinates.forEach((coord) => {
-              L.circleMarker(coord, {
-                radius: 5,
-                color: "white",
-                weight: 1,
-                fillColor: "#3388ff",
-                fillOpacity: 1,
-              }).addTo(map);
-            });
+      // Load saved URL on startup
+      if (localStorage.getItem("serverUrl")) {
+        serverInput.value = localStorage.getItem("serverUrl");
+      }
 
-            // 3. Drop a standard map pin on the LAST (most recent) known location
-            var latestLocation = coordinates[coordinates.length - 1];
-            L.marker(latestLocation)
-              .addTo(map)
-              .bindPopup("Current Location")
-              .openPopup();
+      // Save URL as user types
+      serverInput.addEventListener("input", (e) => {
+        // Strip trailing slash if the user adds one to prevent duplicate slashes
+        let url = e.target.value.trim();
+        if (url.endsWith("/")) url = url.slice(0, -1);
+        localStorage.setItem("serverUrl", url);
+      });
 
-            // 4. Zoom the map correctly
-            if (coordinates.length === 1) {
-              // If there's only 1 point, zoom in on it directly
-              map.setView(latestLocation, 17);
-            } else {
-              // If there's a path, frame the whole route
-              map.fitBounds(routeLine.getBounds(), { padding: [50, 50] });
-            }
-          } else {
-            alert(
-              "Database connected, but no path array was found for this ID.",
-            );
+      function toggleTracking() {
+        if (isTracking) {
+          clearInterval(pollInterval);
+          isTracking = false;
+          trackBtn.innerText = "Start Tracking";
+          trackBtn.className =
+            "bg-blue-600 hover:bg-blue-500 px-6 py-2 rounded font-bold transition-colors";
+          updateStatus("not_connected");
+        } else {
+          if (!serverInput.value.trim() || !deviceInput.value.trim()) {
+            alert("Please enter both the Server URL and Device ID.");
+            return;
           }
-        })
-        .catch((error) => {
-          console.error("Error fetching data:", error);
-          alert("Could not connect to the backend. Is Uvicorn running?");
-        });
+
+          isTracking = true;
+          trackBtn.innerText = "Stop Tracking";
+          trackBtn.className =
+            "bg-red-600 hover:bg-red-500 px-6 py-2 rounded font-bold transition-colors";
+
+          fetchLocation();
+          pollInterval = setInterval(fetchLocation, 5000);
+        }
+      }
+
+      async function fetchLocation() {
+        // Ensure no trailing slash on the base URL
+        let baseUrl = serverInput.value.trim();
+        if (baseUrl.endsWith("/")) baseUrl = baseUrl.slice(0, -1);
+
+        const id = deviceInput.value.trim();
+
+        try {
+          // ADDED THE NGROK BYPASS HEADER HERE
+          const response = await fetch(`${baseUrl}/live/${id}`, {
+            headers: {
+              "ngrok-skip-browser-warning": "true",
+            },
+          });
+
+          const data = await response.json();
+
+          updateStatus(data.status);
+
+          if (data.status === "online") {
+            const lat = data.lat;
+            const lon = data.lon;
+
+            if (!marker) {
+              marker = L.marker([lat, lon]).addTo(map);
+            } else {
+              marker.setLatLng([lat, lon]);
+            }
+
+            map.flyTo([lat, lon], 17, { animate: true, duration: 1 });
+          }
+        } catch (error) {
+          console.error("Error fetching location:", error);
+          updateStatus("disconnected");
+        }
+      }
+      function updateStatus(status) {
+        if (status === "online") {
+          statusDot.className =
+            "w-3 h-3 rounded-full bg-green-500 animate-pulse";
+          statusText.innerText = "Online & Tracking";
+          statusText.className = "font-semibold text-green-400";
+        } else if (status === "disconnected") {
+          statusDot.className = "w-3 h-3 rounded-full bg-red-500";
+          statusText.innerText = "Offline (Lost Signal)";
+          statusText.className = "font-semibold text-red-400";
+        } else {
+          statusDot.className = "w-3 h-3 rounded-full bg-gray-400";
+          statusText.innerText = "Not Connected";
+          statusText.className = "font-semibold text-gray-300";
+        }
+      }
     </script>
   </body>
 </html>
