@@ -23,7 +23,7 @@
         <input
           type="text"
           id="serverUrl"
-          placeholder="Server URL (e.g., https://...ngrok-free.app)"
+          placeholder="Server URL (e.g., http://localhost/app3)"
           class="bg-gray-700 text-white px-4 py-2 rounded border border-gray-600 focus:outline-none focus:border-blue-400 w-72"
         />
 
@@ -67,6 +67,8 @@
       let routeLine = null;
       let pollInterval = null;
       let isTracking = false;
+      let lastLat = null;
+      let lastLon = null;
 
       // UI Elements
       const trackBtn = document.getElementById("trackBtn");
@@ -75,9 +77,11 @@
       const statusDot = document.getElementById("statusDot");
       const statusText = document.getElementById("statusText");
 
-      // Load saved URL from browser memory
+      // Load saved URL from browser memory, or default to current host + /app3
       if (localStorage.getItem("serverUrl")) {
         serverInput.value = localStorage.getItem("serverUrl");
+      } else {
+        serverInput.value = window.location.origin + "/app3";
       }
 
       serverInput.addEventListener("input", (e) => {
@@ -115,6 +119,8 @@
           }
 
           isTracking = true;
+          lastLat = null;
+          lastLon = null;
           trackBtn.innerText = "Stop Tracking";
           trackBtn.className =
             "bg-red-600 hover:bg-red-500 px-6 py-2 rounded font-bold transition-colors";
@@ -137,7 +143,7 @@
 
           fetchRouteHistory();
           fetchLocation();
-          pollInterval = setInterval(fetchLocation, 5000);
+          pollInterval = setInterval(fetchLocation, 2000);
         }
       }
 
@@ -172,15 +178,21 @@
 
           if (data.status === "online") {
             const { lat, lon } = data;
+            const moved = lat !== lastLat || lon !== lastLon;
 
             if (!marker) {
               marker = L.marker([lat, lon]).addTo(map);
-            } else {
+            } else if (moved) {
               marker.setLatLng([lat, lon]);
             }
 
-            fetchRouteHistory(); // redraw the trail from the filtered data
-            map.panTo([lat, lon], { animate: true, duration: 0.5 });
+            // Only redraw route and pan camera if the filtered position actually changed
+            if (moved) {
+              lastLat = lat;
+              lastLon = lon;
+              fetchRouteHistory();
+              map.panTo([lat, lon], { animate: true, duration: 0.5 });
+            }
           }
         } catch (error) {
           console.error("Error fetching location:", error);

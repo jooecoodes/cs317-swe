@@ -1,4 +1,4 @@
-import math, time, datetime
+import math, time, datetime, statistics
 import threading
 
 from pathlib import Path
@@ -11,7 +11,16 @@ from sqlalchemy import create_engine, Column, Integer, BigInteger, Float, String
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 TZ = ZoneInfo("Asia/Manila")
-MAX_ACC, MAX_SPEED, GAP, MIN_MOVE, MAX_REJECTS = 25, 70, 60, 8, 5
+
+# ---------- Anti-Jitter Settings ----------
+MAX_ACC = 25          # Reject GPS fixes with accuracy radius worse than 25m
+MAX_SPEED = 55        # Reject sudden teleports faster than 55 m/s (~200 km/h)
+GAP = 60              # Start a new route segment if offline > 60s
+MIN_MOVE = 12         # Minimum movement (meters) to leave stationary state
+ACC_MULTIPLIER = 1.5  # Require movement > 1.5x reported GPS error radius
+CONFIRM_COUNT = 3     # Consecutive points required to break out of stationary state
+MAX_REJECTS = 5       # Consecutive high-speed points required to accept a large jump
+
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "tracking.db"
 
@@ -51,23 +60,22 @@ def day_start():
 gps_service = FastAPI()
 gps_service.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-state = {}  # device_id -> {lat, lon, ts (last accepted), seen (last point seen), seg, rejects}
+state = {}  # device_id -> {lat, lon, ts, seen, seg, rejects, moving, pending, window}
 live = {}   # device_id -> {lat, lon, last_seen}
 
-# daily reset: wipe old points on startup
 def purge():
     with SessionLocal() as db:
         n = db.query(TrackPoint).filter(TrackPoint.ts < day_start()).delete()
         db.commit()
     if n:
-        state.clear()  # forget yesterday's last points, so each device restarts at segment 0
+        state.clear()
 
 def purge_loop():
     while True:
-        time.sleep(3600)  # check hourly
+        time.sleep(3600)
         purge()
 
-purge()  # on startup
+purge()
 threading.Thread(target=purge_loop, daemon=True).start()
 
 class Point(BaseModel):
@@ -86,10 +94,13 @@ def haversine(a, b, c, d):
     return 12742000 * math.asin(math.sqrt(h))
 
 def load_state(db, dev):
-    if dev not in state:  # rebuild after a server restart
+    if dev not in state:
         last = db.query(TrackPoint).filter_by(device_id=dev).order_by(TrackPoint.ts.desc()).first()
-        state[dev] = {"lat": last.lat, "lon": last.lon, "ts": last.ts, "seen": last.ts,
-                      "seg": last.segment, "rejects": 0} if last else None
+        state[dev] = {
+            "lat": last.lat, "lon": last.lon, "ts": last.ts, "seen": last.ts,
+            "seg": last.segment, "rejects": 0, "moving": False,
+            "pending": [], "window": [(last.lat, last.lon)]
+        } if last else None
     return state[dev]
 
 
@@ -103,28 +114,82 @@ def receive(batch: Batch, db=Depends(get_db)):
     rows = []
 
     for p in sorted(batch.points, key=lambda p: p.ts):
-        if p.acc is not None and p.acc > MAX_ACC:
-            continue                                   # unreliable fix
-        if s is None:
-            s = {"seg": 0, "rejects": 0}               # first point ever
-        elif p.ts <= s["seen"]:
+        if s is not None and p.ts <= s["seen"]:
             continue                                   # duplicate / out of order
-        else:
-            gap = p.ts - s["seen"]
-            s["seen"] = p.ts                           # device is alive either way
-            d = haversine(s["lat"], s["lon"], p.lat, p.lon)
-            if gap > GAP:
-                s["seg"] += 1                          # was offline -> new segment
-            elif d / max(p.ts - s["ts"], 1) > MAX_SPEED:
-                s["rejects"] += 1
-                if s["rejects"] < MAX_REJECTS:
-                    continue                           # teleport spike
-                s["seg"] += 1                          # jump is real -> new segment
-            elif d < max(MIN_MOVE, p.acc or 0):
-                continue                               # standing still / jitter
 
-        s.update(lat=p.lat, lon=p.lon, ts=p.ts, seen=p.ts, rejects=0)
-        rows.append(TrackPoint(device_id=batch.id, ts=p.ts, lat=p.lat, lon=p.lon, segment=s["seg"]))
+        if p.acc is not None and p.acc > MAX_ACC:
+            if s is not None:
+                s["seen"] = p.ts
+            continue                                   # unreliable fix
+
+        if s is None:
+            s = {
+                "lat": p.lat, "lon": p.lon, "ts": p.ts, "seen": p.ts,
+                "seg": 0, "rejects": 0, "moving": False,
+                "pending": [], "window": [(p.lat, p.lon)]
+            }
+            rows.append(TrackPoint(device_id=batch.id, ts=p.ts, lat=p.lat, lon=p.lon, segment=0))
+            continue
+
+        gap = p.ts - s["seen"]
+        s["seen"] = p.ts
+        d = haversine(s["lat"], s["lon"], p.lat, p.lon)
+        dt = max(p.ts - s["ts"], 1)
+
+        # 1. Stationary / Jitter check
+        jitter_radius = max(MIN_MOVE, (p.acc or 10) * ACC_MULTIPLIER)
+        if d < jitter_radius:
+            s["rejects"] = 0
+            s["moving"] = False
+            s["pending"].clear()
+            continue                                   # standing still / jitter
+
+        # 2. Speed spike / teleport check
+        if d / dt > MAX_SPEED and gap <= GAP:
+            s["rejects"] += 1
+            if s["rejects"] < MAX_REJECTS:
+                continue
+            s["seg"] += 1
+            s["moving"] = True
+            s["pending"].clear()
+            s["window"].clear()
+        elif not s["moving"]:
+            # 3. Accumulate points in pending buffer to confirm movement
+            s["pending"].append((p.lat, p.lon, p.ts))
+            if len(s["pending"]) < CONFIRM_COUNT:
+                continue
+            drift_span = haversine(s["pending"][0][0], s["pending"][0][1], p.lat, p.lon)
+            if drift_span < MIN_MOVE:
+                s["pending"].pop(0)
+                continue
+            # Movement confirmed! Clear window and flush pending points cleanly
+            s["moving"] = True
+            s["window"].clear()
+            pending_pts = list(s["pending"])
+            s["pending"].clear()
+            for lat_p, lon_p, ts_p in pending_pts:
+                s["window"].append((lat_p, lon_p))
+                if len(s["window"]) > 3:
+                    s["window"].pop(0)
+                sm_lat = statistics.median(pt[0] for pt in s["window"])
+                sm_lon = statistics.median(pt[1] for pt in s["window"])
+                s.update(lat=sm_lat, lon=sm_lon, ts=ts_p, seen=ts_p, rejects=0)
+                rows.append(TrackPoint(device_id=batch.id, ts=ts_p, lat=sm_lat, lon=sm_lon, segment=s["seg"]))
+            continue
+
+        if gap > GAP:
+            s["seg"] += 1
+            s["window"].clear()
+
+        # 4. Smooth coordinates with a 3-point rolling median
+        s["window"].append((p.lat, p.lon))
+        if len(s["window"]) > 3:
+            s["window"].pop(0)
+        smooth_lat = statistics.median(pt[0] for pt in s["window"])
+        smooth_lon = statistics.median(pt[1] for pt in s["window"])
+
+        s.update(lat=smooth_lat, lon=smooth_lon, ts=p.ts, seen=p.ts, rejects=0)
+        rows.append(TrackPoint(device_id=batch.id, ts=p.ts, lat=smooth_lat, lon=smooth_lon, segment=s["seg"]))
 
     state[batch.id] = s
     if rows:
