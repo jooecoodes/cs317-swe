@@ -1,0 +1,7 @@
+services:
+  nginx:
+    ports:
+      - "8081:80"
+  auth:
+    environment:
+      - AUTH_COOKIE_SECURE=0
