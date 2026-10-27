@@ -2,6 +2,7 @@ x-app: &app
   build: .
   image: backend
   working_dir: /app
+  restart: unless-stopped
   environment:
     - TZ=Asia/Manila
   volumes:
@@ -25,19 +26,26 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./frontend:/usr/share/nginx/html:ro
-    depends_on: [app1, app2, app3]
+    depends_on: [app1, app2, app3, auth]
+
+  auth:
+    <<: *app
+    environment:
+      - TZ=Asia/Manila
+      - AUTH_COOKIE_SECURE=${AUTH_COOKIE_SECURE:-1}
+    command: uv run --no-sync uvicorn auth.main:auth_app --host 0.0.0.0 --port 8000 --proxy-headers --root-path /auth
 
   app1:
     <<: *app
-    command: uv run --no-sync uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --proxy-headers --root-path /app1
+    command: uv run --no-sync uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers 
 
   app2:
     <<: *app
-    command: uv run --no-sync uvicorn pt_service.main:pt_app --host 0.0.0.0 --port 8000 --reload --proxy-headers --root-path /app2
+    command: uv run --no-sync uvicorn pt_service.main:pt_app --host 0.0.0.0 --port 8000 --proxy-headers 
 
   app3:
     <<: *app
-    command: uv run --no-sync uvicorn gps_service.main:gps_service --host 0.0.0.0 --port 8000 --reload --proxy-headers --root-path /app3
+    command: uv run --no-sync uvicorn gps_service.main:gps_service --host 0.0.0.0 --port 8000 --proxy-headers 
 
 volumes:
   caddy_data:
