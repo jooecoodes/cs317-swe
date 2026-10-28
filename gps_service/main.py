@@ -12,13 +12,17 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 
 TZ = ZoneInfo("Asia/Manila")
 
-# ---------- Anti-Jitter Settings ----------
+# ---------- Anti-Jitter Settings (Tuned for Real Android GPS) ----------
 MAX_ACC = 25          # Reject GPS fixes with accuracy radius worse than 25m
 MAX_SPEED = 55        # Reject sudden teleports faster than 55 m/s (~200 km/h)
 GAP = 60              # Start a new route segment if offline > 60s
-MIN_MOVE = 12         # Minimum movement (meters) to leave stationary state
-ACC_MULTIPLIER = 1.5  # Require movement > 1.5x reported GPS error radius
-CONFIRM_COUNT = 3     # Consecutive points required to break out of stationary state
+MIN_MOVE = 15         # Stationary deadzone radius (meters) while stopped
+BREAKOUT_DIST = 20    # Final confirmation point must be >= 20m from stationary anchor
+MOVE_MIN_STEP = 4     # Ignore micro-wobbles (< 4m) even when already in moving state
+ACC_MULTIPLIER = 1.8  # Require movement > 1.8x reported GPS error radius
+CONFIRM_COUNT = 3     # Consecutive outward points required to unlock movement
+MIN_STRAIGHTNESS = 0.75 # Net distance / total path length ratio to reject zig-zag drift
+WINDOW_SIZE = 5       # 5-point rolling median filter for smooth real-world paths
 MAX_REJECTS = 5       # Consecutive high-speed points required to accept a large jump
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -93,6 +97,19 @@ def haversine(a, b, c, d):
     h = math.sin((p2 - p1) / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(math.radians(d - b) / 2) ** 2
     return 12742000 * math.asin(math.sqrt(h))
 
+def is_coherent_breakout(anchor_lat, anchor_lon, pts):
+    """Verify that pending points move steadily outward in a consistent direction (not indoor zig-zag jitter)."""
+    dists = [haversine(anchor_lat, anchor_lon, pt[0], pt[1]) for pt in pts]
+    # 1. Must end beyond BREAKOUT_DIST and move progressively further from anchor
+    if dists[-1] < BREAKOUT_DIST or not all(dists[i] < dists[i + 1] for i in range(len(dists) - 1)):
+        return False
+    # 2. Check straightness ratio (net displacement / total path steps)
+    step_sum = sum(haversine(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1]) for i in range(len(pts) - 1))
+    if step_sum < 1.0:
+        return False
+    net_span = haversine(pts[0][0], pts[0][1], pts[-1][0], pts[-1][1])
+    return (net_span / step_sum) >= MIN_STRAIGHTNESS
+
 def load_state(db, dev):
     if dev not in state:
         last = db.query(TrackPoint).filter_by(device_id=dev).order_by(TrackPoint.ts.desc()).first()
@@ -138,11 +155,16 @@ def receive(batch: Batch, db=Depends(get_db)):
 
         # 1. Stationary / Jitter check
         jitter_radius = max(MIN_MOVE, (p.acc or 10) * ACC_MULTIPLIER)
-        if d < jitter_radius:
+        if not s["moving"] and d < jitter_radius:
             s["rejects"] = 0
+            s["pending"].clear()
+            continue                                   # standing still inside anchor radius
+
+        # If already moving, drop tiny micro-wobbles (< 4m) or switch back to stationary if stopped
+        if s["moving"] and d < MOVE_MIN_STEP:
             s["moving"] = False
             s["pending"].clear()
-            continue                                   # standing still / jitter
+            continue
 
         # 2. Speed spike / teleport check
         if d / dt > MAX_SPEED and gap <= GAP:
@@ -154,22 +176,22 @@ def receive(batch: Batch, db=Depends(get_db)):
             s["pending"].clear()
             s["window"].clear()
         elif not s["moving"]:
-            # 3. Accumulate points in pending buffer to confirm movement
+            # 3. Accumulate points in pending buffer to confirm genuine directional movement
             s["pending"].append((p.lat, p.lon, p.ts))
+            if len(s["pending"]) > CONFIRM_COUNT:
+                s["pending"].pop(0)
             if len(s["pending"]) < CONFIRM_COUNT:
                 continue
-            drift_span = haversine(s["pending"][0][0], s["pending"][0][1], p.lat, p.lon)
-            if drift_span < MIN_MOVE:
-                s["pending"].pop(0)
+            if not is_coherent_breakout(s["lat"], s["lon"], s["pending"]):
                 continue
             # Movement confirmed! Clear window and flush pending points cleanly
             s["moving"] = True
-            s["window"].clear()
+            s["window"] = [(s["lat"], s["lon"])]
             pending_pts = list(s["pending"])
             s["pending"].clear()
             for lat_p, lon_p, ts_p in pending_pts:
                 s["window"].append((lat_p, lon_p))
-                if len(s["window"]) > 3:
+                if len(s["window"]) > WINDOW_SIZE:
                     s["window"].pop(0)
                 sm_lat = statistics.median(pt[0] for pt in s["window"])
                 sm_lon = statistics.median(pt[1] for pt in s["window"])
@@ -181,9 +203,9 @@ def receive(batch: Batch, db=Depends(get_db)):
             s["seg"] += 1
             s["window"].clear()
 
-        # 4. Smooth coordinates with a 3-point rolling median
+        # 4. Smooth coordinates with a 5-point rolling median
         s["window"].append((p.lat, p.lon))
-        if len(s["window"]) > 3:
+        if len(s["window"]) > WINDOW_SIZE:
             s["window"].pop(0)
         smooth_lat = statistics.median(pt[0] for pt in s["window"])
         smooth_lon = statistics.median(pt[1] for pt in s["window"])

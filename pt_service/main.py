@@ -2,11 +2,12 @@ import os
 import re
 import uuid
 import datetime
-import shutil
 from typing import List, Optional
 from pathlib import Path
 
-from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, Query
+from fastapi import (
+    FastAPI, UploadFile, File, Form, Depends, HTTPException, Query, Header,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
@@ -26,6 +27,9 @@ BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "photos.db"
 UPLOAD_DIR = BASE_DIR / "uploads"
 
+# Set REQUIRE_ACTOR=0 only for standalone dev without nginx.
+REQUIRE_ACTOR = os.getenv("REQUIRE_ACTOR", "1") == "1"
+
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 engine = create_engine(
@@ -42,19 +46,19 @@ class PhotoRecord(Base):
     __tablename__ = "photo_records"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(String, index=True, nullable=False)
+    owner_name = Column(String, index=True, nullable=False)  # username at upload time
 
     # --- file info -------------------------------------------------------
-    filename = Column(String)              # name on disk (inside uploads/)
+    filename = Column(String)                  # name on disk (inside uploads/)
     filepath = Column(String, nullable=False)  # "uploads/<filename>"
-    original_filename = Column(String)     # what the client uploaded
+    original_filename = Column(String)         # what the client uploaded
     content_type = Column(String)
     size_bytes = Column(BigInteger)
 
     # --- editable metadata ----------------------------------------------
-    display_name = Column(String)          # user-facing title
+    display_name = Column(String)              # user-facing title
     description = Column(String)
-    tags = Column(String)                  # comma-separated
+    tags = Column(String)                      # comma-separated
 
     # --- timestamps -------------------------------------------------------
     timestamp = Column(DateTime, default=datetime.datetime.now, index=True)
@@ -73,6 +77,15 @@ def ensure_schema() -> None:
         if not rows:
             return
         existing = {row[1] for row in rows}
+
+        # Old schema: the owner was stored in a column called user_id.
+        # Rename it to owner_name. Runs only once.
+        if "owner_name" not in existing and "user_id" in existing:
+            conn.execute(
+                text("ALTER TABLE photo_records RENAME COLUMN user_id TO owner_name")
+            )
+            existing.discard("user_id")
+            existing.add("owner_name")
 
         new_columns = {
             "filename": "VARCHAR",
@@ -119,7 +132,7 @@ ensure_schema()
 # ---------------------------------------------------------------------------
 class PhotoOut(BaseModel):
     id: int
-    user_id: str
+    owner: str
     filename: Optional[str] = None
     original_filename: Optional[str] = None
     display_name: Optional[str] = None
@@ -141,11 +154,11 @@ class PhotoListResponse(BaseModel):
 
 
 class PhotoUpdate(BaseModel):
-    """Every field is optional — only what you send gets changed."""
+    """Every field is optional, only what you send gets changed.
+    Unknown fields (like an old client's user_id) are ignored."""
     display_name: Optional[str] = Field(None, max_length=255)
     description: Optional[str] = Field(None, max_length=2000)
     tags: Optional[List[str]] = None
-    user_id: Optional[str] = Field(None, max_length=120)
 
 
 class RenameRequest(BaseModel):
@@ -194,7 +207,7 @@ def dump_tags(tags: Optional[List[str]]) -> Optional[str]:
 def serialize(photo: PhotoRecord) -> dict:
     return {
         "id": photo.id,
-        "user_id": photo.user_id,
+        "owner": photo.owner_name,
         "filename": photo.filename,
         "original_filename": photo.original_filename,
         "display_name": photo.display_name
@@ -222,6 +235,7 @@ def resolve_stored_path(photo: PhotoRecord) -> str:
     if not full.is_file():
         raise HTTPException(status_code=410, detail="Photo file is missing from disk")
     return str(full)
+
 
 def get_photo_or_404(db: Session, photo_id: int) -> PhotoRecord:
     photo = db.get(PhotoRecord, photo_id)
@@ -269,7 +283,7 @@ def delete_file_on_disk(photo: PhotoRecord) -> Optional[str]:
 # ---------------------------------------------------------------------------
 # App
 # ---------------------------------------------------------------------------
-pt_app = FastAPI(title="Photo Upload API", version="2.0.0")
+pt_app = FastAPI(title="Photo Upload API", version="2.1.0")
 
 pt_app.add_middleware(
     CORSMiddleware,
@@ -288,17 +302,28 @@ def get_db():
         db.close()
 
 
+def get_actor(x_actor: Optional[str] = Header(None)) -> str:
+    """The verified username, stamped by nginx from the login session.
+    Clients can't fake it as long as nginx is the only way in."""
+    actor = (x_actor or "").strip()
+    if not actor:
+        if REQUIRE_ACTOR:
+            raise HTTPException(status_code=401, detail="Missing X-Actor header")
+        return "anonymous"
+    return actor[:120]
+
+
 # ---------------------------------------------------------------------------
-# Camera and UI page
+# Camera and UI pages
 # ---------------------------------------------------------------------------
 @pt_app.get("/camera")
 async def serve_camera_app():
     return FileResponse(BASE_DIR / "camera.html")
 
-@pt_app.get("/ui")
-async def serve_camera_app():
-    return FileResponse(BASE_DIR / "ui.html")
 
+@pt_app.get("/ui")
+async def serve_ui_app():
+    return FileResponse(BASE_DIR / "ui.html")
 
 
 # ---------------------------------------------------------------------------
@@ -306,17 +331,14 @@ async def serve_camera_app():
 # ---------------------------------------------------------------------------
 @pt_app.post("/upload", response_model=PhotoOut, status_code=201)
 async def upload_photo(
-    user_id: str = Form(...),
     file: UploadFile = File(...),
+    user_id: Optional[str] = Form(None),  # ignored, kept so old clients don't break
     display_name: Optional[str] = Form(None),
     description: Optional[str] = Form(None),
     tags: Optional[str] = Form(None),  # comma-separated
+    actor: str = Depends(get_actor),
     db: Session = Depends(get_db),
 ):
-    user_id = (user_id or "").strip()
-    if not user_id:
-        raise HTTPException(status_code=422, detail="user_id is required")
-
     original_name = file.filename or "photo.jpg"
     ext = os.path.splitext(original_name)[1].lower()
     if ext not in ALLOWED_EXTENSIONS:
@@ -330,7 +352,7 @@ async def upload_photo(
 
     timestamp_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     stored_name = (
-        f"{safe_component(user_id, 'user')}_{timestamp_str}_"
+        f"{safe_component(actor, 'user')}_{timestamp_str}_"
         f"{uuid.uuid4().hex[:8]}{ext}"
     )
     file_location = f"{UPLOAD_DIR}/{stored_name}"
@@ -338,7 +360,7 @@ async def upload_photo(
     size = save_upload(file, file_location, MAX_UPLOAD_BYTES)
 
     record = PhotoRecord(
-        user_id=user_id,
+        owner_name=actor,
         filename=stored_name,
         filepath=f"uploads/{stored_name}",
         original_filename=original_name,
@@ -361,7 +383,7 @@ async def upload_photo(
 # ---------------------------------------------------------------------------
 @pt_app.get("/photos", response_model=PhotoListResponse)
 def list_photos(
-    user_id: Optional[str] = Query(None, description="Filter by owner"),
+    owner: Optional[str] = Query(None, description="Filter by owner name"),
     q: Optional[str] = Query(None, description="Search name/description/tags"),
     tag: Optional[str] = Query(None, description="Filter by a single tag"),
     limit: int = Query(50, ge=1, le=200),
@@ -371,8 +393,8 @@ def list_photos(
     db: Session = Depends(get_db),
 ):
     filters = []
-    if user_id:
-        filters.append(PhotoRecord.user_id == user_id)
+    if owner:
+        filters.append(PhotoRecord.owner_name == owner)
     if tag:
         filters.append(PhotoRecord.tags.ilike(f"%{tag}%"))
     if q:
@@ -413,10 +435,10 @@ def list_photos(
 # ---------------------------------------------------------------------------
 @pt_app.get("/stats")
 def get_stats(
-    user_id: Optional[str] = Query(None),
+    owner: Optional[str] = Query(None),
     db: Session = Depends(get_db),
 ):
-    filters = [PhotoRecord.user_id == user_id] if user_id else []
+    filters = [PhotoRecord.owner_name == owner] if owner else []
     total = db.query(func.count(PhotoRecord.id)).filter(*filters).scalar() or 0
     total_bytes = (
         db.query(func.coalesce(func.sum(PhotoRecord.size_bytes), 0))
@@ -425,7 +447,7 @@ def get_stats(
         or 0
     )
     distinct_users = (
-        db.query(func.count(func.distinct(PhotoRecord.user_id))).scalar() or 0
+        db.query(func.count(func.distinct(PhotoRecord.owner_name))).scalar() or 0
     )
     return {
         "total_photos": total,
@@ -473,7 +495,7 @@ def get_photo(photo_id: int, db: Session = Depends(get_db)):
 # ---------------------------------------------------------------------------
 @pt_app.get("/photos/{photo_id}/file")
 def get_photo_file(photo_id: int, db: Session = Depends(get_db)):
-    """Inline image — good for <img src="...">."""
+    """Inline image, good for <img src="...">."""
     photo = get_photo_or_404(db, photo_id)
     path = resolve_stored_path(photo)
     return FileResponse(
@@ -506,16 +528,11 @@ def download_photo(photo_id: int, db: Session = Depends(get_db)):
 def update_photo(
     photo_id: int,
     payload: PhotoUpdate,
+    actor: str = Depends(get_actor),
     db: Session = Depends(get_db),
 ):
     photo = get_photo_or_404(db, photo_id)
     data = payload.model_dump(exclude_unset=True)
-
-    if "user_id" in data:
-        new_user = (data["user_id"] or "").strip()
-        if not new_user:
-            raise HTTPException(status_code=422, detail="user_id cannot be empty")
-        photo.user_id = new_user
 
     if "display_name" in data:
         new_name = (data["display_name"] or "").strip()
@@ -544,6 +561,7 @@ def update_photo(
 def rename_photo(
     photo_id: int,
     payload: RenameRequest,
+    actor: str = Depends(get_actor),
     db: Session = Depends(get_db),
 ):
     photo = get_photo_or_404(db, photo_id)
@@ -557,7 +575,7 @@ def rename_photo(
 
         ext = os.path.splitext(photo.filename or old_path)[1].lower() or ".jpg"
         stem = safe_component(new_display, "photo")
-        owner = safe_component(photo.user_id, "user")
+        owner = safe_component(photo.owner_name, "user")
         new_filename = f"{owner}_{stem}_{uuid.uuid4().hex[:6]}{ext}"
         new_path = f"{UPLOAD_DIR}/{new_filename}"
 
@@ -582,7 +600,11 @@ def rename_photo(
 # DELETE
 # ---------------------------------------------------------------------------
 @pt_app.delete("/photos/{photo_id}", response_model=DeleteResponse)
-def delete_photo(photo_id: int, db: Session = Depends(get_db)):
+def delete_photo(
+    photo_id: int,
+    actor: str = Depends(get_actor),
+    db: Session = Depends(get_db),
+):
     photo = get_photo_or_404(db, photo_id)
     missing = delete_file_on_disk(photo)
     db.delete(photo)

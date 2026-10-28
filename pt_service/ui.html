@@ -139,6 +139,11 @@
         margin-left: auto;
         display: flex;
         gap: 8px;
+        align-items: center;
+      }
+      .actor-input {
+        width: 132px;
+        font-size: 0.8rem;
       }
 
       /* ============================================================
@@ -468,6 +473,8 @@
         );
         color: var(--muted);
         font-size: 0.72rem;
+        text-align: center;
+        padding: 8px;
       }
       .broken-glyph {
         font-size: 1.3rem;
@@ -873,13 +880,21 @@
         <span class="logo">◈</span>
         <div>
           <h1>Photo Library</h1>
-          <p class="muted small">Photo API v2</p>
+          <p class="muted small">Photo API v2.1</p>
         </div>
       </div>
 
       <div class="stats" id="stats"></div>
 
       <div class="topbar-actions">
+        <input
+          id="actorInput"
+          class="input actor-input"
+          type="text"
+          placeholder="Acting as…"
+          autocomplete="off"
+          title="Sent as X-Actor on write requests. Nginx overrides this in production; needed for standalone/dev."
+        />
         <a class="btn ghost" href="/camera">Camera</a>
       </div>
     </header>
@@ -899,7 +914,7 @@
             id="ownerFilter"
             class="input"
             type="text"
-            placeholder="Owner (user_id)"
+            placeholder="Owner"
             autocomplete="off"
             style="width: 170px"
           />
@@ -977,22 +992,13 @@
 
           <div class="upload-fields">
             <div class="field">
-              <label class="field-label" for="upUser">Owner (user_id) *</label>
-              <input
-                id="upUser"
-                class="input"
-                placeholder="alice"
-                autocomplete="off"
-                required
-              />
-            </div>
-            <div class="field">
               <label class="field-label" for="upName">Display name</label>
               <input
                 id="upName"
                 class="input"
                 placeholder="Beach sunset"
                 autocomplete="off"
+                maxlength="255"
               />
             </div>
             <div class="field">
@@ -1002,6 +1008,7 @@
                 class="input"
                 rows="2"
                 placeholder="Optional"
+                maxlength="2000"
               ></textarea>
             </div>
             <div class="field">
@@ -1109,6 +1116,12 @@
           "heic",
         ];
 
+        // X-Actor — required by all mutating endpoints. In prod, nginx stamps
+        // it from the login session, so this stays empty. For standalone/dev,
+        // set it via the "Acting as" field (persisted to localStorage).
+        // Never sent on GET/HEAD.
+        let actor = localStorage.getItem("photoActor") || "";
+
         /* ============================================================
      DOM HELPERS
      ============================================================ */
@@ -1161,7 +1174,7 @@
           limit: 50,
           offset: 0,
           q: "",
-          user_id: "",
+          owner: "",
           tag: "",
           sort_by: "timestamp",
           order: "desc",
@@ -1181,12 +1194,22 @@
 
         /**
          * Single choke point for every request.
-         * Non-2xx -> Error with `.status` and the backend's `detail` as the message.
+         * - Injects `X-Actor` on every non-GET request (when set).
+         * - Non-2xx -> Error with `.status` and a readable message.
+         * - Handles FastAPI's `{detail: [{msg}]}` validation shape.
          */
         async function api(path, options = {}) {
+          const opts = Object.assign({}, options);
+          const method = (opts.method || "GET").toUpperCase();
+          if (method !== "GET" && method !== "HEAD" && actor) {
+            opts.headers = Object.assign({}, opts.headers, {
+              "X-Actor": actor,
+            });
+          }
+
           let res;
           try {
-            res = await fetch(absUrl(path), options);
+            res = await fetch(absUrl(path), opts);
           } catch (netErr) {
             const err = new Error("Network error — is the backend reachable?");
             err.status = 0;
@@ -1198,13 +1221,24 @@
             try {
               const data = await res.json();
               if (data && data.detail != null) {
-                detail =
-                  typeof data.detail === "string"
-                    ? data.detail
-                    : JSON.stringify(data.detail);
+                if (typeof data.detail === "string") {
+                  detail = data.detail;
+                } else if (Array.isArray(data.detail)) {
+                  // FastAPI 422: [{loc, msg, type}, ...]
+                  detail = data.detail
+                    .map((e) => (e && e.msg ? e.msg : JSON.stringify(e)))
+                    .join("; ");
+                } else {
+                  detail = JSON.stringify(data.detail);
+                }
               }
             } catch (_) {
               /* body wasn't JSON — keep the generic message */
+            }
+
+            if (res.status === 401) {
+              detail +=
+                ' — set "Acting as" above (dev) or check nginx X-Actor (prod).';
             }
 
             const err = new Error(detail);
@@ -1218,17 +1252,20 @@
         }
 
         /**
-         * Cache-busting image URL.
-         * The file endpoint is cached for an hour and the URL is ID-based,
-         * so it never changes when the file is renamed on disk.
-         * `?v=updated_at` forces a fresh fetch after every mutation.
+         * Inline image URL. The file route is ID-based and cached for 1h.
+         * Bytes never change for a given id, so no cache-busting is needed.
          */
         function fileUrl(photo) {
-          const base = absUrl(photo.url || "/photos/" + photo.id + "/file");
-          const v = encodeURIComponent(
-            photo.updated_at || photo.timestamp || "",
+          return absUrl(photo.url || "/photos/" + photo.id + "/file");
+        }
+
+        /** HEIC is accepted server-side but most browsers can't render it. */
+        function looksHeic(photo) {
+          return (
+            /heic/i.test(photo.content_type || "") ||
+            /\.heic$/i.test(photo.filename || "") ||
+            /\.heic$/i.test(photo.original_filename || "")
           );
-          return base + (base.includes("?") ? "&" : "?") + "v=" + v;
         }
 
         /* ============================================================
@@ -1252,7 +1289,7 @@
           }
         }
 
-        /** `missing_files` is non-fatal — log it, mention it quietly, never alarm the user. */
+        /** `missing_files` is non-fatal — log it, mention it quietly. */
         function noteMissing(missing) {
           if (!Array.isArray(missing) || missing.length === 0) return;
           console.warn(
@@ -1332,7 +1369,7 @@
         async function loadPhotos() {
           const p = new URLSearchParams();
           if (state.q) p.set("q", state.q);
-          if (state.user_id) p.set("user_id", state.user_id);
+          if (state.owner) p.set("owner", state.owner);
           if (state.tag) p.set("tag", state.tag);
           p.set("limit", state.limit);
           p.set("offset", state.offset);
@@ -1409,6 +1446,7 @@
 
           // --- thumbnail ---
           const media = el("div", "card-media");
+          const heic = looksHeic(photo);
           const img = new Image();
           img.className = "thumb";
           img.loading = "lazy";
@@ -1416,10 +1454,17 @@
           img.alt = photo.display_name || photo.original_filename || "";
           img.src = fileUrl(photo);
           img.addEventListener("error", () => {
-            // Covers 410 Gone and any other load failure: broken-image placeholder.
+            // Covers 410 Gone, HEIC-in-unsupported-browser, and any other
+            // load failure.
             const ph = el("div", "thumb thumb-broken");
-            ph.appendChild(el("span", "broken-glyph", "⚠"));
-            ph.appendChild(el("small", null, "File unavailable"));
+            ph.appendChild(el("span", "broken-glyph", heic ? "🖼" : "⚠"));
+            ph.appendChild(
+              el(
+                "small",
+                null,
+                heic ? "No preview — use Download" : "File unavailable",
+              ),
+            );
             img.replaceWith(ph);
           });
           media.appendChild(img);
@@ -1437,7 +1482,7 @@
             el(
               "p",
               "card-sub",
-              (photo.user_id ?? "—") + " · " + formatBytes(photo.size_bytes),
+              (photo.owner ?? "—") + " · " + formatBytes(photo.size_bytes),
             ),
           );
 
@@ -1506,10 +1551,23 @@
               body: JSON.stringify({ ids }),
             });
             noteMissing(res && res.missing_files);
-            toast(
-              "Deleted " + ((res && res.deleted) ?? ids.length) + " photo(s)",
-              "success",
-            );
+
+            const deleted = (res && res.deleted) ?? ids.length;
+            if (deleted < ids.length) {
+              toast(
+                "Deleted " +
+                  deleted +
+                  " of " +
+                  ids.length +
+                  " — " +
+                  (ids.length - deleted) +
+                  " not found.",
+                "warn",
+              );
+            } else {
+              toast("Deleted " + deleted + " photo(s)", "success");
+            }
+
             state.selected.clear();
             renderBulkBar();
             await Promise.all([loadPhotos(), loadStats()]);
@@ -1589,6 +1647,7 @@
           // ---- media ----
           const media = $("#modalMedia");
           media.innerHTML = "";
+          const heic = looksHeic(photo);
           const img = new Image();
           img.className = "modal-img";
           img.alt = photo.display_name || "";
@@ -1596,20 +1655,36 @@
           img.addEventListener("error", () => {
             media.innerHTML = "";
             const box = el("div", "broken-box");
-            box.appendChild(el("div", "broken-icon", "⚠"));
-            box.appendChild(el("p", null, "This file is missing from disk."));
-            box.appendChild(
-              el(
-                "p",
-                "small muted",
-                "The record still exists, but the image can't be loaded.",
-              ),
-            );
-            box.appendChild(
-              btn("Remove from library", "btn danger", () =>
-                deletePhoto(photo.id, { skipConfirm: false }),
-              ),
-            );
+            box.appendChild(el("div", "broken-icon", heic ? "🖼" : "⚠"));
+            if (heic) {
+              box.appendChild(
+                el("p", null, "This format can't be previewed here."),
+              );
+              box.appendChild(
+                el(
+                  "p",
+                  "small muted",
+                  "Download it to open in a compatible app.",
+                ),
+              );
+              box.appendChild(
+                btn("Download", "btn", () => downloadPhoto(photo)),
+              );
+            } else {
+              box.appendChild(el("p", null, "This file is missing from disk."));
+              box.appendChild(
+                el(
+                  "p",
+                  "small muted",
+                  "The record still exists, but the image can't be loaded.",
+                ),
+              );
+              box.appendChild(
+                btn("Remove from library", "btn danger", () =>
+                  deletePhoto(photo.id, { skipConfirm: false }),
+                ),
+              );
+            }
             media.appendChild(box);
           });
           media.appendChild(img);
@@ -1625,7 +1700,7 @@
           const dl = el("dl", "meta");
           const rows = [
             ["ID", "#" + photo.id],
-            ["Owner", photo.user_id],
+            ["Owner", photo.owner],
             ["Display name", photo.display_name],
             ["Description", photo.description || "—"],
             ["Type", photo.content_type],
@@ -1709,7 +1784,6 @@
           const origName = photo.display_name ?? "";
           const origDesc = photo.description ?? "";
           const origTags = photo.tags ?? [];
-          const origUser = photo.user_id ?? "";
 
           if (values.display_name !== origName)
             body.display_name = values.display_name;
@@ -1717,7 +1791,6 @@
             body.description = values.description; // "" clears -> null
           if (JSON.stringify(values.tags) !== JSON.stringify(origTags))
             body.tags = values.tags;
-          if (values.user_id !== origUser) body.user_id = values.user_id;
 
           return body;
         }
@@ -1731,29 +1804,26 @@
 
           const nameInput = el("input", "input");
           nameInput.type = "text";
+          nameInput.maxLength = 255;
           nameInput.value = photo.display_name ?? "";
 
           const descInput = el("textarea", "input");
           descInput.rows = 3;
+          descInput.maxLength = 2000;
           descInput.value = photo.description ?? "";
-
-          const userInput = el("input", "input");
-          userInput.type = "text";
-          userInput.value = photo.user_id ?? "";
 
           const tags = tagEditor(photo.tags ?? []);
 
           form.append(
-            field("Display name", nameInput, "Cannot be empty."),
+            field(
+              "Display name",
+              nameInput,
+              "1–255 characters. Cannot be empty.",
+            ),
             field(
               "Description",
               descInput,
-              "Clear the field to remove the description.",
-            ),
-            field(
-              "Owner (user_id)",
-              userInput,
-              "Reassigns the photo to another user.",
+              "Up to 2000 characters. Clear the field to remove it.",
             ),
             field(
               "Tags",
@@ -1778,18 +1848,12 @@
               display_name: nameInput.value.trim(),
               description: descInput.value,
               tags: tags.getTags(),
-              user_id: userInput.value.trim(),
             };
 
             // Backend returns 422 for an empty display_name — catch it here first.
             if (!values.display_name) {
               toast("Display name cannot be empty.", "warn");
               nameInput.focus();
-              return;
-            }
-            if (!values.user_id) {
-              toast("Owner (user_id) cannot be empty.", "warn");
-              userInput.focus();
               return;
             }
 
@@ -1835,6 +1899,7 @@
 
           const nameInput = el("input", "input");
           nameInput.type = "text";
+          nameInput.maxLength = 255;
           nameInput.value = photo.display_name ?? "";
 
           const chk = document.createElement("input");
@@ -1854,7 +1919,7 @@
             el(
               "small",
               "field-hint",
-              "Off by default. The image URL is ID-based so it never changes — the browser may serve a cached copy, which is why the UI appends ?v=updated_at.",
+              "Off by default. The image URL is ID-based so it never changes — cached <img> URLs stay valid.",
             ),
           );
 
@@ -1891,7 +1956,7 @@
               });
               state.current = updated;
               toast("Renamed.", "success");
-              renderDetail(updated); // re-renders <img> with the new ?v=
+              renderDetail(updated);
               await loadPhotos();
             } catch (err) {
               toast(err.message);
@@ -2013,13 +2078,7 @@
           e.preventDefault();
 
           const file = $("#fileInput").files[0];
-          const userId = $("#upUser").value.trim();
 
-          if (!userId) {
-            toast("Owner (user_id) is required.", "warn");
-            $("#upUser").focus();
-            return;
-          }
           if (!file) {
             toast("Pick an image first.", "warn");
             return;
@@ -2044,11 +2103,12 @@
             return;
           }
 
+          // Note: `user_id` is legacy/ignored by the API. Owner is derived
+          // from `X-Actor` (nginx in prod, "Acting as" field in dev).
           const fd = new FormData();
-          fd.append("user_id", userId);
           fd.append("file", file, file.name);
 
-          // NOTE: on upload, tags is a COMMA-SEPARATED STRING, not an array.
+          // tags is a COMMA-SEPARATED STRING on upload (array on PATCH).
           const name = $("#upName").value.trim();
           const desc = $("#upDesc").value.trim();
           const tags = $("#upTags").value.trim();
@@ -2075,7 +2135,7 @@
             state.offset = 0;
             await Promise.all([loadPhotos(), loadStats()]);
           } catch (err) {
-            toast(err.message); // surfaces 415 / 413 / 400 details directly
+            toast(err.message); // surfaces 415 / 413 / 400 / 401 details
           } finally {
             submit.disabled = false;
             submit.textContent = "Upload";
@@ -2086,6 +2146,14 @@
      EVENT WIRING
      ============================================================ */
         function wireEvents() {
+          /* ---- actor (X-Actor) ---- */
+          const actorInput = $("#actorInput");
+          actorInput.value = actor;
+          actorInput.addEventListener("input", (e) => {
+            actor = e.target.value.trim();
+            localStorage.setItem("photoActor", actor);
+          });
+
           /* ---- filters ---- */
           $("#search").addEventListener(
             "input",
@@ -2098,7 +2166,7 @@
           $("#ownerFilter").addEventListener(
             "input",
             debounce((e) => {
-              state.user_id = e.target.value.trim();
+              state.owner = e.target.value.trim();
               resetAndLoad();
             }),
           );
@@ -2137,7 +2205,7 @@
 
           function clearFilters() {
             state.q = "";
-            state.user_id = "";
+            state.owner = "";
             state.tag = "";
             $("#search").value = "";
             $("#ownerFilter").value = "";
@@ -2181,7 +2249,7 @@
           const panel = $("#uploadPanel");
           $("#uploadToggle").addEventListener("click", () => {
             panel.hidden = !panel.hidden;
-            if (!panel.hidden) $("#upUser").focus();
+            if (!panel.hidden) $("#dropzone").focus();
           });
           $("#upCancel").addEventListener("click", () => {
             panel.hidden = true;
