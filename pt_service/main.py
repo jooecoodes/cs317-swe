@@ -2,7 +2,8 @@ import os
 import re
 import uuid
 import datetime
-from typing import List, Optional
+import json
+from typing import List, Optional, Dict
 from pathlib import Path
 
 from fastapi import (
@@ -66,6 +67,25 @@ class PhotoRecord(Base):
         DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now
     )
 
+class ActivityLog(Base):
+    """Append-only audit log. Survives photo deletion via snapshot fields."""
+    __tablename__ = "activity_logs"
+
+    id = Column(Integer, primary_key=True)
+    actor = Column(String, index=True, nullable=False)
+    # one of: upload, edit, rename, delete
+    action = Column(String, index=True, nullable=False)
+
+    # Snapshot so the entry still makes sense if the photo is later deleted.
+    photo_id = Column(Integer, index=True, nullable=True)
+    photo_display_name = Column(String)
+
+    # Free-form JSON: change diffs, sizes, filenames, etc.
+    details = Column(String)
+
+    created_at = Column(
+        DateTime, default=datetime.datetime.now, index=True, nullable=False
+    )
 
 Base.metadata.create_all(bind=engine)
 
@@ -176,6 +196,42 @@ class DeleteResponse(BaseModel):
     deleted: Optional[int] = None
     missing_files: List[str] = Field(default_factory=list)
 
+class ActivityOut(BaseModel):
+    id: int
+    actor: str
+    action: str
+    photo_id: Optional[int] = None
+    photo_display_name: Optional[str] = None
+    details: dict = Field(default_factory=dict)
+    created_at: datetime.datetime
+
+
+class ActivityListResponse(BaseModel):
+    total: int
+    limit: int
+    offset: int
+    items: List[ActivityOut]
+
+
+class ActorDaySummary(BaseModel):
+    actor: str
+    count: int
+    actions: Dict[str, int] = Field(default_factory=dict)
+    items: List[ActivityOut] = Field(default_factory=list)
+
+
+class DayDigest(BaseModel):
+    date: str  # YYYY-MM-DD
+    total: int
+    actors: List[ActorDaySummary]
+
+
+class DigestResponse(BaseModel):
+    from_date: str
+    to_date: str
+    total: int
+    days: List[DayDigest]
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -279,6 +335,45 @@ def delete_file_on_disk(photo: PhotoRecord) -> Optional[str]:
         return path
     return None
 
+def serialize_activity(log: ActivityLog) -> dict:
+    details: dict = {}
+    if log.details:
+        try:
+            details = json.loads(log.details)
+        except (ValueError, TypeError):
+            details = {"raw": log.details}
+    return {
+        "id": log.id,
+        "actor": log.actor,
+        "action": log.action,
+        "photo_id": log.photo_id,
+        "photo_display_name": log.photo_display_name,
+        "details": details,
+        "created_at": log.created_at,
+    }
+
+
+def log_activity(
+    db: Session,
+    actor: str,
+    action: str,
+    photo: Optional[PhotoRecord] = None,
+    *,
+    details: Optional[dict] = None,
+) -> ActivityLog:
+    entry = ActivityLog(
+        actor=actor,
+        action=action,
+        photo_id=photo.id if photo is not None else None,
+        photo_display_name=(
+            (photo.display_name or photo.original_filename or photo.filename)
+            if photo is not None
+            else None
+        ),
+        details=json.dumps(details, default=str) if details else None,
+    )
+    db.add(entry)
+    return entry
 
 # ---------------------------------------------------------------------------
 # App
@@ -372,11 +467,20 @@ async def upload_photo(
         size_bytes=size,
     )
     db.add(record)
+    db.flush()  # assign id so the log entry can reference it
+
+    log_activity(
+        db, actor, "upload", photo=record,
+        details={
+            "size_bytes": size,
+            "content_type": file.content_type,
+            "original_filename": original_name,
+        },
+    )
+
     db.commit()
     db.refresh(record)
-
     return serialize(record)
-
 
 # ---------------------------------------------------------------------------
 # LIST / SEARCH  (paginated, filterable, sortable)
@@ -463,6 +567,7 @@ def get_stats(
 @pt_app.post("/photos/bulk-delete", response_model=DeleteResponse)
 def bulk_delete_photos(
     payload: BulkDeleteRequest,
+    actor: str = Depends(get_actor),
     db: Session = Depends(get_db),
 ):
     photos = db.query(PhotoRecord).filter(PhotoRecord.id.in_(payload.ids)).all()
@@ -472,6 +577,16 @@ def bulk_delete_photos(
         gone = delete_file_on_disk(photo)
         if gone:
             missing.append(gone)
+        log_activity(
+            db, actor, "delete", photo=photo,
+            details={
+                "size_bytes": photo.size_bytes,
+                "content_type": photo.content_type,
+                "filename": photo.filename,
+                "missing_on_disk": bool(gone),
+                "bulk": True,
+            },
+        )
         db.delete(photo)
 
     db.commit()
@@ -480,7 +595,6 @@ def bulk_delete_photos(
         "deleted": len(photos),
         "missing_files": missing,
     }
-
 
 # ---------------------------------------------------------------------------
 # READ ONE  (metadata)
@@ -534,6 +648,12 @@ def update_photo(
     photo = get_photo_or_404(db, photo_id)
     data = payload.model_dump(exclude_unset=True)
 
+    before = {
+        "display_name": photo.display_name,
+        "description": photo.description,
+        "tags": parse_tags(photo.tags),
+    }
+
     if "display_name" in data:
         new_name = (data["display_name"] or "").strip()
         if not new_name:
@@ -548,11 +668,23 @@ def update_photo(
     if "tags" in data:
         photo.tags = dump_tags(data["tags"])
 
+    after = {
+        "display_name": photo.display_name,
+        "description": photo.description,
+        "tags": parse_tags(photo.tags),
+    }
+    changes = {
+        k: {"from": before[k], "to": after[k]}
+        for k in before
+        if before[k] != after[k]
+    }
+    if changes:
+        log_activity(db, actor, "edit", photo=photo, details={"changes": changes})
+
     photo.updated_at = datetime.datetime.now()
     db.commit()
     db.refresh(photo)
     return serialize(photo)
-
 
 # ---------------------------------------------------------------------------
 # RENAME (title, and optionally the file on disk)
@@ -570,6 +702,10 @@ def rename_photo(
     if not new_display:
         raise HTTPException(status_code=422, detail="display_name cannot be empty")
 
+    details: dict = {
+        "display_name": {"from": photo.display_name, "to": new_display}
+    }
+
     if payload.rename_file:
         old_path = resolve_stored_path(photo)
 
@@ -586,15 +722,18 @@ def rename_photo(
                 status_code=500, detail=f"Could not rename file on disk: {exc}"
             )
 
+        details["filename"] = {
+            "from": photo.filename, "to": new_filename
+        }
         photo.filename = new_filename
         photo.filepath = f"uploads/{new_filename}"
 
     photo.display_name = new_display
     photo.updated_at = datetime.datetime.now()
+    log_activity(db, actor, "rename", photo=photo, details=details)
     db.commit()
     db.refresh(photo)
     return serialize(photo)
-
 
 # ---------------------------------------------------------------------------
 # DELETE
@@ -607,10 +746,161 @@ def delete_photo(
 ):
     photo = get_photo_or_404(db, photo_id)
     missing = delete_file_on_disk(photo)
+
+    log_activity(
+        db, actor, "delete", photo=photo,
+        details={
+            "size_bytes": photo.size_bytes,
+            "content_type": photo.content_type,
+            "filename": photo.filename,
+            "missing_on_disk": bool(missing),
+        },
+    )
+
     db.delete(photo)
     db.commit()
     return {
         "status": "deleted",
         "id": photo_id,
         "missing_files": [missing] if missing else [],
+    }
+
+# ---------------------------------------------------------------------------
+# ACTIVITY — raw feed
+# ---------------------------------------------------------------------------
+@pt_app.get("/activity", response_model=ActivityListResponse)
+def list_activity(
+    actor: Optional[str] = Query(None, description="Filter by actor"),
+    action: Optional[str] = Query(
+        None, pattern="^(upload|edit|rename|delete)$"
+    ),
+    photo_id: Optional[int] = Query(None),
+    from_date: Optional[datetime.date] = Query(None),
+    to_date: Optional[datetime.date] = Query(None),
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    _requester: str = Depends(get_actor),
+    db: Session = Depends(get_db),
+):
+    filters = []
+    if actor:
+        filters.append(ActivityLog.actor == actor)
+    if action:
+        filters.append(ActivityLog.action == action)
+    if photo_id is not None:
+        filters.append(ActivityLog.photo_id == photo_id)
+    if from_date:
+        filters.append(
+            ActivityLog.created_at
+            >= datetime.datetime.combine(from_date, datetime.time.min)
+        )
+    if to_date:
+        filters.append(
+            ActivityLog.created_at
+            <= datetime.datetime.combine(to_date, datetime.time.max)
+        )
+
+    total = db.query(func.count(ActivityLog.id)).filter(*filters).scalar() or 0
+
+    rows = (
+        db.query(ActivityLog)
+        .filter(*filters)
+        .order_by(ActivityLog.created_at.desc(), ActivityLog.id.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+
+    return {
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "items": [serialize_activity(r) for r in rows],
+    }
+
+
+# ---------------------------------------------------------------------------
+# ACTIVITY — daily digest (calendar view)
+# ---------------------------------------------------------------------------
+@pt_app.get("/activity/digest", response_model=DigestResponse)
+def get_activity_digest(
+    from_date: Optional[datetime.date] = Query(None, description="Defaults to today"),
+    to_date: Optional[datetime.date] = Query(None, description="Defaults to from_date"),
+    actor: Optional[str] = Query(None),
+    action: Optional[str] = Query(
+        None, pattern="^(upload|edit|rename|delete)$"
+    ),
+    include_items: bool = Query(True, description="Set false for a compact calendar"),
+    _requester: str = Depends(get_actor),
+    db: Session = Depends(get_db),
+):
+    today = datetime.date.today()
+    from_date = from_date or today
+    to_date = to_date or from_date
+
+    if to_date < from_date:
+        raise HTTPException(status_code=422, detail="to_date must be >= from_date")
+    if (to_date - from_date).days > 366:
+        raise HTTPException(
+            status_code=422, detail="Date range too large (max 366 days)"
+        )
+
+    start = datetime.datetime.combine(from_date, datetime.time.min)
+    end = datetime.datetime.combine(to_date, datetime.time.max)
+
+    filters = [ActivityLog.created_at >= start, ActivityLog.created_at <= end]
+    if actor:
+        filters.append(ActivityLog.actor == actor)
+    if action:
+        filters.append(ActivityLog.action == action)
+
+    rows = (
+        db.query(ActivityLog)
+        .filter(*filters)
+        .order_by(ActivityLog.created_at.asc(), ActivityLog.id.asc())
+        .all()
+    )
+
+    grouped: Dict[str, Dict[str, List[ActivityLog]]] = {}
+    for r in rows:
+        day_key = r.created_at.date().isoformat()
+        grouped.setdefault(day_key, {}).setdefault(r.actor, []).append(r)
+
+    days_out: List[dict] = []
+    grand_total = 0
+
+    for day_key in sorted(grouped.keys()):
+        actor_buckets = grouped[day_key]
+        actor_summaries: List[dict] = []
+        day_total = 0
+
+        for actor_name in sorted(actor_buckets.keys()):
+            entries = actor_buckets[actor_name]
+            action_counts: Dict[str, int] = {}
+            for e in entries:
+                action_counts[e.action] = action_counts.get(e.action, 0) + 1
+            actor_summaries.append(
+                {
+                    "actor": actor_name,
+                    "count": len(entries),
+                    "actions": action_counts,
+                    "items": (
+                        [serialize_activity(e) for e in entries]
+                        if include_items
+                        else []
+                    ),
+                }
+            )
+            day_total += len(entries)
+
+        days_out.append(
+            {"date": day_key, "total": day_total, "actors": actor_summaries}
+        )
+        grand_total += day_total
+
+    return {
+        "from_date": from_date.isoformat(),
+        "to_date": to_date.isoformat(),
+        "total": grand_total,
+        "days": days_out,
     }
