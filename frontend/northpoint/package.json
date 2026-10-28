@@ -1,0 +1,13 @@
+{
+  "name": "northpoint-ui-preview",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Static Northpoint interface with fictional read-only examples and an API adapter boundary",
+  "scripts": {
+    "build": "node build.mjs",
+    "check": "node verify.mjs",
+    "test": "node --test"
+  },
+  "engines": { "node": ">=24" }
+}

@@ -1,0 +1,5 @@
+# The parent repository ignores *.png; this exact supplied UI logo belongs in Git.
+!src/assets/company-logo.png
+node_modules/
+.DS_Store
+Thumbs.db
