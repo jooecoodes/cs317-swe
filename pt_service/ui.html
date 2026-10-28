@@ -576,6 +576,182 @@
       }
 
       /* ============================================================
+     ACTIVITY VIEW
+     ============================================================ */
+      .activity-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 16px;
+      }
+      .activity-layout {
+        display: grid;
+        grid-template-columns: 340px 1fr;
+        gap: 20px;
+        align-items: start;
+      }
+      @media (max-width: 900px) {
+        .activity-layout {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .cal-nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 16px;
+        font-weight: 600;
+      }
+      .cal-nav button {
+        background: var(--panel-2);
+        border: 1px solid var(--border);
+        color: var(--text);
+        cursor: pointer;
+        padding: 4px 10px;
+        border-radius: 6px;
+      }
+      .cal-nav button:hover {
+        background: var(--panel-3);
+      }
+
+      .cal-grid-header {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        text-align: center;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 8px;
+      }
+      .cal-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 4px;
+      }
+      .cal-day {
+        aspect-ratio: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        background: var(--panel-2);
+        border: 1px solid transparent;
+        cursor: pointer;
+        position: relative;
+        font-size: 0.85rem;
+        transition: all 0.15s;
+      }
+      .cal-day:hover:not(.empty) {
+        background: var(--panel-3);
+      }
+      .cal-day.empty {
+        background: transparent;
+        cursor: default;
+      }
+      .cal-day.has-activity {
+        border-color: var(--accent);
+        background: var(--accent-soft);
+        font-weight: 600;
+      }
+      .cal-day.selected {
+        box-shadow: 0 0 0 2px var(--accent) inset;
+      }
+      .cal-badge {
+        font-size: 0.65rem;
+        color: var(--accent);
+        background: rgba(77, 141, 255, 0.2);
+        padding: 1px 5px;
+        border-radius: 99px;
+        margin-top: 2px;
+      }
+
+      .feed-panel {
+        padding: 0;
+        max-height: 75vh;
+        display: flex;
+        flex-direction: column;
+      }
+      .feed-header {
+        padding: 16px;
+        border-bottom: 1px solid var(--border);
+        font-weight: 600;
+        font-size: 0.95rem;
+        background: var(--panel-2);
+        border-radius: var(--radius) var(--radius) 0 0;
+      }
+      .feed-list {
+        padding: 16px;
+        overflow-y: auto;
+        flex: 1;
+      }
+      .feed-item {
+        display: flex;
+        gap: 12px;
+        padding: 12px 0;
+        border-bottom: 1px solid #1d222b;
+        font-size: 0.85rem;
+      }
+      .feed-item:last-child {
+        border-bottom: 0;
+      }
+      .feed-icon {
+        font-size: 1.2rem;
+        flex-shrink: 0;
+        margin-top: 2px;
+      }
+      .feed-content {
+        flex: 1;
+      }
+      .feed-meta {
+        display: flex;
+        gap: 8px;
+        color: var(--muted);
+        font-size: 0.75rem;
+        margin-bottom: 4px;
+      }
+      .feed-actor {
+        font-weight: 600;
+        color: var(--text);
+      }
+      .feed-action {
+        text-transform: capitalize;
+      }
+      .feed-photo-name {
+        font-weight: 500;
+        color: var(--accent);
+        text-decoration: none;
+      }
+      .feed-photo-name:hover {
+        text-decoration: underline;
+      }
+      .feed-details {
+        margin-top: 6px;
+        padding: 8px;
+        background: var(--panel-2);
+        border-radius: 6px;
+        font-size: 0.78rem;
+      }
+      .change-row {
+        margin-bottom: 4px;
+      }
+      .change-row:last-child {
+        margin-bottom: 0;
+      }
+      .change-field {
+        color: var(--muted);
+        text-transform: capitalize;
+      }
+      .change-from {
+        color: var(--danger);
+        text-decoration: line-through;
+      }
+      .change-to {
+        color: var(--ok);
+      }
+
+      /* ============================================================
      MODAL
      ============================================================ */
       .modal-backdrop {
@@ -895,11 +1071,15 @@
           autocomplete="off"
           title="Sent as X-Actor on write requests. Nginx overrides this in production; needed for standalone/dev."
         />
+        <button id="navActivityBtn" class="btn ghost" type="button">
+          Activity
+        </button>
         <a class="btn ghost" href="/camera">Camera</a>
       </div>
     </header>
 
-    <main class="wrap">
+    <!-- ================= GALLERY VIEW ================= -->
+    <main class="wrap" id="galleryView">
       <!-- ================= TOOLBAR ================= -->
       <section class="toolbar">
         <div class="tb-row">
@@ -1067,6 +1247,47 @@
       </div>
     </main>
 
+    <!-- ================= ACTIVITY VIEW ================= -->
+    <main class="wrap" id="activityView" hidden>
+      <div class="activity-header">
+        <h2>Activity Log</h2>
+        <button class="btn ghost" id="navGalleryBtn" type="button">
+          ← Back to Gallery
+        </button>
+      </div>
+
+      <div class="activity-layout">
+        <!-- Calendar Panel -->
+        <div class="panel" style="margin-bottom: 0">
+          <div class="cal-nav">
+            <button type="button" id="calPrev">&lt;</button>
+            <span id="calMonthLabel">Loading...</span>
+            <button type="button" id="calNext">&gt;</button>
+          </div>
+          <div class="cal-grid-header">
+            <span>Su</span><span>Mo</span><span>Tu</span><span>We</span
+            ><span>Th</span><span>Fr</span><span>Sa</span>
+          </div>
+          <div class="cal-grid" id="calGrid">
+            <!-- Days injected here -->
+          </div>
+        </div>
+
+        <!-- Feed Panel -->
+        <div class="panel feed-panel" style="margin-bottom: 0">
+          <div class="feed-header" id="feedTitle">
+            Select a day to view activity
+          </div>
+          <div class="feed-list" id="feedList">
+            <div class="empty" style="border: 0; padding: 40px 20px">
+              <div class="big">📅</div>
+              <p class="small">Click a highlighted day on the calendar.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
     <!-- ================= DETAIL MODAL ================= -->
     <div class="modal-backdrop" id="backdrop" hidden>
       <div
@@ -1103,7 +1324,6 @@
         /* ============================================================
      CONFIG
      ============================================================ */
-        // '' = same origin. e.g. 'http://localhost:8000'
         const API_BASE = location.pathname.replace(/\/[^/]*$/, "");
         const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
         const ALLOWED_EXT = [
@@ -1116,10 +1336,6 @@
           "heic",
         ];
 
-        // X-Actor — required by all mutating endpoints. In prod, nginx stamps
-        // it from the login session, so this stays empty. For standalone/dev,
-        // set it via the "Acting as" field (persisted to localStorage).
-        // Never sent on GET/HEAD.
         let actor = localStorage.getItem("photoActor") || "";
 
         /* ============================================================
@@ -1183,6 +1399,13 @@
           busy: false,
         };
 
+        const activityState = {
+          month: new Date(),
+          selectedDate: null,
+          digest: null,
+          feed: null,
+        };
+
         /* ============================================================
      API LAYER
      ============================================================ */
@@ -1192,16 +1415,16 @@
           return API_BASE + path;
         }
 
-        /**
-         * Single choke point for every request.
-         * - Injects `X-Actor` on every non-GET request (when set).
-         * - Non-2xx -> Error with `.status` and a readable message.
-         * - Handles FastAPI's `{detail: [{msg}]}` validation shape.
-         */
         async function api(path, options = {}) {
           const opts = Object.assign({}, options);
           const method = (opts.method || "GET").toUpperCase();
-          if (method !== "GET" && method !== "HEAD" && actor) {
+
+          // Send X-Actor on writes OR if the path explicitly requires it (like /activity)
+          const needsAuth =
+            (method !== "GET" && method !== "HEAD") ||
+            path.startsWith("/activity");
+
+          if (needsAuth && actor) {
             opts.headers = Object.assign({}, opts.headers, {
               "X-Actor": actor,
             });
@@ -1224,7 +1447,6 @@
                 if (typeof data.detail === "string") {
                   detail = data.detail;
                 } else if (Array.isArray(data.detail)) {
-                  // FastAPI 422: [{loc, msg, type}, ...]
                   detail = data.detail
                     .map((e) => (e && e.msg ? e.msg : JSON.stringify(e)))
                     .join("; ");
@@ -1232,9 +1454,7 @@
                   detail = JSON.stringify(data.detail);
                 }
               }
-            } catch (_) {
-              /* body wasn't JSON — keep the generic message */
-            }
+            } catch (_) {}
 
             if (res.status === 401) {
               detail +=
@@ -1251,21 +1471,26 @@
           return ct.includes("application/json") ? res.json() : null;
         }
 
-        /**
-         * Inline image URL. The file route is ID-based and cached for 1h.
-         * Bytes never change for a given id, so no cache-busting is needed.
-         */
         function fileUrl(photo) {
           return absUrl(photo.url || "/photos/" + photo.id + "/file");
         }
 
-        /** HEIC is accepted server-side but most browsers can't render it. */
         function looksHeic(photo) {
           return (
             /heic/i.test(photo.content_type || "") ||
             /\.heic$/i.test(photo.filename || "") ||
             /\.heic$/i.test(photo.original_filename || "")
           );
+        }
+
+        function resolveOwner(photo) {
+          if (photo.owner) return photo.owner;
+          if (photo.user_id) return photo.user_id;
+          if (photo.filename) {
+            const m = photo.filename.match(/^([^_]+)_/);
+            if (m && m[1]) return m[1];
+          }
+          return "—";
         }
 
         /* ============================================================
@@ -1289,7 +1514,6 @@
           }
         }
 
-        /** `missing_files` is non-fatal — log it, mention it quietly. */
         function noteMissing(missing) {
           if (!Array.isArray(missing) || missing.length === 0) return;
           console.warn(
@@ -1353,7 +1577,6 @@
               box.appendChild(c);
             }
           } catch (err) {
-            // Stats are decorative — never block the app on them.
             console.warn("[photos] /stats failed:", err.message);
           }
         }
@@ -1381,11 +1604,10 @@
             const data = await api("/photos?" + p.toString());
             const total = data.total ?? (data.items || []).length;
 
-            // If a delete left us past the end of the list, step back one page.
             if (state.offset > 0 && state.offset >= total) {
               state.offset =
                 Math.max(0, Math.ceil(total / state.limit) - 1) * state.limit;
-              return loadPhotos(); // total === 0 => offset === 0 => terminates
+              return loadPhotos();
             }
 
             state.items = data.items || [];
@@ -1433,7 +1655,6 @@
           card.dataset.id = photo.id;
           if (state.selected.has(photo.id)) card.classList.add("selected");
 
-          // --- selection checkbox ---
           const check = document.createElement("input");
           check.type = "checkbox";
           check.className = "card-check";
@@ -1444,7 +1665,6 @@
             setSelected(photo.id, check.checked),
           );
 
-          // --- thumbnail ---
           const media = el("div", "card-media");
           const heic = looksHeic(photo);
           const img = new Image();
@@ -1454,8 +1674,6 @@
           img.alt = photo.display_name || photo.original_filename || "";
           img.src = fileUrl(photo);
           img.addEventListener("error", () => {
-            // Covers 410 Gone, HEIC-in-unsupported-browser, and any other
-            // load failure.
             const ph = el("div", "thumb thumb-broken");
             ph.appendChild(el("span", "broken-glyph", heic ? "🖼" : "⚠"));
             ph.appendChild(
@@ -1469,7 +1687,6 @@
           });
           media.appendChild(img);
 
-          // --- caption ---
           const body = el("div", "card-body");
           body.appendChild(
             el(
@@ -1482,7 +1699,7 @@
             el(
               "p",
               "card-sub",
-              (photo.owner ?? "—") + " · " + formatBytes(photo.size_bytes),
+              resolveOwner(photo) + " · " + formatBytes(photo.size_bytes),
             ),
           );
 
@@ -1544,7 +1761,6 @@
             return;
 
           try {
-            // POST, not DELETE — DELETE with a body is flaky across clients.
             const res = await api("/photos/bulk-delete", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -1620,7 +1836,6 @@
             openModal();
           } catch (err) {
             if (err.status === 410) {
-              // Record exists, file is gone.
               toast(
                 "That photo's file is missing from disk (410 Gone).",
                 "warn",
@@ -1644,7 +1859,6 @@
             photo.original_filename ||
             "Photo #" + photo.id;
 
-          // ---- media ----
           const media = $("#modalMedia");
           media.innerHTML = "";
           const heic = looksHeic(photo);
@@ -1700,7 +1914,7 @@
           const dl = el("dl", "meta");
           const rows = [
             ["ID", "#" + photo.id],
-            ["Owner", photo.owner],
+            ["Owner", resolveOwner(photo)],
             ["Display name", photo.display_name],
             ["Description", photo.description || "—"],
             ["Type", photo.content_type],
@@ -1726,7 +1940,6 @@
             dl.appendChild(row);
           }
 
-          // Tags row (chips, not a string)
           const tagRow = el("div", "meta-row");
           tagRow.appendChild(el("dt", null, "Tags"));
           const dd = el("dd");
@@ -1788,7 +2001,7 @@
           if (values.display_name !== origName)
             body.display_name = values.display_name;
           if (values.description !== origDesc)
-            body.description = values.description; // "" clears -> null
+            body.description = values.description;
           if (JSON.stringify(values.tags) !== JSON.stringify(origTags))
             body.tags = values.tags;
 
@@ -1850,7 +2063,6 @@
               tags: tags.getTags(),
             };
 
-            // Backend returns 422 for an empty display_name — catch it here first.
             if (!values.display_name) {
               toast("Display name cannot be empty.", "warn");
               nameInput.focus();
@@ -1905,7 +2117,7 @@
           const chk = document.createElement("input");
           chk.type = "checkbox";
           chk.id = "renameFileChk";
-          chk.checked = false; // default OFF — power-user opt-in
+          chk.checked = false;
 
           const chkWrap = el("div", "checkbox-row");
           const chkLabel = el("label", "checkbox-label");
@@ -2103,12 +2315,9 @@
             return;
           }
 
-          // Note: `user_id` is legacy/ignored by the API. Owner is derived
-          // from `X-Actor` (nginx in prod, "Acting as" field in dev).
           const fd = new FormData();
           fd.append("file", file, file.name);
 
-          // tags is a COMMA-SEPARATED STRING on upload (array on PATCH).
           const name = $("#upName").value.trim();
           const desc = $("#upDesc").value.trim();
           const tags = $("#upTags").value.trim();
@@ -2121,7 +2330,6 @@
           submit.textContent = "Uploading…";
 
           try {
-            // No Content-Type header — the browser sets the multipart boundary.
             const photo = await api("/upload", { method: "POST", body: fd });
             toast(
               "Uploaded “" +
@@ -2135,7 +2343,7 @@
             state.offset = 0;
             await Promise.all([loadPhotos(), loadStats()]);
           } catch (err) {
-            toast(err.message); // surfaces 415 / 413 / 400 / 401 details
+            toast(err.message);
           } finally {
             submit.disabled = false;
             submit.textContent = "Upload";
@@ -2143,10 +2351,188 @@
         }
 
         /* ============================================================
+     ACTIVITY VIEW LOGIC
+     ============================================================ */
+        function formatYMD(date) {
+          const y = date.getFullYear();
+          const m = String(date.getMonth() + 1).padStart(2, "0");
+          const d = String(date.getDate()).padStart(2, "0");
+          return `${y}-${m}-${d}`;
+        }
+
+        async function loadActivityDigest() {
+          if (!actor) {
+            toast(
+              "Please set your 'Acting as' name in the top bar to view activity.",
+              "warn",
+            );
+            return;
+          }
+
+          const year = activityState.month.getFullYear();
+          const month = activityState.month.getMonth();
+          const firstDay = formatYMD(new Date(year, month, 1));
+          const lastDay = formatYMD(new Date(year, month + 1, 0));
+
+          $("#calMonthLabel").textContent = activityState.month.toLocaleString(
+            undefined,
+            { month: "long", year: "numeric" },
+          );
+          $("#calGrid").innerHTML =
+            '<div style="grid-column: 1/-1; text-align: center; padding: 20px; color: var(--muted);">Loading...</div>';
+
+          try {
+            const data = await api(
+              `/activity/digest?from_date=${firstDay}&to_date=${lastDay}&include_items=false`,
+            );
+            activityState.digest = data;
+            renderCalendar();
+          } catch (err) {
+            $("#calGrid").innerHTML = "";
+            toast(err.message);
+          }
+        }
+
+        function renderCalendar() {
+          const grid = $("#calGrid");
+          grid.innerHTML = "";
+
+          const year = activityState.month.getFullYear();
+          const month = activityState.month.getMonth();
+          const firstDayOfWeek = new Date(year, month, 1).getDay(); // 0 = Sun
+          const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+          // Empty padding
+          for (let i = 0; i < firstDayOfWeek; i++) {
+            grid.appendChild(el("div", "cal-day empty"));
+          }
+
+          // Days
+          for (let d = 1; d <= daysInMonth; d++) {
+            const dateStr = formatYMD(new Date(year, month, d));
+            const dayData = activityState.digest?.days?.find(
+              (day) => day.date === dateStr,
+            );
+
+            const cell = el("div", "cal-day");
+            cell.appendChild(el("span", null, d));
+
+            if (dayData) {
+              cell.classList.add("has-activity");
+              cell.appendChild(el("span", "cal-badge", dayData.total));
+            }
+
+            if (activityState.selectedDate === dateStr) {
+              cell.classList.add("selected");
+            }
+
+            cell.addEventListener("click", () => {
+              activityState.selectedDate = dateStr;
+              renderCalendar(); // update selection highlight
+              loadActivityFeed(dateStr);
+            });
+
+            grid.appendChild(cell);
+          }
+        }
+
+        async function loadActivityFeed(dateStr) {
+          $("#feedTitle").textContent = `Activity for ${dateStr}`;
+          $("#feedList").innerHTML =
+            '<div style="text-align: center; padding: 20px; color: var(--muted);">Loading...</div>';
+
+          try {
+            const data = await api(
+              `/activity?from_date=${dateStr}&to_date=${dateStr}&limit=200`,
+            );
+            activityState.feed = data.items;
+            renderActivityFeed();
+          } catch (err) {
+            $("#feedList").innerHTML = "";
+            toast(err.message);
+          }
+        }
+
+        function renderActivityFeed() {
+          const list = $("#feedList");
+          list.innerHTML = "";
+
+          if (!activityState.feed || activityState.feed.length === 0) {
+            list.innerHTML =
+              '<div class="empty" style="border:0; padding: 40px 20px;"><p class="small">No activity recorded on this day.</p></div>';
+            return;
+          }
+
+          const icons = {
+            upload: "⬆️",
+            edit: "📝",
+            rename: "🏷️",
+            delete: "🗑️",
+          };
+
+          for (const item of activityState.feed) {
+            const row = el("div", "feed-item");
+
+            // Icon
+            row.appendChild(el("div", "feed-icon", icons[item.action] || "📌"));
+
+            const content = el("div", "feed-content");
+
+            // Meta (Time / Actor / Action)
+            const time = new Date(item.created_at).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            });
+            const meta = el("div", "feed-meta");
+            meta.appendChild(el("span", null, time));
+            meta.appendChild(el("span", null, "•"));
+            meta.appendChild(el("span", "feed-actor", item.actor));
+            meta.appendChild(el("span", "feed-action", item.action));
+            if (item.details && item.details.bulk) {
+              meta.appendChild(el("span", "chip chip-sm", "Bulk"));
+            }
+            content.appendChild(meta);
+
+            // Photo Info
+            const photoText = el("div");
+            photoText.innerHTML = `Photo: <span class="feed-photo-name">${item.photo_display_name || "#" + item.photo_id}</span>`;
+            content.appendChild(photoText);
+
+            // Details (Changes)
+            if (item.details && item.details.changes) {
+              const details = el("div", "feed-details");
+              for (const [field, change] of Object.entries(
+                item.details.changes,
+              )) {
+                const line = el("div", "change-row");
+                line.innerHTML = `<span class="change-field">${field}</span>: <span class="change-from">${change.from || "(empty)"}</span> → <span class="change-to">${change.to || "(empty)"}</span>`;
+                details.appendChild(line);
+              }
+              content.appendChild(details);
+            }
+
+            row.appendChild(content);
+            list.appendChild(row);
+          }
+        }
+
+        function switchView(view) {
+          if (view === "gallery") {
+            $("#galleryView").hidden = false;
+            $("#activityView").hidden = true;
+            $("#navActivityBtn").classList.remove("primary");
+          } else {
+            $("#galleryView").hidden = true;
+            $("#activityView").hidden = false;
+            $("#navActivityBtn").classList.add("primary");
+            loadActivityDigest();
+          }
+        }
+
+        /* ============================================================
      EVENT WIRING
      ============================================================ */
         function wireEvents() {
-          /* ---- actor (X-Actor) ---- */
           const actorInput = $("#actorInput");
           actorInput.value = actor;
           actorInput.addEventListener("input", (e) => {
@@ -2154,7 +2540,25 @@
             localStorage.setItem("photoActor", actor);
           });
 
-          /* ---- filters ---- */
+          // Navigation
+          $("#navActivityBtn").addEventListener("click", () =>
+            switchView("activity"),
+          );
+          $("#navGalleryBtn").addEventListener("click", () =>
+            switchView("gallery"),
+          );
+
+          // Calendar Nav
+          $("#calPrev").addEventListener("click", () => {
+            activityState.month.setMonth(activityState.month.getMonth() - 1);
+            loadActivityDigest();
+          });
+          $("#calNext").addEventListener("click", () => {
+            activityState.month.setMonth(activityState.month.getMonth() + 1);
+            loadActivityDigest();
+          });
+
+          // Filters
           $("#search").addEventListener(
             "input",
             debounce((e) => {
@@ -2213,7 +2617,7 @@
             resetAndLoad();
           }
 
-          /* ---- paging ---- */
+          // Paging
           $("#prevBtn").addEventListener("click", () => {
             state.offset = Math.max(0, state.offset - state.limit);
             loadPhotos();
@@ -2224,7 +2628,7 @@
             loadPhotos();
           });
 
-          /* ---- bulk ---- */
+          // Bulk
           $("#selectAllBtn").addEventListener("click", () => {
             const allOnPage =
               state.items.length > 0 &&
@@ -2245,7 +2649,7 @@
 
           $("#bulkDeleteBtn").addEventListener("click", bulkDelete);
 
-          /* ---- upload ---- */
+          // Upload
           const panel = $("#uploadPanel");
           $("#uploadToggle").addEventListener("click", () => {
             panel.hidden = !panel.hidden;
@@ -2291,7 +2695,6 @@
             const f =
               e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
             if (!f) return;
-            // DataTransfer is read-only in most browsers — use the input's own list.
             try {
               const dt = new DataTransfer();
               dt.items.add(f);
@@ -2306,7 +2709,7 @@
             setPickedFile(f);
           });
 
-          /* ---- modal ---- */
+          // Modal
           $("#modalClose").addEventListener("click", closeModal);
           $("#backdrop").addEventListener("click", (e) => {
             if (e.target === $("#backdrop")) closeModal();
