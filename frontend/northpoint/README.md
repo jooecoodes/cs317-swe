@@ -1,15 +1,28 @@
-# Northpoint UI preview
+# Northpoint frontend
 
-Static HTML, CSS and browser JavaScript for the Northpoint interface. This copy has no database, API transport, account service, Docker files, dependency installation, or browser record storage.
+The current frontend is connected to **https://cs317.duckdns.org/app1** using the supplied API-INTEGRATION.md and APIREFERHERE.txt contracts. Employees, Add/Edit Employee, profiles, employee status/delete, violations, rulebook, dashboard, reports, History and Calendar use backend requests. The version label remains `v.FE-1.0`; the existing desktop/phone layout and simplified footer are retained.
 
-Open **index.html** directly in a browser. It includes its logo, fonts, styles, scripts and fictional examples, so internet access is unnecessary. The visible preview notice distinguishes these examples from company records.
+## Open the website
 
-Desktop and phone layouts retain the dashboard, employee directory and profiles, violations, rulebook, History tabs, reports, settings and help. Search, filters, ordering, pagination, disclosure cards, suggestions and form validation are interactive. Form submissions show a preview-only message and do not create, update or delete records. Preferences apply only to the open tab and reset on reload. Users & Roles remains Coming Soon.
+Open the built **index.html** in your browser while connected to the internet. **npm, Docker and a local backend are not required to use the bundled page.** The browser must permit the hosted API's CORS response for its origin. All styles, fonts and images are bundled in the page.
 
-Edit the modules in **src/**, then run `node build.mjs` to regenerate index.html. Node 24 or later is needed only for building and tests; it is unnecessary for opening the built page. Run `node --test tests/*.test.mjs` for checks.
+If you prefer serving the frontend over HTTP and have Node installed, `node serve.mjs` (or `npm start`) serves only the HTML at **http://localhost:4173/**. API requests still go directly to the hosted backend. For another port, set PORT. For a phone on the same network, set HOST to `0.0.0.0` and open the computer's LAN IP on that port. Restart the server after rebuilding.
 
-For a phone, serve this directory with an existing static web server and open its address from the same network. When included in the backend repository's existing frontend directory, the UI is available at **/northpoint/** after the repository's normal sign-in. This PR does not change its login service.
+Set **Your display name** in Settings before making changes. The documented write endpoints use it as X-Actor, and violation removal uses it as removed_by. No default person is assigned. Workspace role choices are local view filters, not authenticated account roles. Users & Roles remains Coming Soon.
 
-See **INTEGRATION.md** for the data source contract and backend mapping. See **PR-NOTES.md** for the additive repository placement and conflict check.
+Loading, successful saves, validation/conflict/access errors, timeouts and lost responses are handled. Records are never stored locally or queued offline. No failed API request falls back to sample records. Unconfirmed saves use Check save status to read the backend before another write is allowed.
 
-History includes a Calendar tab with previous/next month controls, Today, shaded date cells showing day numbers only, and a daily summary dialog. Darker blue indicates more changes relative to the busiest day in that month. Each day remains selectable, including days without activity. Summaries show total events, people, action types, highlights, and a six-item paginated event list. Keyboard users can move between days with arrow keys, Home/End and Page Up/Down. Dates and times use UTC to match the backend calendar contract. Calendar and digest examples come through the same preview data-source boundary as the other views.
+## Development checks
+
+Node 24+ is needed only to rebuild or run these developer checks:
+
+```powershell
+node build.mjs
+node verify.mjs
+node --test
+node tooling/check-live.mjs
+```
+
+The equivalent npm scripts are build, check, test and test:live. The live check makes GET/OPTIONS requests only; it never creates, edits or deletes company records. Automated write tests use synthetic responses through the real transport/adapters and generated UI handlers. Fixture modules are isolated to tests and excluded from the bundled website.
+
+See **INTEGRATION.md** for the implemented endpoint map, error behavior and known backend limits. The two supplied API reference files are preserved as received.

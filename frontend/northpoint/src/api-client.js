@@ -1,26 +1,14 @@
 import { dataSource } from './data-source.js';
-const routes = [
-  ['GET', /^\/employees$/], ['POST', /^\/employees$/],
-  ['GET', /^\/employees\/\d+$/], ['PATCH', /^\/employees\/\d+$/], ['DELETE', /^\/employees\/\d+$/], ['POST', /^\/employees\/\d+\/(?:deactivate|reactivate)$/],
-  ['GET', /^\/employees\/\d+\/violations$/], ['POST', /^\/employees\/\d+\/violations$/], ['POST', /^\/employees\/\d+\/violations\/clear$/],
-  ['GET', /^\/violations\/recent$/], ['GET', /^\/violations\/\d+$/], ['PATCH', /^\/violations\/\d+$/], ['POST', /^\/violations\/\d+\/remove$/],
-  ['GET', /^\/violation-removals(?:\/\d+)?$/], ['GET', /^\/activity\/(?:timeline|calendar|digest\/\d{4}-\d{2}-\d{2})$/],
-  ['GET', /^\/violation-types(?:\/all|\/\d+)?$/], ['POST', /^\/violation-types$/], ['PATCH', /^\/violation-types\/\d+$/], ['DELETE', /^\/violation-types\/\d+$/], ['POST', /^\/violation-types\/\d+\/(?:activate|deactivate)$/]
-];
+import {apiRoute,validateActor} from './api-routes.js';
 export function apiId(value) {
   const id = String(value ?? '');
   if (!/^\d+$/.test(id) || !Number.isSafeInteger(Number(id)) || Number(id) < 1) throw new Error('The record has no valid backend ID. Refresh the list.');
   return id;
 }
-export function apiActor(value) {
-  const actor = typeof value === 'string' ? value.trim() : '';
-  if (!actor) throw new Error('Set your display name in Settings before saving.');
-  if (/[^\x20-\x7e\u00a0-\u00ff]/.test(actor)) throw new Error('Your display name cannot be sent in X-Actor. Update it in Settings before saving.');
-  return actor;
-}
+export function apiActor(value){return validateActor(value);}
 
 export async function apiRequest(path,{method='GET',query,body,actor,signal}={}) {
-  if(!routes.some(([verb,route])=>method===verb&&route.test(path)))throw new Error('This action is not defined in the API contract.');
+  apiRoute(path,method);
   if(signal?.aborted)throw new DOMException('Request cancelled.','AbortError');
   return dataSource.request({path,method,query:query||{},body,actor,signal});
 }

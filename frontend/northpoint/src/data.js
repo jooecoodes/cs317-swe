@@ -1,5 +1,5 @@
 // View state only. Nothing is saved to browser storage or a database.
-const defaults={organization:'Northpoint',textSize:'standard',role:'HR',name:'Preview User',department:''};
+const defaults={organization:'Northpoint',textSize:'standard',role:'HR',name:'',department:''};
 export const store={employees:[],violations:[],types:[],removals:[],activities:[],users:[],settings:{...defaults}};
 export function saveStore() { /* Preferences apply to this open tab only. */ }
 export function visibleEmployees() {

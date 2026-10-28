@@ -7,10 +7,11 @@ import {calendarMonthBounds,shiftCalendarMonth,calendarCells,calendarActionLabel
 export function createCalendarLoader(request=apiRequest) {
   const service=createCalendarService(request),source=service.monthState;
   const state={get month(){return source.key;},get status(){return source.status;},get rows(){return source.data||[];},get error(){return source.error;}};
-  return {state,load:month=>service.loadMonth(month)};
+  return {state,load:month=>service.loadMonth(month),invalidate:()=>service.invalidate()};
 }
 const monthLoader=createCalendarLoader();
 let digestVersion=0,openDigest=null;
+export function invalidateHistoryCalendar(){monthLoader.invalidate();calendarService.invalidate();digestVersion++;openDigest=null;}
 const utcToday=()=>new Date().toISOString().slice(0,10);
 const longDate=date=>new Date(date+'T12:00:00Z').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric',timeZone:'UTC'});
 const shortDate=date=>new Date(date+'T12:00:00Z').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'});
