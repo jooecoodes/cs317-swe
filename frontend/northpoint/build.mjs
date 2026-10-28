@@ -12,7 +12,11 @@ for (const name of ['dm-sans-latin-ext.woff2', 'dm-sans-latin.woff2']) {
   const encoded = fs.readFileSync(path.join(source, 'assets/fonts', name)).toString('base64');
   styles = styles.replaceAll(`./assets/fonts/${name}`, `data:font/woff2;base64,${encoded}`);
 }
-let script = `const {previewFixtures}=(()=>{
+let script = `const {validCalendarDate,calendarMonthBounds,shiftCalendarMonth,calendarCells,calendarActionLabel,previewCalendarRows,previewDailyDigest,validateDailyDigest}=(()=>{
+${withoutExports(read('calendar-data.js'))}
+return {validCalendarDate,calendarMonthBounds,shiftCalendarMonth,calendarCells,calendarActionLabel,previewCalendarRows,previewDailyDigest,validateDailyDigest};})();
+`;
+script += `const {previewFixtures}=(()=>{
 ${withoutExports(read('preview-fixtures.js'))}
 return {previewFixtures};})();
 `;
@@ -40,6 +44,7 @@ script += `const {renderSecondary,handleSecondary}=(()=>{\n${withoutExports(read
 script += `const {renderDashboard}=(()=>{\n${withoutExports(read('dashboard.js'))}\nreturn {renderDashboard};})();\n`;
 script += `const {enhancePhoneLayout,syncPhoneFilters}=(()=>{\n${withoutExports(read('phone.js'))}\nreturn {enhancePhoneLayout,syncPhoneFilters};})();\n`;
 script += `const {bindEmployeePicker}=(()=>{\n${withoutExports(read('employee-picker.js'))}\nreturn {bindEmployeePicker};})();\n`;
+script += `const {createCalendarLoader,renderHistoryCalendar,renderCalendarDigest,handleCalendarAction,handleCalendarKeydown}=(()=>{\n${withoutExports(read('calendar.js'))}\nreturn {createCalendarLoader,renderHistoryCalendar,renderCalendarDigest,handleCalendarAction,handleCalendarKeydown};})();\n`;
 script += read('app.js').replace(/^import .*?;\s*$/gm, '').replaceAll('./favicon.svg', favicon).replaceAll('./assets/company-logo.png', favicon);
 script = script.replace(/<\/script/gi, '<\\/script');
 const policy = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'";

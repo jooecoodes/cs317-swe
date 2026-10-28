@@ -1,4 +1,5 @@
 import { renderReports, renderHistory } from './insights.js';
+import { handleCalendarAction } from './calendar.js';
 /* Static preview views. Preferences apply only to the current tab. */
 
 const statuses = ['Active', 'Inactive'];
@@ -60,6 +61,7 @@ export function renderSecondary(page, ctx) {
 
 export function handleSecondary(action, el, ctx) {
   const { esc } = ctx;
+  if(action.startsWith('sec-calendar-'))return handleCalendarAction(action,el,ctx);
   if (action === 'sec-filter-apply') {
     const form = document.getElementById('secondary-filter');
     const values = Object.fromEntries(new FormData(form));
@@ -83,7 +85,7 @@ export function handleSecondary(action, el, ctx) {
   }
   if (action === 'sec-report-tab' || action === 'sec-history-tab') {
     const history=action==='sec-history-tab';
-    ctx.setFilters(history?'history':'reports',history?{tab:el.dataset.tab,page:1}:{...ctx.getFilters('reports'),tab:el.dataset.tab});
+    ctx.setFilters(history?'history':'reports',history?{tab:el.dataset.tab,page:1,month:ctx.getFilters('history').month}:{...ctx.getFilters('reports'),tab:el.dataset.tab});
     ctx.render();
     const tab=document.getElementById((history?'history-tab-':'report-tab-')+el.dataset.tab);
     tab?.focus({preventScroll:true});

@@ -38,6 +38,8 @@ The current standalone page has `connect-src 'none'` to enforce a network-free p
 | Rulebook changes | POST /violation-types; PATCH /violation-types/{id}; POST /violation-types/{id}/activate or /deactivate; DELETE /violation-types/{id} | Type object or HTTP 204 |
 | Remove violation | POST /violations/{id}/remove | Removal object; input is removed_by and reason |
 | History | GET /activity/timeline; GET /violation-removals | `{items,total,limit,offset}` |
+| History calendar | GET /activity/calendar?start=YYYY-MM-DD&end=YYYY-MM-DD | Bare CalendarDay array; omitted dates display zero changes |
+| Daily summary | GET /activity/digest/YYYY-MM-DD | DailyDigest with date, total, by_action object, by_actor array of `{actor,count}`, highlights and events |
 
 `src/employee-api.js` converts employee_code/full_name/total_points/total_strikes into view models. `src/backend.js` converts rulebook, violation, activity and removal responses. `src/employee-details.js` and `src/mutations.js` prepare write payloads. Keep authoritative record IDs and the distinction between numeric API IDs and employee codes. Employee summaries do not contain created_at; newest-first currently falls back to numeric ID. Reports are calculated from loaded records and exclude removed violations; dedicated backend analytics endpoints can replace those calculations in a later change.
 

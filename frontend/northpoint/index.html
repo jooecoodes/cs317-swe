@@ -97,6 +97,24 @@ input[readonly]{background:#f3f6fa;color:#5e7189;cursor:default}
 
 .preview-notice{margin-bottom:24px;background:#edf4fa;border-color:#d7e4f1}.preview-notice p{margin:0;font-size:15px;line-height:1.6}
 
+/* History calendar. Color strength changes the background, keeping text legible. */
+.history-calendar{overflow:hidden}.calendar-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:20px 24px;border-bottom:1px solid var(--border)}
+.calendar-month-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.calendar-month-controls h2{font-size:21px;min-width:175px;text-align:center;margin:0}.calendar-month-controls .icon-button{min-width:44px;min-height:44px;background:#f7f9fc;border:1px solid #dce5ef;border-radius:9px;color:#345a81}.calendar-month-controls .button{min-height:44px;margin-left:6px}
+.calendar-toolbar>p{font-size:15px;color:#5d7187;margin:0}.calendar-body{padding:18px 22px 22px}.calendar-weekdays,.calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}.calendar-weekdays{padding:0 0 12px;text-align:center;color:#566c82;font-size:14px;font-weight:600}.calendar-weekdays>span{padding:6px 0}
+.calendar-day,.calendar-placeholder{min-height:106px;border-radius:10px}.calendar-day{position:relative;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;gap:14px;padding:12px;border:1px solid #dbe4ef;background:rgba(82,124,169,var(--day-strength,0));color:#203d60;font:inherit;cursor:pointer;text-align:left;transition:box-shadow .15s,border-color .15s}.calendar-day.has-activity{border-color:#b9cde1}.calendar-day-number{font-size:17px;font-weight:650}.calendar-day-count{align-self:flex-end;display:flex;align-items:baseline;gap:5px;font-size:18px;font-weight:650;line-height:1.2}.calendar-day-count small{font-size:12px;font-weight:500}.calendar-day:not(.has-activity) .calendar-day-count{color:#8293a5;font-weight:400}
+.calendar-day:hover{border-color:#4776a7;box-shadow:inset 0 0 0 1px #4776a7}.calendar-day:focus-visible{outline:3px solid #244f83;outline-offset:2px;z-index:1}.calendar-day.is-today{box-shadow:inset 0 0 0 2px #315e8b;border-color:#315e8b}.calendar-today-dot{position:absolute;top:16px;right:13px;width:7px;height:7px;background:#315e8b;border-radius:50%}.calendar-placeholder{background:#edf2f8;animation:calendar-pulse 1.4s ease-in-out infinite}.calendar-blank{pointer-events:none}
+.calendar-footer{display:flex;align-items:center;justify-content:space-between;gap:12px 22px;flex-wrap:wrap;border-top:1px solid var(--border);padding:17px 24px;color:#52697f;font-size:14px;background:#fbfcfe}.calendar-footer p{margin:0}.calendar-footer>small{width:100%;font-size:12px;color:#6a7d90}.calendar-legend{display:flex;align-items:center;gap:5px;font-size:13px}.calendar-legend>span:first-child{margin-right:4px}.calendar-legend>span:last-child{margin-left:4px}.calendar-legend i{width:17px;height:17px;border:1px solid #c8d7e6;border-radius:4px;background:rgba(82,124,169,var(--day-strength,0))}
+dialog.calendar-digest-dialog{width:900px}.calendar-digest-dialog .modal-header h2{font-size:22px}.digest-date{font-size:16px;color:#526b84;margin:0 0 18px}.digest-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:22px}.digest-metrics>div{padding:17px 19px;border:1px solid #dce6ef;border-top:3px solid #527ca9;border-radius:9px;background:#f8fafc;display:flex;flex-direction:column;gap:9px}.digest-metrics>div:nth-child(2){border-top-color:#5b9788}.digest-metrics>div:nth-child(3){border-top-color:#b48b47}.digest-metrics span{font-size:14px;color:#52697f}.digest-metrics strong{font-size:30px;line-height:1.15;color:#294968}
+.digest-highlights{border:1px solid #dce5ee;background:#f6f8fb;padding:20px 22px;border-radius:10px;margin-bottom:22px}.digest-highlights h3,.digest-breakdown h3,.digest-events h3{font-size:17px;color:#345572;margin:0 0 13px}.digest-highlights ul{padding-left:21px;margin:0;display:grid;gap:9px}.digest-highlights li{font-size:16px;line-height:1.65;overflow-wrap:anywhere}.digest-breakdown{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px}.digest-breakdown ul{list-style:none;padding:0;margin:0;display:grid;gap:8px}.digest-breakdown li{display:flex;align-items:center;justify-content:space-between;gap:16px;background:#f7f9fc;border:1px solid #e1e8f0;border-radius:7px;padding:10px 12px;font-size:15px;overflow-wrap:anywhere}.digest-breakdown strong{color:#345b82}
+.digest-events{padding-top:22px;border-top:1px solid #dce5ee}.digest-events>p{font-size:13px;margin-top:-6px;margin-bottom:15px}.digest-events ol{list-style:none;padding:0;margin:0;border:1px solid #dde6ef;border-radius:10px;overflow:hidden}.digest-events li{display:grid;grid-template-columns:32px minmax(0,1fr) auto;align-items:start;gap:12px;padding:16px;border-bottom:1px solid #e2e9f1}.digest-events li:last-child{border-bottom:0}.digest-event-icon{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;background:#edf3f9;color:#52789e}.digest-events li p{margin:0 0 8px;font-size:16px;line-height:1.6;overflow-wrap:anywhere}.digest-event-meta{font-size:13px;color:#5c7189;line-height:1.7;overflow-wrap:anywhere}.digest-events time{font-size:12px;color:#61758a;white-space:nowrap;padding-top:6px}.digest-pagination{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:14px;font-size:13px;color:#5b7188}.digest-pagination>div{display:flex;align-items:center;gap:9px}.digest-pagination .icon-button{min-width:44px;min-height:44px;border:1px solid #d8e3ee;border-radius:8px}.digest-pagination button:disabled{opacity:.4;cursor:default}
+@keyframes calendar-pulse{50%{opacity:.45}}
+@media(max-width:900px){.calendar-day,.calendar-placeholder{min-height:88px}.calendar-day{padding:10px}.calendar-day-count small{display:none}.calendar-month-controls h2{font-size:20px;min-width:164px}.calendar-toolbar{padding:18px}.calendar-body{padding:15px}.calendar-footer{padding:16px 18px}}
+@media(max-width:520px){.history-tabs .tab{font-size:14px;padding-left:12px;padding-right:12px}.calendar-toolbar{padding:14px 10px;gap:12px}.calendar-month-controls{width:100%;gap:5px;justify-content:space-between;flex-wrap:nowrap}.calendar-month-controls h2{font-size:17px;min-width:0;flex:1;line-height:1.4}.calendar-month-controls .icon-button{min-width:40px;min-height:44px}.calendar-month-controls .button{padding:9px 11px;margin-left:1px;font-size:14px}.calendar-toolbar>p{font-size:14px;margin-left:3px}.calendar-body{padding:12px 8px 14px}.calendar-grid,.calendar-weekdays{gap:4px}.calendar-weekdays{font-size:12px;padding-bottom:8px}.calendar-day,.calendar-placeholder{min-height:70px;border-radius:7px}.calendar-day{padding:7px 6px;gap:10px}.calendar-day-number{font-size:15px}.calendar-day-count{font-size:15px}.calendar-today-dot{width:5px;height:5px;top:10px;right:6px}.calendar-footer{padding:14px 12px;font-size:13px}.calendar-legend{font-size:12px}.calendar-legend i{width:15px;height:15px}.calendar-digest-dialog .modal-header{padding:18px 16px}.calendar-digest-dialog .modal-header h2{font-size:19px;line-height:1.4}.calendar-digest-dialog .modal-content{padding:18px 15px}.digest-date{font-size:14px}.digest-metrics{gap:7px;margin-bottom:18px}.digest-metrics>div{padding:12px 9px;gap:8px}.digest-metrics span{font-size:13px;line-height:1.35}.digest-metrics strong{font-size:26px}.digest-highlights{padding:16px}.digest-highlights li{font-size:15px}.digest-breakdown{grid-template-columns:1fr;gap:19px}.digest-events li{grid-template-columns:26px minmax(0,1fr);gap:9px;padding:14px 12px}.digest-event-icon{width:25px;height:25px}.digest-events li p{font-size:15px}.digest-events time{grid-column:2;padding:0}.digest-pagination{flex-wrap:wrap}.digest-pagination>div{margin-left:auto}}
+@media(prefers-reduced-motion:reduce){.calendar-placeholder{animation:none}}
+dialog.calendar-digest-dialog[open]{display:flex;flex-direction:column;overflow:hidden;max-height:90vh;max-height:90dvh}.calendar-digest-dialog .modal-header,.calendar-digest-dialog .modal-footer{flex-shrink:0}.calendar-digest-dialog .modal-content{min-height:0;max-height:none;overflow-y:auto;flex:1}
+dialog.calendar-digest-dialog{max-width:calc(100vw - 24px)}
+@media(max-width:520px){.calendar-body{padding-left:6px;padding-right:6px}.calendar-grid,.calendar-weekdays{gap:3px}}
+
 </style>
 </head>
 <body>
@@ -106,6 +124,63 @@ input[readonly]{background:#f3f6fa;color:#5e7189;cursor:default}
   <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
   <noscript><p>Northpoint needs JavaScript enabled in your browser.</p></noscript>
   <script>
+const {validCalendarDate,calendarMonthBounds,shiftCalendarMonth,calendarCells,calendarActionLabel,previewCalendarRows,previewDailyDigest,validateDailyDigest}=(()=>{
+// Calendar dates follow the backend's UTC event_date, independently of device time.
+function validCalendarDate(value) {
+  if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(value))return false;
+  const date=new Date(value+'T12:00:00Z');
+  return !Number.isNaN(date.getTime())&&date.toISOString().slice(0,10)===value;
+}
+function calendarMonthBounds(month) {
+  if(typeof month!=='string'||!/^\d{4}-\d{2}$/.test(month)||!validCalendarDate(month+'-01'))throw new Error('Choose a valid calendar month.');
+  const start=month+'-01',last=new Date(start+'T12:00:00Z');last.setUTCMonth(last.getUTCMonth()+1,0);
+  return {start,end:last.toISOString().slice(0,10),days:last.getUTCDate(),offset:new Date(start+'T12:00:00Z').getUTCDay()};
+}
+function shiftCalendarMonth(month,amount) {
+  const {start}=calendarMonthBounds(month),date=new Date(start+'T12:00:00Z');date.setUTCMonth(date.getUTCMonth()+amount);
+  const result=date.toISOString().slice(0,7);calendarMonthBounds(result);return result;
+}
+function calendarCells(month,rows=[],today=new Date().toISOString().slice(0,10)) {
+  const {start,end,days,offset}=calendarMonthBounds(month),counts=new Map();
+  if(!Array.isArray(rows))throw new Error('The calendar returned an unexpected list. Please try again.');
+  for(const row of rows){if(!validCalendarDate(row?.date)||row.date<start||row.date>end||!Number.isSafeInteger(row.total)||row.total<0||counts.has(row.date))throw new Error('The calendar returned invalid daily totals. Please try again.');counts.set(row.date,row.total);}
+  const maximum=Math.max(0,...counts.values()),cells=Array(offset).fill(null);
+  for(let day=1;day<=days;day++){
+    const date=month+'-'+String(day).padStart(2,'0'),total=counts.get(date)||0;
+    cells.push({day,date,total,today:date===today,strength:total?Number((.08+.4*Math.log1p(total)/Math.log1p(maximum)).toFixed(3)):0});
+  }
+  while(cells.length%7)cells.push(null);
+  return {cells,maximum,total:[...counts.values()].reduce((sum,value)=>sum+value,0),activeDays:[...counts.values()].filter(Boolean).length};
+}
+function calendarActionLabel(value) {
+  const labels={'employee.created':'Employee added','employees.bulk_created':'Employees imported','employee.updated':'Employee updated','employee.deleted':'Employee deleted','employee.activated':'Employee reactivated','employee.deactivated':'Employee deactivated','violation.assigned':'Violation issued','violation.updated':'Violation updated','violation.removed':'Violation removed','violation_type.created':'Violation type added','violation_type.updated':'Violation type updated','violation_type.activated':'Violation type activated','violation_type.deactivated':'Violation type deactivated','violation_type.deleted':'Violation type deleted'};
+  return labels[value]||String(value||'Other change').replaceAll('_',' ').replaceAll('.',' ').replace(/\b\w/g,letter=>letter.toUpperCase());
+}
+function previewCalendarRows(events,start,end) {
+  if(!validCalendarDate(start)||!validCalendarDate(end)||start>end)throw new Error('Choose a valid date range.');
+  const days=new Map();
+  for(const event of events){const date=event.event_date;if(date<start||date>end)continue;
+    if(!days.has(date))days.set(date,{date,total:0,employees:0,violations:0,violation_types:0,removals:0});
+    const row=days.get(date);row.total++;if(event.target_type==='employee')row.employees++;if(event.target_type==='violation')row.violations++;if(event.target_type==='violation_type')row.violation_types++;if(event.action==='violation.removed')row.removals++;
+  }
+  return [...days.values()].sort((a,b)=>a.date.localeCompare(b.date));
+}
+function previewDailyDigest(events,date) {
+  if(!validCalendarDate(date))throw new Error('Choose a valid calendar date.');
+  const selected=events.filter(event=>event.event_date===date).slice().sort((a,b)=>Date.parse(a.occurred_at)-Date.parse(b.occurred_at)||a.id-b.id),by_action=Object.create(null),actors=new Map();
+  for(const event of selected){by_action[event.action]=(by_action[event.action]||0)+1;actors.set(event.actor,(actors.get(event.actor)||0)+1);}
+  return {date,total:selected.length,by_action,by_actor:[...actors].map(([actor,count])=>({actor,count})).sort((a,b)=>b.count-a.count||a.actor.localeCompare(b.actor)),
+    highlights:selected.length?Object.entries(by_action).map(([action,count])=>`${calendarActionLabel(action)}: ${count} ${count===1?'change':'changes'}.`):['No activity recorded on this day.'],events:selected};
+}
+function validateDailyDigest(raw,date) {
+  const validCount=value=>Number.isSafeInteger(value)&&value>=0;
+  if(raw?.date!==date||!validCount(raw.total)||!raw.by_action||Array.isArray(raw.by_action)||typeof raw.by_action!=='object'||!Array.isArray(raw.by_actor)||!Array.isArray(raw.highlights)||!Array.isArray(raw.events)||raw.events.length!==raw.total)throw new Error('The daily summary could not be read. Please try again.');
+  if(Object.values(raw.by_action).some(value=>!validCount(value))||Object.values(raw.by_action).reduce((sum,value)=>sum+value,0)!==raw.total||raw.by_actor.some(row=>typeof row?.actor!=='string'||!validCount(row.count))||raw.by_actor.reduce((sum,row)=>sum+row.count,0)!==raw.total||raw.highlights.some(text=>typeof text!=='string'))throw new Error('The daily summary returned inconsistent totals. Please try again.');
+  const ids=new Set();for(const event of raw.events){if(event.event_date!==date||typeof event.summary!=='string'||typeof event.actor!=='string'||typeof event.action!=='string'||typeof event.occurred_at!=='string'||Number.isNaN(Date.parse(event.occurred_at))||ids.has(event.id))throw new Error('The daily summary returned invalid events. Please try again.');ids.add(event.id);}
+  return raw;
+}
+
+return {validCalendarDate,calendarMonthBounds,shiftCalendarMonth,calendarCells,calendarActionLabel,previewCalendarRows,previewDailyDigest,validateDailyDigest};})();
 const {previewFixtures}=(()=>{
 // Fictional examples only. No employee data was copied from a real API/database.
 // Relative dates keep the weekly chart useful whenever this UI is reviewed.
@@ -162,6 +237,7 @@ const previewFixtures={employees,violations,types,removals,activities};
 return {previewFixtures};})();
 const {createPreviewProvider}=(()=>{
 
+
 const previewWriteMessage='This is a UI-only preview. Record changes are disabled. Connect the backend adapter to enable saving; your form entries have been kept.';
 function failure(message,status=400,code='preview-request') {return Object.assign(new Error(message),{status,code,uncertain:false});}
 function cancelled(){return new DOMException('Request cancelled.','AbortError');}
@@ -208,6 +284,8 @@ function createPreviewProvider({scenario='normal',delayMs=140}={}) {
     else if(path==='/violation-removals')result=page(removals.slice().sort((a,b)=>Date.parse(b.removed_at)-Date.parse(a.removed_at)),query);
     else if((match=path.match(/^\/violation-removals\/(\d+)$/)))result=required(removals,match[1]);
     else if(path==='/activity/timeline')result=page(activities,query);
+    else if(path==='/activity/calendar')result=previewCalendarRows(activities,query.start,query.end);
+    else if((match=path.match(/^\/activity\/digest\/(\d{4}-\d{2}-\d{2})$/)))result=previewDailyDigest(activities,match[1]);
     else throw failure('This read route is not part of the UI preview.',404);
     return clone(result);
   }};
@@ -1005,6 +1083,7 @@ function renderViolations(ctx) {
 return {renderEmployees,renderViolations,employeeLoadState};})();
 const {renderReports,renderHistory}=(()=>{
 
+
 const reportTabs = [['activity', 'Activity'], ['offenders', 'Top Offenders'], ['watchlist', 'Watchlist'], ['departments', 'Departments'], ['rulebook', 'Rulebook Usage'], ['clean', 'Clean Employees']];
 const colors = ['#527ca9', '#5b9788', '#c19549', '#8a7baa', '#b86d78', '#528f9f', '#777c85'];
 function empty(title, detail = 'There are no matching records in this view.') { return `<div class="empty-state"><h3>${title}</h3><p>${detail}</p></div>`; }
@@ -1068,7 +1147,9 @@ function renderReports(ctx) {
 
 function renderHistory(ctx) {
   const {esc,icon,formatDate}=ctx;
-  const f=ctx.getFilters('history'), tab=f.tab==='removals'?'removals':'activity', isRemoval=tab==='removals';
+  const f=ctx.getFilters('history'), tab=['removals','calendar'].includes(f.tab)?f.tab:'activity', isRemoval=tab==='removals';
+  const tabs=`<div class="report-tabs-container history-tabs-container"><div class="tabs report-tabs history-tabs" role="tablist" aria-label="History sections">${[['activity','Activity Logs'],['removals','Removal Logs'],['calendar','Calendar']].map(([id,label])=>`<button id="history-tab-${id}" class="tab ${tab===id?'active':''}" role="tab" aria-selected="${tab===id}" aria-controls="history-log-panel" tabindex="${tab===id?0:-1}" data-action="sec-history-tab" data-tab="${id}">${label}</button>`).join('')}</div></div>`;
+  if(tab==='calendar')return tabs+renderHistoryCalendar(ctx);
   const resource=ctx.resources[isRemoval?'removals':'timeline'];
   const all=historyEvents(ctx.store,ctx.visibleEmployees(),ctx.visibleViolations(),{tab});
   const events=historyEvents(ctx.store,ctx.visibleEmployees(),ctx.visibleViolations(),{...f,tab});
@@ -1089,7 +1170,7 @@ function renderHistory(ctx) {
   ]:[timestamp(event.date),`<strong>${esc(event.title)}</strong>`,employeeCell(event),esc(event.actor||'Not provided'),esc(event.detail||'No summary provided')+changeDetails(event)+(event.notes&&!event.detail?.includes(event.notes)?`<span class="history-cell-secondary">Reason: ${esc(event.notes)}</span>`:'')]);
   const title=isRemoval?'Removal Logs':'Activity Logs';
   const content=resource.status!=='ready'?ctx.resourceState(resource,isRemoval?'removal logs':'activity logs'):rows.length?`<div class="table-wrap history-table-scroll" role="region" tabindex="0" aria-labelledby="history-table-title" aria-describedby="history-scroll-hint"><table class="history-table ${isRemoval?'history-removal-table':'history-activity-table'}" data-phone-layout="table"><caption class="sr-only">${title} · Newest first</caption><thead><tr>${headers.map(header=>`<th scope="col">${header}</th>`).join('')}</tr></thead><tbody>${tableRows.map(cells=>`<tr>${cells.map(cell=>`<td>${cell}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`:empty(isRemoval?'No violation removals found':'No activity found','Try another category or a wider date range.');
-  return `<div class="report-tabs-container history-tabs-container"><div class="tabs report-tabs history-tabs" role="tablist" aria-label="History sections">${[['activity','Activity Logs'],['removals','Removal Logs']].map(([id,label])=>`<button id="history-tab-${id}" class="tab ${tab===id?'active':''}" role="tab" aria-selected="${tab===id}" aria-controls="history-log-panel" tabindex="${tab===id?0:-1}" data-action="sec-history-tab" data-tab="${id}">${label}</button>`).join('')}</div></div>
+  return `${tabs}
     <section class="panel"><form id="secondary-filter" class="filters history-filters" data-filter-page="history">
       <div class="field"><label for="history-search">Search ${isRemoval?'removals':'activity'}</label><input id="history-search" name="query" placeholder="Name, employee code, or details" value="${esc(f.query||'')}"></div>
       <div class="field"><label for="history-category">${isRemoval?'Violation type':'Category'}</label><select id="history-category" name="category"><option value="">${isRemoval?'All violation types':'All changes'}</option>${categories.map(([id,label])=>`<option value="${esc(id)}" ${f.category===id?'selected':''}>${esc(label)}</option>`).join('')}</select></div>
@@ -1101,6 +1182,7 @@ function renderHistory(ctx) {
 
 return {renderReports,renderHistory};})();
 const {renderSecondary,handleSecondary}=(()=>{
+
 
 /* Static preview views. Preferences apply only to the current tab. */
 
@@ -1163,6 +1245,7 @@ function renderSecondary(page, ctx) {
 
 function handleSecondary(action, el, ctx) {
   const { esc } = ctx;
+  if(action.startsWith('sec-calendar-'))return handleCalendarAction(action,el,ctx);
   if (action === 'sec-filter-apply') {
     const form = document.getElementById('secondary-filter');
     const values = Object.fromEntries(new FormData(form));
@@ -1186,7 +1269,7 @@ function handleSecondary(action, el, ctx) {
   }
   if (action === 'sec-report-tab' || action === 'sec-history-tab') {
     const history=action==='sec-history-tab';
-    ctx.setFilters(history?'history':'reports',history?{tab:el.dataset.tab,page:1}:{...ctx.getFilters('reports'),tab:el.dataset.tab});
+    ctx.setFilters(history?'history':'reports',history?{tab:el.dataset.tab,page:1,month:ctx.getFilters('history').month}:{...ctx.getFilters('reports'),tab:el.dataset.tab});
     ctx.render();
     const tab=document.getElementById((history?'history-tab-':'report-tab-')+el.dataset.tab);
     tab?.focus({preventScroll:true});
@@ -1430,6 +1513,82 @@ function bindEmployeePicker(root, employees, selectedId, esc) {
 }
 
 return {bindEmployeePicker};})();
+const {createCalendarLoader,renderHistoryCalendar,renderCalendarDigest,handleCalendarAction,handleCalendarKeydown}=(()=>{
+
+
+
+function createCalendarLoader(request=apiRequest) {
+  const state={month:'',status:'idle',rows:[],error:''};let version=0,controller=null;
+  return {state,async load(month){const bounds=calendarMonthBounds(month),sequence=++version;controller?.abort();controller=new AbortController();
+    Object.assign(state,{month,status:'loading',rows:[],error:''});
+    try{const rows=await request('/activity/calendar',{query:{start:bounds.start,end:bounds.end},signal:controller.signal});calendarCells(month,rows);if(sequence!==version)return false;Object.assign(state,{status:'ready',rows,error:''});}
+    catch(error){if(sequence!==version)return false;Object.assign(state,{status:'error',rows:[],error:error.message||'Calendar activity could not be loaded.'});}
+    return true;
+  }};
+}
+const monthLoader=createCalendarLoader();
+let digestVersion=0,digestController=null,openDigest=null;
+const utcToday=()=>new Date().toISOString().slice(0,10);
+const longDate=date=>new Date(date+'T12:00:00Z').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric',timeZone:'UTC'});
+const shortDate=date=>new Date(date+'T12:00:00Z').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'});
+function refreshCalendar(ctx){const id=document.activeElement?.id;ctx.render();if(id?.startsWith('calendar-'))document.getElementById(id)?.focus({preventScroll:true});}
+
+function renderHistoryCalendar(ctx) {
+  const {esc,icon}=ctx,f=ctx.getFilters('history');let month=f.month||utcToday().slice(0,7);
+  try{calendarMonthBounds(month);}catch{month=utcToday().slice(0,7);}
+  const state=monthLoader.state;
+  if(state.month!==month||state.status==='idle')void monthLoader.load(month).then(changed=>{if(changed&&ctx.getFilters('history').tab==='calendar')refreshCalendar(ctx);});
+  const title=new Date(month+'-01T12:00:00Z').toLocaleDateString('en-US',{month:'long',year:'numeric',timeZone:'UTC'}),ready=state.status==='ready';
+  const data=ready?calendarCells(month,state.rows):null;
+  const content=state.status==='error'?`<div class="empty-state" role="alert"><h3>Couldn’t load calendar</h3><p>${esc(state.error)}</p><button class="button primary" data-action="sec-calendar-retry">${icon('refresh',17)} Try again</button></div>`:!ready?`<div class="calendar-loading" role="status" aria-label="Loading calendar"><div class="calendar-weekdays" aria-hidden="true">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(day=>`<span>${day}</span>`).join('')}</div><div class="calendar-grid" aria-hidden="true">${Array.from({length:35},()=>'<span class="calendar-placeholder"></span>').join('')}</div><span class="sr-only">Loading calendar activity…</span></div>`:
+    `<div class="calendar-weekdays" aria-hidden="true">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(day=>`<span>${day}</span>`).join('')}</div><div class="calendar-grid" role="group" aria-labelledby="calendar-month-title" aria-describedby="calendar-help">${data.cells.map(cell=>cell?`<button id="calendar-day-${cell.date}" class="calendar-day${cell.today?' is-today':''}${cell.total?' has-activity':''}" data-action="sec-calendar-day" data-date="${cell.date}" style="--day-strength:${cell.strength}" aria-label="${esc(longDate(cell.date))}: ${cell.total} ${cell.total===1?'change':'changes'}${cell.today?', today':''}"${cell.today?' aria-current="date"':''}><span class="calendar-day-number">${cell.day}</span>${cell.today?'<span class="calendar-today-dot" aria-hidden="true"></span>':''}<span class="calendar-day-count">${cell.total?`${cell.total}<small>${cell.total===1?'change':'changes'}</small>`:'<span aria-hidden="true">—</span>'}</span></button>`:'<span class="calendar-blank" aria-hidden="true"></span>').join('')}</div>`;
+  return `<section id="history-log-panel" class="panel history-calendar" role="tabpanel" aria-labelledby="history-tab-calendar" aria-busy="${state.status==='loading'}"><div class="calendar-toolbar"><div class="calendar-month-controls"><button id="calendar-previous" class="icon-button" data-action="sec-calendar-month" data-step="-1" aria-label="Previous month">${icon('chevron-left',20)}</button><h2 id="calendar-month-title" aria-live="polite">${esc(title)}</h2><button id="calendar-next" class="icon-button" data-action="sec-calendar-month" data-step="1" aria-label="Next month">${icon('chevron-right',20)}</button><button id="calendar-today" class="button secondary small" data-action="sec-calendar-today">Today</button></div><p id="calendar-help">Choose a day to see its activity.</p></div><div class="calendar-body">${content}</div><div class="calendar-footer"><p role="status">${data?`${data.total} ${data.total===1?'change':'changes'} across ${data.activeDays} ${data.activeDays===1?'day':'days'} this month.`:'Activity by day'}</p><div class="calendar-legend" aria-label="Darker blue means more changes"><span>Fewer</span>${[0,.1,.22,.36,.48].map(strength=>`<i aria-hidden="true" style="--day-strength:${strength}"></i>`).join('')}<span>More changes</span></div><small>Dates and times use UTC.</small></div></section>`;
+}
+
+function renderCalendarDigest(data,ctx,page=1) {
+  const {esc,icon}=ctx,events=data.events.slice().sort((a,b)=>Date.parse(b.occurred_at)-Date.parse(a.occurred_at)||b.id-a.id),pages=Math.max(1,Math.ceil(events.length/6));
+  page=Math.min(pages,Math.max(1,page));const rows=events.slice((page-1)*6,page*6);
+  const content=!data.total?'<div class="empty-state"><h3>No activity on this day</h3><p>Choose another date to review its changes.</p></div>':`<section class="digest-highlights"><h3>Highlights</h3><ul>${data.highlights.map(text=>`<li>${esc(text)}</li>`).join('')}</ul></section><div class="digest-breakdown"><section><h3>By action</h3><ul>${Object.entries(data.by_action).map(([action,count])=>`<li><span>${esc(calendarActionLabel(action))}</span><strong>${count}</strong></li>`).join('')}</ul></section><section><h3>By person</h3><ul>${data.by_actor.map(({actor,count})=>`<li><span>${esc(actor||'Not provided')}</span><strong>${count}</strong></li>`).join('')}</ul></section></div><section class="digest-events"><h3>All changes <span class="count-label">${data.total}</span></h3><p class="muted">Newest first · UTC</p><ol>${rows.map(event=>`<li><span class="digest-event-icon" aria-hidden="true">${icon(event.action.includes('removed')||event.action.includes('deleted')?'trash':event.target_type==='employee'?'users':'history',17)}</span><div><p>${esc(event.summary||calendarActionLabel(event.action))}</p><span class="digest-event-meta">${esc(event.actor||'Not provided')}<span aria-hidden="true"> · </span>${esc(calendarActionLabel(event.action))}</span></div><time datetime="${esc(event.occurred_at)}">${esc(new Date(event.occurred_at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'UTC'}))}</time></li>`).join('')}</ol>${pages>1?`<nav class="digest-pagination" aria-label="Daily activity pages"><span>${(page-1)*6+1}–${Math.min(page*6,data.total)} of ${data.total} changes</span><div><button class="icon-button" data-action="sec-calendar-events" data-page="${page-1}" aria-label="Previous changes" ${page===1?'disabled':''}>${icon('chevron-left',19)}</button><span>Page ${page} of ${pages}</span><button class="icon-button" data-action="sec-calendar-events" data-page="${page+1}" aria-label="Next changes" ${page===pages?'disabled':''}>${icon('chevron-right',19)}</button></div></nav>`:''}</section>`;
+  return `<p class="digest-date">${esc(longDate(data.date))}</p><div class="digest-metrics">${[['Total events',data.total],['People',data.by_actor.length],['Action types',Object.keys(data.by_action).length]].map(([label,count])=>`<div><span>${label}</span><strong>${count}</strong></div>`).join('')}</div>${content}`;
+}
+function showDigestContent(date,html,ctx){ctx.openModal('Daily Summary · '+shortDate(date),html,'<button class="button secondary" data-action="close-modal">Close</button>');const dialog=document.querySelector('#modal');dialog.dataset.calendarDate=date;dialog.classList.add('calendar-digest-dialog');}
+async function loadDigest(date,ctx) {
+  if(!validCalendarDate(date))return;
+  const sequence=++digestVersion;digestController?.abort();digestController=new AbortController();openDigest=null;
+  showDigestContent(date,loadingSkeleton('rows','daily summary'),ctx);
+  try{const raw=await apiRequest('/activity/digest/'+date,{signal:digestController.signal});const data=validateDailyDigest(raw,date),dialog=document.querySelector('#modal');
+    if(sequence!==digestVersion||!dialog.open||dialog.dataset.calendarDate!==date)return;
+    openDigest=data;showDigestContent(date,renderCalendarDigest(data,ctx),ctx);
+  }catch(error){const dialog=document.querySelector('#modal');if(sequence!==digestVersion||!dialog.open||dialog.dataset.calendarDate!==date)return;
+    showDigestContent(date,`<div class="empty-state" role="alert"><h3>Couldn’t load daily summary</h3><p>${ctx.esc(error.message||'Please try again.')}</p><button class="button primary" data-action="sec-calendar-day" data-date="${date}">Try again</button></div>`,ctx);
+  }
+}
+async function handleCalendarAction(action,el,ctx) {
+  if(action==='sec-calendar-month'||action==='sec-calendar-today'){
+    const current=ctx.getFilters('history').month||utcToday().slice(0,7),month=action==='sec-calendar-today'?utcToday().slice(0,7):shiftCalendarMonth(current,Number(el.dataset.step));
+    ctx.setFilters('history',{...ctx.getFilters('history'),tab:'calendar',month});ctx.render();document.getElementById(el.id)?.focus({preventScroll:true});return true;
+  }
+  if(action==='sec-calendar-retry'){const month=ctx.getFilters('history').month||utcToday().slice(0,7);const promise=monthLoader.load(month);ctx.render();await promise;refreshCalendar(ctx);return true;}
+  if(action==='sec-calendar-day'){await loadDigest(el.dataset.date,ctx);return true;}
+  if(action==='sec-calendar-events'&&openDigest){showDigestContent(openDigest.date,renderCalendarDigest(openDigest,ctx,Number(el.dataset.page)),ctx);document.querySelector('.digest-events')?.scrollIntoView({block:'nearest'});return true;}
+  return false;
+}
+function handleCalendarKeydown(event,ctx) {
+  const day=event.target.closest?.('[data-action="sec-calendar-day"]');
+  if(!day||!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End','PageUp','PageDown'].includes(event.key))return false;
+  event.preventDefault();const date=new Date(day.dataset.date+'T12:00:00Z');
+  if(event.key==='Home')date.setUTCDate(1);
+  else if(event.key==='End')date.setUTCMonth(date.getUTCMonth()+1,0);
+  else if(event.key==='PageUp'||event.key==='PageDown'){const targetMonth=shiftCalendarMonth(day.dataset.date.slice(0,7),event.key==='PageUp'?-1:1),bounds=calendarMonthBounds(targetMonth);date.setTime(Date.parse(`${targetMonth}-${String(Math.min(date.getUTCDate(),bounds.days)).padStart(2,'0')}T12:00:00Z`));}
+  else date.setUTCDate(date.getUTCDate()+({ArrowLeft:-1,ArrowRight:1,ArrowUp:-7,ArrowDown:7}[event.key]));
+  const next=date.toISOString().slice(0,10),month=next.slice(0,7);
+  if(month!==day.dataset.date.slice(0,7)){ctx.setFilters('history',{...ctx.getFilters('history'),tab:'calendar',month});const pending=monthLoader.load(month);ctx.render();void pending.then(changed=>{if(changed){refreshCalendar(ctx);document.getElementById('calendar-day-'+next)?.focus({preventScroll:true});}});}
+  else document.getElementById('calendar-day-'+next)?.focus();
+  return true;
+}
+
+return {createCalendarLoader,renderHistoryCalendar,renderCalendarDigest,handleCalendarAction,handleCalendarKeydown};})();
+
 
 
 
@@ -1532,7 +1691,7 @@ function commitStore(){try{const previous=JSON.parse(savedSnapshot);saveStore();
 function ctx(){return {store,resources,resourceState,icon,esc,formatDate,badge,violationBadge,violationStatusOptions,person,employeeSummary,visibleEmployees,visibleViolations,navigate,toast,saveStore:commitStore,openModal,closeModal,downloadCSV,render,pagination,getFilters:p=>filters[p]||{},setFilters:(p,f)=>{filters[p]=f;},barChart};}
 function persist(message){try{commitStore();if(message)toast(message);return true;}catch(e){toast(e.message||'Unable to save changes in this browser.','alert');return false;}}
 function toast(message,type='check-circle'){const r=document.querySelector('#toast-region');r.innerHTML=`<div class="toast">${icon(type,22)}<span>${esc(message)}</span><button class="icon-button" data-action="dismiss-toast" aria-label="Dismiss notification">${icon('close',16)}</button></div>`;clearTimeout(window.toastTimer);window.toastTimer=setTimeout(()=>r.innerHTML='',6500);}
-function openModal(title,html,footer=''){modalVersion++;if(!dialog.open)modalOrigin=document.activeElement;dialog.innerHTML=`<div class="modal-header"><h2 id="modal-title">${title}</h2><button class="icon-button" data-action="close-modal" aria-label="Close dialog">${icon('close')}</button></div><div class="modal-content">${html}</div>${footer?`<div class="modal-footer">${footer}</div>`:''}`;if(!dialog.open)dialog.showModal();}
+function openModal(title,html,footer=''){modalVersion++;delete dialog.dataset.calendarDate;dialog.classList.remove('calendar-digest-dialog');if(!dialog.open)modalOrigin=document.activeElement;dialog.innerHTML=`<div class="modal-header"><h2 id="modal-title">${title}</h2><button class="icon-button" data-action="close-modal" aria-label="Close dialog">${icon('close')}</button></div><div class="modal-content">${html}</div>${footer?`<div class="modal-footer">${footer}</div>`:''}`;if(!dialog.open)dialog.showModal();}
 function closeModal(){if(employeeCreateInFlight()||mutationInFlight()||checkingDraft)return;modalVersion++;dialog.close();if(modalOrigin?.isConnected)modalOrigin.focus();}
 function downloadCSV(filename,rows){const safe=rows.map(row=>row.map(value=>{let s=String(value??'');if(/^[=+@\-\t\r]/.test(s))s="'"+s;return '"'+s.replaceAll('"','""')+'"';}).join(',')).join('\r\n');const url=URL.createObjectURL(new Blob(['\uFEFF'+safe],{type:'text/csv;charset=utf-8;'}));const a=document.createElement('a');a.href=url;a.download=filename.endsWith('.csv')?filename:filename+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('Your report has been downloaded.');}
 
@@ -1802,7 +1961,7 @@ case 'secondary-user-form':await handleSecondary('sec-user-save',{dataset:{}},ct
 default:if(form.id.startsWith('sec-')){const button=form.querySelector('[data-action]')||dialog.querySelector('.modal-footer [data-action^="sec-"]');if(button)await handleSecondary(button.dataset.action,button,ctx());}
 }}catch(error){formError(form,error.message||'Unable to save changes. Please review the fields.');toast(error.message||'Unable to save changes.','alert');}});
 document.addEventListener('change',event=>{const el=event.target;if(el.id==='emp-department'&&document.querySelector('#employee-new-department-field')){const other=el.value==='__other_department__';const field=document.querySelector('#employee-new-department-field');const input=document.querySelector('#emp-new-department');field.hidden=!other;input.disabled=!other;input.required=other;if(other)input.focus();}if(el.id==='employee-order'){filters.employees={...filters.employees,order:el.value};employeePage=1;render();document.querySelector('#employee-order')?.focus({preventScroll:true});}if(el.id==='report-period'){filters.reports={...filters.reports,days:Number(el.value)};render();document.querySelector('#report-period')?.focus({preventScroll:true});}if(el.id==='confirm-record')dialog.querySelector('[data-action="confirm-record"]').disabled=!el.checked;});
-document.addEventListener('keydown',event=>{const reportTab=event.target.closest?.('[data-action="sec-report-tab"],[data-action="sec-history-tab"]');if(reportTab&&['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){event.preventDefault();const action=reportTab.dataset.action;const tabs=[...document.querySelectorAll('[data-action="'+action+'"]')];const index=tabs.indexOf(reportTab);const next=event.key==='Home'?0:event.key==='End'?tabs.length-1:(index+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;handleSecondary(action,tabs[next],ctx());return;}if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){event.preventDefault();document.querySelector('#global-query')?.focus();}if(event.key==='Escape'){document.body.classList.remove('nav-open');syncNavigation();}});
+document.addEventListener('keydown',event=>{if(handleCalendarKeydown(event,ctx()))return;const reportTab=event.target.closest?.('[data-action="sec-report-tab"],[data-action="sec-history-tab"]');if(reportTab&&['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){event.preventDefault();const action=reportTab.dataset.action;const tabs=[...document.querySelectorAll('[data-action="'+action+'"]')];const index=tabs.indexOf(reportTab);const next=event.key==='Home'?0:event.key==='End'?tabs.length-1:(index+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;handleSecondary(action,tabs[next],ctx());return;}if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){event.preventDefault();document.querySelector('#global-query')?.focus();}if(event.key==='Escape'){document.body.classList.remove('nav-open');syncNavigation();}});
 dialog.addEventListener('cancel',event=>{if(employeeCreateInFlight()||mutationInFlight()||checkingDraft)event.preventDefault();});
 dialog.addEventListener('click',event=>{if(event.target===dialog){const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)closeModal();}});
 function syncNavigation(){const sidebar=document.querySelector('.sidebar');const open=document.body.classList.contains('nav-open');if(sidebar){sidebar.inert=matchMedia('(max-width:900px)').matches&&!open;sidebar.setAttribute('aria-hidden',String(sidebar.inert));}const workspace=document.querySelector('.workspace');if(workspace)workspace.inert=matchMedia('(max-width:900px)').matches&&open;document.querySelector('.mobile-toggle')?.setAttribute('aria-expanded',String(open));}

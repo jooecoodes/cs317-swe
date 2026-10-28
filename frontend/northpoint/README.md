@@ -11,3 +11,5 @@ Edit the modules in **src/**, then run `node build.mjs` to regenerate index.html
 For a phone, serve this directory with an existing static web server and open its address from the same network. When included in the backend repository's existing frontend directory, the UI is available at **/northpoint/** after the repository's normal sign-in. This PR does not change its login service.
 
 See **INTEGRATION.md** for the data source contract and backend mapping. See **PR-NOTES.md** for the additive repository placement and conflict check.
+
+History includes a Calendar tab with previous/next month controls, Today, shaded daily activity counts, and a daily summary dialog. Darker blue indicates more changes relative to the busiest day in that month. Each day remains selectable, including days without activity. Summaries show total events, people, action types, highlights, and a six-item paginated event list. Keyboard users can move between days with arrow keys, Home/End and Page Up/Down. Dates and times use UTC to match the backend calendar contract. Calendar and digest examples come through the same preview data-source boundary as the other views.

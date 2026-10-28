@@ -98,4 +98,12 @@ test('built standalone works offline, renders all views and never persists or sa
     context.location.hash='#history';ui.route();for(const tab of ['activity','removals']){ui.filters.history={tab};ui.render();assert.ok(body().includes(tab==='activity'?'Activity Logs':'Removal Logs'));assert.ok(body().includes('history-table-scroll'));}
   });
   await t.test('record data and preferences never reach browser storage or the network',()=>{ui.saveStore();assert.equal(networkCalls,0);assert.equal(storageCalls,0);});
+  await t.test('Calendar tab opens a daily summary through the actual bundled event handlers',async()=>{
+    context.location.hash='#history';ui.route();ui.filters.history={tab:'calendar'};ui.render();assert.ok(body().includes('Loading calendar activity'));
+    await wait();assert.ok(body().includes('calendar-grid'));assert.ok(body().includes('More changes'));
+    const date=new Date().toISOString().slice(0,10),day={dataset:{action:'sec-calendar-day',date},id:'calendar-day-'+date};
+    await events.click({target:{closest:()=>day}});assert.ok(element('#modal').innerHTML.includes('Daily Summary'));assert.ok(element('#modal').innerHTML.includes('By person'));assert.ok(!element('#modal').innerHTML.includes('[object Object]'));
+    const next={dataset:{action:'sec-calendar-month',step:'1'},id:'calendar-next'};await events.click({target:{closest:()=>next}});await wait();assert.notEqual(ui.filters.history.month,date.slice(0,7));
+    const today={dataset:{action:'sec-calendar-today'},id:'calendar-today'};await events.click({target:{closest:()=>today}});await wait();assert.equal(ui.filters.history.month,date.slice(0,7));assert.equal(networkCalls,0);assert.equal(storageCalls,0);
+  });
 });

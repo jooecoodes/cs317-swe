@@ -1,4 +1,5 @@
 import {previewFixtures} from './preview-fixtures.js';
+import {previewCalendarRows,previewDailyDigest} from './calendar-data.js';
 const previewWriteMessage='This is a UI-only preview. Record changes are disabled. Connect the backend adapter to enable saving; your form entries have been kept.';
 function failure(message,status=400,code='preview-request') {return Object.assign(new Error(message),{status,code,uncertain:false});}
 function cancelled(){return new DOMException('Request cancelled.','AbortError');}
@@ -45,6 +46,8 @@ export function createPreviewProvider({scenario='normal',delayMs=140}={}) {
     else if(path==='/violation-removals')result=page(removals.slice().sort((a,b)=>Date.parse(b.removed_at)-Date.parse(a.removed_at)),query);
     else if((match=path.match(/^\/violation-removals\/(\d+)$/)))result=required(removals,match[1]);
     else if(path==='/activity/timeline')result=page(activities,query);
+    else if(path==='/activity/calendar')result=previewCalendarRows(activities,query.start,query.end);
+    else if((match=path.match(/^\/activity\/digest\/(\d{4}-\d{2}-\d{2})$/)))result=previewDailyDigest(activities,match[1]);
     else throw failure('This read route is not part of the UI preview.',404);
     return clone(result);
   }};
