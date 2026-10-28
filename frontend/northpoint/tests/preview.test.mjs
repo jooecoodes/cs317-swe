@@ -80,7 +80,7 @@ test('built standalone works offline, renders all views and never persists or sa
   for(const key of ['localStorage','sessionStorage','indexedDB'])Object.defineProperty(context,key,{get(){storageCalls++;throw Error('Persistence forbidden');}});
   vm.runInNewContext(script+'\nglobalThis.fixture={store,resources,employeeDirectory,route,filters,render,employeeForm,employeeProfile,saveStore};',context);
   const ui=context.fixture,body=()=>element('#app').innerHTML,wait=()=>new Promise(resolve=>setTimeout(resolve,450));await wait();await wait();
-  await t.test('dashboard has preview branding and actual example totals while offline',()=>{assert.equal(ui.store.employees.length,12);assert.equal(ui.store.violations.length,19);assert.ok(body().includes('Fictional records'));assert.ok(body().includes('Recent Activity'));assert.ok(body().includes('Department Rollup'));assert.ok(!body().includes('Live backend data'));});
+  await t.test('dashboard has the requested version label and simplified footer',()=>{assert.equal(ui.store.employees.length,12);assert.equal(ui.store.violations.length,19);assert.ok(body().includes('v.FE-1.0'));assert.ok(!body().includes('Fictional records'));assert.ok(!body().includes('UI preview'));assert.ok(!body().includes('People. Clarity. Accountability.'));assert.match(body(),/<footer class="page-footer"><span>[\s\S]*?Northpoint<\/span><\/footer>/);assert.ok(body().includes('Recent Activity'));assert.ok(body().includes('Department Rollup'));assert.ok(!body().includes('Live backend data'));});
   await t.test('every main navigation view renders without a backend',async()=>{
     for(const [hash,title] of [['employees','Employee directory'],['violations','Violation records'],['types','Violation categories'],['history','Activity Logs'],['reports','Daily Activity'],['users','Coming Soon'],['settings','Your Preferences'],['help','How Can We Help?']]){context.location.hash='#'+hash;ui.route();await wait();assert.ok(body().includes(title),hash);}
   });
@@ -98,4 +98,15 @@ test('built standalone works offline, renders all views and never persists or sa
     context.location.hash='#history';ui.route();for(const tab of ['activity','removals']){ui.filters.history={tab};ui.render();assert.ok(body().includes(tab==='activity'?'Activity Logs':'Removal Logs'));assert.ok(body().includes('history-table-scroll'));}
   });
   await t.test('record data and preferences never reach browser storage or the network',()=>{ui.saveStore();assert.equal(networkCalls,0);assert.equal(storageCalls,0);});
+  await t.test('Calendar tab opens a daily summary through the actual bundled event handlers',async()=>{
+    context.location.hash='#history';ui.route();ui.filters.history={tab:'calendar'};ui.render();assert.ok(body().includes('Loading calendar activity'));
+    await wait();assert.ok(body().includes('calendar-grid'));assert.ok(body().includes('More changes'));
+    const dateButtons=[...body().matchAll(/<button[^>]+class="calendar-day[^>]*>([\s\S]*?)<\/button>/g)];assert.ok(dateButtons.length>=28);
+    for(const [,content] of dateButtons)assert.match(content.replace(/<[^>]*>/g,''),/^\d{1,2}$/);
+    assert.ok(!body().includes('class="calendar-day-count"'));
+    const date=new Date().toISOString().slice(0,10),day={dataset:{action:'sec-calendar-day',date},id:'calendar-day-'+date};
+    await events.click({target:{closest:()=>day}});assert.ok(element('#modal').innerHTML.includes('Daily Summary'));assert.ok(element('#modal').innerHTML.includes('By person'));assert.ok(!element('#modal').innerHTML.includes('[object Object]'));
+    const next={dataset:{action:'sec-calendar-month',step:'1'},id:'calendar-next'};await events.click({target:{closest:()=>next}});await wait();assert.notEqual(ui.filters.history.month,date.slice(0,7));
+    const today={dataset:{action:'sec-calendar-today'},id:'calendar-today'};await events.click({target:{closest:()=>today}});await wait();assert.equal(ui.filters.history.month,date.slice(0,7));assert.equal(networkCalls,0);assert.equal(storageCalls,0);
+  });
 });

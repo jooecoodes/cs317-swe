@@ -1,4 +1,5 @@
 import { renderReports, renderHistory } from './insights.js';
+import { handleCalendarAction } from './calendar.js';
 /* Static preview views. Preferences apply only to the current tab. */
 
 const statuses = ['Active', 'Inactive'];
@@ -30,7 +31,7 @@ function settings(ctx) {
       ${field('Assigned department', `<select name="department"><option value="">Select a department</option>${uniq(ctx.store.employees.map(e => e.department)).map(department => `<option${department === s.department ? ' selected' : ''}>${esc(department)}</option>`).join('')}</select>`)}
       <div><button type="submit" class="button primary">${icon('check')} Save Changes</button></div>
     </form></section><div>
-      <section class="panel"><div class="panel-header"><h2>About This Workspace</h2></div><div class="panel-body"><p><strong>Northpoint</strong><br>Violation Management System</p><p class="muted">A dedicated space for employee records, disciplinary cases, and clear reporting.</p><div class="callout" style="margin-top:20px"><div><strong>UI preview only</strong><p>All displayed people and records are fictional. Forms demonstrate the interface; record changes are disabled. Preferences reset when you reload.</p></div></div></div></section>
+      <section class="panel"><div class="panel-header"><h2>About This Workspace</h2></div><div class="panel-body"><p><strong>Northpoint</strong><br>Violation Management System</p><p class="muted">A dedicated space for employee records, disciplinary cases, and clear reporting.</p><div class="callout" style="margin-top:20px"><div><strong>About this build</strong><p>This build uses example records. Saving requires a connected backend. Preferences reset when you reload.</p></div></div></div></section>
       ${s.role === 'HR' ? `<section class="panel"><div class="panel-header"><h2>Reload Preview</h2></div><div class="panel-body"><p class="muted">Reload the fictional employee, violation, rulebook, and activity examples.</p><button class="button secondary" data-action="refresh-data">Reload Preview</button></div></section>` : ''}
     </div></div>`;
 }
@@ -48,7 +49,7 @@ function help(ctx) {
     <details><summary><strong>What is a strike?</strong></summary><p>A strike marks a violation that counts toward disciplinary follow-up. Employees with two or more strikes appear in the repeat-offender watchlist. Your organization’s policies determine the appropriate action.</p></details>
     <details><summary><strong>Can I make the text larger?</strong></summary><p>Yes. Open Settings, choose Larger under Text size, and select Save Changes. Your preference applies to this tab and resets on reload.</p></details>
     <details><summary><strong>Why can I only see one department?</strong></summary><p>The Supervisor role preview shows the assigned department. The HR view includes all departments. You can explore a different role in Settings.</p></details>
-    <details><summary><strong>Is this connected to the company’s employee system?</strong></summary><p>This copy is a static UI preview. It uses fictional examples and makes no API requests. Forms cannot save records. The integration guide explains how to connect the backend later.</p></details>
+    <details><summary><strong>Is this connected to the company’s employee system?</strong></summary><p>This build currently uses example records and makes no API requests. Saving requires a connected backend. See the integration guide for connection steps.</p></details>
   </div></section>
   <div class="callout">${icon('info')}<div><strong>Keyboard-friendly by design</strong><p>Use Tab to move between controls and Enter or Space to select a button. Press Escape to close a dialog. Every field has a visible label.</p></div></div>`;
 }
@@ -60,6 +61,7 @@ export function renderSecondary(page, ctx) {
 
 export function handleSecondary(action, el, ctx) {
   const { esc } = ctx;
+  if(action.startsWith('sec-calendar-'))return handleCalendarAction(action,el,ctx);
   if (action === 'sec-filter-apply') {
     const form = document.getElementById('secondary-filter');
     const values = Object.fromEntries(new FormData(form));
@@ -83,7 +85,7 @@ export function handleSecondary(action, el, ctx) {
   }
   if (action === 'sec-report-tab' || action === 'sec-history-tab') {
     const history=action==='sec-history-tab';
-    ctx.setFilters(history?'history':'reports',history?{tab:el.dataset.tab,page:1}:{...ctx.getFilters('reports'),tab:el.dataset.tab});
+    ctx.setFilters(history?'history':'reports',history?{tab:el.dataset.tab,page:1,month:ctx.getFilters('history').month}:{...ctx.getFilters('reports'),tab:el.dataset.tab});
     ctx.render();
     const tab=document.getElementById((history?'history-tab-':'report-tab-')+el.dataset.tab);
     tab?.focus({preventScroll:true});

@@ -1,4 +1,5 @@
 import { analyticsData, historyEvents } from './insight-data.js';
+import { renderHistoryCalendar } from './calendar.js';
 
 const reportTabs = [['activity', 'Activity'], ['offenders', 'Top Offenders'], ['watchlist', 'Watchlist'], ['departments', 'Departments'], ['rulebook', 'Rulebook Usage'], ['clean', 'Clean Employees']];
 const colors = ['#527ca9', '#5b9788', '#c19549', '#8a7baa', '#b86d78', '#528f9f', '#777c85'];
@@ -63,7 +64,9 @@ export function renderReports(ctx) {
 
 export function renderHistory(ctx) {
   const {esc,icon,formatDate}=ctx;
-  const f=ctx.getFilters('history'), tab=f.tab==='removals'?'removals':'activity', isRemoval=tab==='removals';
+  const f=ctx.getFilters('history'), tab=['removals','calendar'].includes(f.tab)?f.tab:'activity', isRemoval=tab==='removals';
+  const tabs=`<div class="report-tabs-container history-tabs-container"><div class="tabs report-tabs history-tabs" role="tablist" aria-label="History sections">${[['activity','Activity Logs'],['removals','Removal Logs'],['calendar','Calendar']].map(([id,label])=>`<button id="history-tab-${id}" class="tab ${tab===id?'active':''}" role="tab" aria-selected="${tab===id}" aria-controls="history-log-panel" tabindex="${tab===id?0:-1}" data-action="sec-history-tab" data-tab="${id}">${label}</button>`).join('')}</div></div>`;
+  if(tab==='calendar')return tabs+renderHistoryCalendar(ctx);
   const resource=ctx.resources[isRemoval?'removals':'timeline'];
   const all=historyEvents(ctx.store,ctx.visibleEmployees(),ctx.visibleViolations(),{tab});
   const events=historyEvents(ctx.store,ctx.visibleEmployees(),ctx.visibleViolations(),{...f,tab});
@@ -84,7 +87,7 @@ export function renderHistory(ctx) {
   ]:[timestamp(event.date),`<strong>${esc(event.title)}</strong>`,employeeCell(event),esc(event.actor||'Not provided'),esc(event.detail||'No summary provided')+changeDetails(event)+(event.notes&&!event.detail?.includes(event.notes)?`<span class="history-cell-secondary">Reason: ${esc(event.notes)}</span>`:'')]);
   const title=isRemoval?'Removal Logs':'Activity Logs';
   const content=resource.status!=='ready'?ctx.resourceState(resource,isRemoval?'removal logs':'activity logs'):rows.length?`<div class="table-wrap history-table-scroll" role="region" tabindex="0" aria-labelledby="history-table-title" aria-describedby="history-scroll-hint"><table class="history-table ${isRemoval?'history-removal-table':'history-activity-table'}" data-phone-layout="table"><caption class="sr-only">${title} · Newest first</caption><thead><tr>${headers.map(header=>`<th scope="col">${header}</th>`).join('')}</tr></thead><tbody>${tableRows.map(cells=>`<tr>${cells.map(cell=>`<td>${cell}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`:empty(isRemoval?'No violation removals found':'No activity found','Try another category or a wider date range.');
-  return `<div class="report-tabs-container history-tabs-container"><div class="tabs report-tabs history-tabs" role="tablist" aria-label="History sections">${[['activity','Activity Logs'],['removals','Removal Logs']].map(([id,label])=>`<button id="history-tab-${id}" class="tab ${tab===id?'active':''}" role="tab" aria-selected="${tab===id}" aria-controls="history-log-panel" tabindex="${tab===id?0:-1}" data-action="sec-history-tab" data-tab="${id}">${label}</button>`).join('')}</div></div>
+  return `${tabs}
     <section class="panel"><form id="secondary-filter" class="filters history-filters" data-filter-page="history">
       <div class="field"><label for="history-search">Search ${isRemoval?'removals':'activity'}</label><input id="history-search" name="query" placeholder="Name, employee code, or details" value="${esc(f.query||'')}"></div>
       <div class="field"><label for="history-category">${isRemoval?'Violation type':'Category'}</label><select id="history-category" name="category"><option value="">${isRemoval?'All violation types':'All changes'}</option>${categories.map(([id,label])=>`<option value="${esc(id)}" ${f.category===id?'selected':''}>${esc(label)}</option>`).join('')}</select></div>
