@@ -43,6 +43,32 @@ The current standalone page has `connect-src 'none'` to enforce a network-free p
 
 `src/employee-api.js` converts employee_code/full_name/total_points/total_strikes into view models. `src/backend.js` converts rulebook, violation, activity and removal responses. `src/employee-details.js` and `src/mutations.js` prepare write payloads. Keep authoritative record IDs and the distinction between numeric API IDs and employee codes. Employee summaries do not contain created_at; newest-first currently falls back to numeric ID. Reports are calculated from loaded records and exclude removed violations; dedicated backend analytics endpoints can replace those calculations in a later change.
 
+## Calendar connection
+
+Calendar is already wired to `src/calendar-api.js`, which uses the shared request boundary above. Enabling the team's authenticated adapter in `src/data-source.js` enables these reads too; no calendar layout changes are needed. Preview mode remains enabled until that adapter is supplied.
+
+The backend accepts ISO dates (`YYYY-MM-DD`). For the requested range, use this URL after signing in through the backend proxy:
+
+```text
+GET /app1/activity/calendar?start=2026-10-01&end=2026-10-28
+```
+
+The calendar requests the entire visible month (October ends on the 31st). The adapter prefixes `/app1` to the service path `/activity/calendar` and serializes its `start` and `end` query values. Example response:
+
+```json
+[
+  {"date":"2026-10-27","total":3,"employees":1,"violations":2,"violation_types":0,"removals":1}
+]
+```
+
+The response is a bare array. Days omitted from a successful response display with zero activity. Shading uses `total`; removals can also be counted under violations, so category counts must not be summed to calculate total events. Loading or failed responses never display a fabricated empty month.
+
+Selecting a date independently requests `GET /app1/activity/digest/2026-10-27`. It expects the existing backend `DailyDigest` shape: `date`, `total`, `by_action` (action-to-count object), `by_actor` (array of `{actor,count}`), `highlights` (string array), and `events` (ActivityEventRead array). Server highlights are displayed, and all events are paginated six at a time with newest first. This does not depend on a partial timeline page or a second count calculated from it.
+
+`src/calendar-contract.js` validates and maps these responses; `src/preview-provider.js` supplies the same formats for UI review. The service handles loading, errors, explicit retries, cancellation and stale responses. An API failure must stay an error; do not return preview records from the live adapter. `tests/calendar-api.test.mjs` exercises both request paths and their response contracts without touching backend records.
+
+After implementing transport and configuring the build's connection policy, run `npm run build` to regenerate `index.html`. Authenticate through the backend's sign-in flow before testing real data. These preparations do not enable live network access or create a login session.
+
 ## Decisions for the integration PR
 
 - Let the authenticated server determine permissions and audit identity. HR/Supervisor choices here are visual previews, not authorization. The existing proxy overwrites X-Actor, while removal attribution is in removed_by. Agree on their relationship with the signed-in user.

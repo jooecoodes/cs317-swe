@@ -45,8 +45,8 @@ test('empty month and empty daily summary are valid states',async()=>{
 test('stale month replies cannot overwrite a newly selected month',async()=>{
   const pending=[];const loader=createCalendarLoader((_path,options)=>new Promise(resolve=>pending.push({options,resolve})));
   const old=loader.load('2026-10');assert.equal(loader.state.status,'loading');const next=loader.load('2026-11');assert.equal(pending[0].options.signal.aborted,true);
-  pending[1].resolve([{date:'2026-11-01',total:2}]);assert.equal(await next,true);
-  pending[0].resolve([{date:'2026-10-01',total:99}]);assert.equal(await old,false);
+  pending[1].resolve([{date:'2026-11-01',total:2,employees:2,violations:0,violation_types:0,removals:0}]);assert.equal(await next,true);
+  pending[0].resolve([{date:'2026-10-01',total:99,employees:99,violations:0,violation_types:0,removals:0}]);assert.equal(await old,false);
   assert.equal(loader.state.month,'2026-11');assert.equal(loader.state.rows[0].total,2);
 });
 

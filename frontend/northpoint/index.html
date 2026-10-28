@@ -124,6 +124,38 @@ dialog.calendar-digest-dialog{max-width:calc(100vw - 24px)}
   <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
   <noscript><p>Northpoint needs JavaScript enabled in your browser.</p></noscript>
   <script>
+const {calendarDate,calendarRange,calendarRows,calendarSummary}=(()=>{
+// Public backend response contracts. This file has no transport or UI dependencies.
+function calendarDate(value) {
+  if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(value))throw new Error('Use a calendar date in YYYY-MM-DD format.');
+  const date=new Date(value+'T12:00:00Z');if(Number.isNaN(date.getTime())||date.toISOString().slice(0,10)!==value)throw new Error('Choose a valid calendar date.');return value;
+}
+function calendarRange(month) {
+  const start=calendarDate(month+'-01'),last=new Date(start+'T12:00:00Z');last.setUTCMonth(last.getUTCMonth()+1,0);return {start,end:last.toISOString().slice(0,10)};
+}
+const count=value=>Number.isSafeInteger(value)&&value>=0;
+function calendarRows(raw,{start,end}) {
+  if(!Array.isArray(raw))throw new Error('The calendar API returned an unexpected list.');const seen=new Set();
+  return raw.map(row=>{const date=calendarDate(row?.date);if(date<start||date>end||seen.has(date)||['total','employees','violations','violation_types','removals'].some(key=>!count(row[key])))throw new Error('The calendar API returned invalid daily totals.');seen.add(date);return {...row};});
+}
+function calendarSummary(raw,date) {
+  if(raw?.date!==date||!count(raw.total)||!Array.isArray(raw.events)||raw.total!==raw.events.length||!raw.by_action||typeof raw.by_action!=='object'||Array.isArray(raw.by_action)||!Array.isArray(raw.by_actor)||!Array.isArray(raw.highlights))throw new Error('The daily summary API returned an unexpected response.');
+  if(Object.values(raw.by_action).some(value=>!count(value))||Object.values(raw.by_action).reduce((sum,value)=>sum+value,0)!==raw.total||raw.by_actor.some(row=>typeof row?.actor!=='string'||!count(row.count))||raw.by_actor.reduce((sum,row)=>sum+row.count,0)!==raw.total||raw.highlights.some(value=>typeof value!=='string'))throw new Error('The daily summary API returned inconsistent totals.');
+  const ids=new Set(),events=raw.events.map(event=>{if(!Number.isSafeInteger(event.id)||event.id<1||ids.has(event.id)||event.event_date!==date||typeof event.occurred_at!=='string'||Number.isNaN(Date.parse(event.occurred_at))||typeof event.actor!=='string'||typeof event.action!=='string'||typeof event.summary!=='string')throw new Error('The daily summary API returned invalid events.');ids.add(event.id);return {id:event.id,date:event.occurred_at,actor:event.actor,action:event.action,detail:event.summary};}).sort((a,b)=>Date.parse(b.date)-Date.parse(a.date)||b.id-a.id);
+  return {date,total:raw.total,events,actions:Object.entries(raw.by_action).map(([name,count])=>({name,count})),actors:raw.by_actor.map(({actor,count})=>({name:actor||'Not provided',count})),highlights:raw.highlights};
+}
+function previewCalendarRows(events,{start,end}) {
+  calendarDate(start);calendarDate(end);if(start>end)throw new Error('The end date must be on or after the start date.');const rows=new Map();
+  for(const event of events){const date=event.event_date;if(date<start||date>end)continue;if(!rows.has(date))rows.set(date,{date,total:0,employees:0,violations:0,violation_types:0,removals:0});const row=rows.get(date);row.total++;if(event.target_type==='employee')row.employees++;if(event.target_type==='violation')row.violations++;if(event.target_type==='violation_type')row.violation_types++;if(event.action==='violation.removed')row.removals++;}
+  return [...rows.values()].sort((a,b)=>a.date.localeCompare(b.date));
+}
+function previewCalendarSummary(events,date) {
+  calendarDate(date);const rows=events.filter(event=>event.event_date===date),actions=Object.create(null),actors=new Map();
+  for(const event of rows){actions[event.action]=(actions[event.action]||0)+1;actors.set(event.actor,(actors.get(event.actor)||0)+1);}
+  return {date,total:rows.length,by_action:actions,by_actor:[...actors].map(([actor,count])=>({actor,count})),highlights:Object.entries(actions).map(([action,count])=>`${action.replaceAll('.',' ').replaceAll('_',' ')}: ${count} ${count===1?'change':'changes'}.`),events:rows};
+}
+
+return {calendarDate,calendarRange,calendarRows,calendarSummary};})();
 const {validCalendarDate,calendarMonthBounds,shiftCalendarMonth,calendarCells,calendarActionLabel,previewCalendarRows,previewDailyDigest,validateDailyDigest}=(()=>{
 // Calendar dates follow the backend's UTC event_date, independently of device time.
 function validCalendarDate(value) {
@@ -1513,21 +1545,41 @@ function bindEmployeePicker(root, employees, selectedId, esc) {
 }
 
 return {bindEmployeePicker};})();
+const {createCalendarService,calendarService}=(()=>{
+
+
+// Inject a parsed-JSON request function to use another transport in tests or integration.
+// The shared apiRequest delegates to data-source.js (preview mode by default).
+function createCalendarService(request=apiRequest) {
+  const monthState={key:'',status:'idle',data:null,error:''},dayState={key:'',status:'idle',data:null,error:''};
+  const pending={month:null,day:null};let monthVersion=0,dayVersion=0;
+  async function load(kind,key,path,query,normalize) {
+    const state=kind==='month'?monthState:dayState,version=kind==='month'?++monthVersion:++dayVersion;
+    pending[kind]?.abort();const controller=new AbortController();pending[kind]=controller;
+    Object.assign(state,{key,status:'loading',data:null,error:''});
+    try{const raw=await request(path,{method:'GET',query,signal:controller.signal});const data=normalize(raw);if(version!==(kind==='month'?monthVersion:dayVersion))return false;Object.assign(state,{status:'ready',data,error:''});}
+    catch(error){if(version!==(kind==='month'?monthVersion:dayVersion))return false;Object.assign(state,{status:'error',data:null,error:error.message||'Calendar activity could not be loaded. Please try again.'});}
+    finally{if(pending[kind]===controller)pending[kind]=null;}
+    return true;
+  }
+  return {monthState,dayState,loadMonth(month){const range=calendarRange(month);return load('month',month,'/activity/calendar',range,raw=>calendarRows(raw,range));},loadDay(date){calendarDate(date);return load('day',date,'/activity/digest/'+date,{},raw=>calendarSummary(raw,date));}};
+}
+const calendarService=createCalendarService();
+
+return {createCalendarService,calendarService};})();
 const {createCalendarLoader,renderHistoryCalendar,renderCalendarDigest,handleCalendarAction,handleCalendarKeydown}=(()=>{
 
 
 
+
+
 function createCalendarLoader(request=apiRequest) {
-  const state={month:'',status:'idle',rows:[],error:''};let version=0,controller=null;
-  return {state,async load(month){const bounds=calendarMonthBounds(month),sequence=++version;controller?.abort();controller=new AbortController();
-    Object.assign(state,{month,status:'loading',rows:[],error:''});
-    try{const rows=await request('/activity/calendar',{query:{start:bounds.start,end:bounds.end},signal:controller.signal});calendarCells(month,rows);if(sequence!==version)return false;Object.assign(state,{status:'ready',rows,error:''});}
-    catch(error){if(sequence!==version)return false;Object.assign(state,{status:'error',rows:[],error:error.message||'Calendar activity could not be loaded.'});}
-    return true;
-  }};
+  const service=createCalendarService(request),source=service.monthState;
+  const state={get month(){return source.key;},get status(){return source.status;},get rows(){return source.data||[];},get error(){return source.error;}};
+  return {state,load:month=>service.loadMonth(month)};
 }
 const monthLoader=createCalendarLoader();
-let digestVersion=0,digestController=null,openDigest=null;
+let digestVersion=0,openDigest=null;
 const utcToday=()=>new Date().toISOString().slice(0,10);
 const longDate=date=>new Date(date+'T12:00:00Z').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric',timeZone:'UTC'});
 const shortDate=date=>new Date(date+'T12:00:00Z').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'});
@@ -1541,27 +1593,26 @@ function renderHistoryCalendar(ctx) {
   const title=new Date(month+'-01T12:00:00Z').toLocaleDateString('en-US',{month:'long',year:'numeric',timeZone:'UTC'}),ready=state.status==='ready';
   const data=ready?calendarCells(month,state.rows):null;
   const content=state.status==='error'?`<div class="empty-state" role="alert"><h3>Couldn’t load calendar</h3><p>${esc(state.error)}</p><button class="button primary" data-action="sec-calendar-retry">${icon('refresh',17)} Try again</button></div>`:!ready?`<div class="calendar-loading" role="status" aria-label="Loading calendar"><div class="calendar-weekdays" aria-hidden="true">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(day=>`<span>${day}</span>`).join('')}</div><div class="calendar-grid" aria-hidden="true">${Array.from({length:35},()=>'<span class="calendar-placeholder"></span>').join('')}</div><span class="sr-only">Loading calendar activity…</span></div>`:
-    `<div class="calendar-weekdays" aria-hidden="true">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(day=>`<span>${day}</span>`).join('')}</div><div class="calendar-grid" role="group" aria-labelledby="calendar-month-title" aria-describedby="calendar-help">${data.cells.map(cell=>cell?`<button id="calendar-day-${cell.date}" class="calendar-day${cell.today?' is-today':''}${cell.total?' has-activity':''}" data-action="sec-calendar-day" data-date="${cell.date}" style="--day-strength:${cell.strength}" aria-label="${esc(longDate(cell.date))}: ${cell.total} ${cell.total===1?'change':'changes'}${cell.today?', today':''}"${cell.today?' aria-current="date"':''}><span class="calendar-day-number">${cell.day}</span>${cell.today?'<span class="calendar-today-dot" aria-hidden="true"></span>':''}<span class="calendar-day-count">${cell.total?`${cell.total}<small>${cell.total===1?'change':'changes'}</small>`:'<span aria-hidden="true">—</span>'}</span></button>`:'<span class="calendar-blank" aria-hidden="true"></span>').join('')}</div>`;
+    `<div class="calendar-weekdays" aria-hidden="true">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(day=>`<span>${day}</span>`).join('')}</div><div class="calendar-grid" role="group" aria-labelledby="calendar-month-title" aria-describedby="calendar-help">${data.cells.map(cell=>cell?`<button id="calendar-day-${cell.date}" class="calendar-day${cell.today?' is-today':''}${cell.total?' has-activity':''}" data-action="sec-calendar-day" data-date="${cell.date}" style="--day-strength:${cell.strength}" aria-label="${esc(longDate(cell.date))}: ${cell.total} ${cell.total===1?'change':'changes'}${cell.today?', today':''}"${cell.today?' aria-current="date"':''}><span class="calendar-day-number">${cell.day}</span>${cell.today?'<span class="calendar-today-dot" aria-hidden="true"></span>':''}</button>`:'<span class="calendar-blank" aria-hidden="true"></span>').join('')}</div>`;
   return `<section id="history-log-panel" class="panel history-calendar" role="tabpanel" aria-labelledby="history-tab-calendar" aria-busy="${state.status==='loading'}"><div class="calendar-toolbar"><div class="calendar-month-controls"><button id="calendar-previous" class="icon-button" data-action="sec-calendar-month" data-step="-1" aria-label="Previous month">${icon('chevron-left',20)}</button><h2 id="calendar-month-title" aria-live="polite">${esc(title)}</h2><button id="calendar-next" class="icon-button" data-action="sec-calendar-month" data-step="1" aria-label="Next month">${icon('chevron-right',20)}</button><button id="calendar-today" class="button secondary small" data-action="sec-calendar-today">Today</button></div><p id="calendar-help">Choose a day to see its activity.</p></div><div class="calendar-body">${content}</div><div class="calendar-footer"><p role="status">${data?`${data.total} ${data.total===1?'change':'changes'} across ${data.activeDays} ${data.activeDays===1?'day':'days'} this month.`:'Activity by day'}</p><div class="calendar-legend" aria-label="Darker blue means more changes"><span>Fewer</span>${[0,.1,.22,.36,.48].map(strength=>`<i aria-hidden="true" style="--day-strength:${strength}"></i>`).join('')}<span>More changes</span></div><small>Dates and times use UTC.</small></div></section>`;
 }
 
 function renderCalendarDigest(data,ctx,page=1) {
-  const {esc,icon}=ctx,events=data.events.slice().sort((a,b)=>Date.parse(b.occurred_at)-Date.parse(a.occurred_at)||b.id-a.id),pages=Math.max(1,Math.ceil(events.length/6));
-  page=Math.min(pages,Math.max(1,page));const rows=events.slice((page-1)*6,page*6);
-  const content=!data.total?'<div class="empty-state"><h3>No activity on this day</h3><p>Choose another date to review its changes.</p></div>':`<section class="digest-highlights"><h3>Highlights</h3><ul>${data.highlights.map(text=>`<li>${esc(text)}</li>`).join('')}</ul></section><div class="digest-breakdown"><section><h3>By action</h3><ul>${Object.entries(data.by_action).map(([action,count])=>`<li><span>${esc(calendarActionLabel(action))}</span><strong>${count}</strong></li>`).join('')}</ul></section><section><h3>By person</h3><ul>${data.by_actor.map(({actor,count})=>`<li><span>${esc(actor||'Not provided')}</span><strong>${count}</strong></li>`).join('')}</ul></section></div><section class="digest-events"><h3>All changes <span class="count-label">${data.total}</span></h3><p class="muted">Newest first · UTC</p><ol>${rows.map(event=>`<li><span class="digest-event-icon" aria-hidden="true">${icon(event.action.includes('removed')||event.action.includes('deleted')?'trash':event.target_type==='employee'?'users':'history',17)}</span><div><p>${esc(event.summary||calendarActionLabel(event.action))}</p><span class="digest-event-meta">${esc(event.actor||'Not provided')}<span aria-hidden="true"> · </span>${esc(calendarActionLabel(event.action))}</span></div><time datetime="${esc(event.occurred_at)}">${esc(new Date(event.occurred_at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'UTC'}))}</time></li>`).join('')}</ol>${pages>1?`<nav class="digest-pagination" aria-label="Daily activity pages"><span>${(page-1)*6+1}–${Math.min(page*6,data.total)} of ${data.total} changes</span><div><button class="icon-button" data-action="sec-calendar-events" data-page="${page-1}" aria-label="Previous changes" ${page===1?'disabled':''}>${icon('chevron-left',19)}</button><span>Page ${page} of ${pages}</span><button class="icon-button" data-action="sec-calendar-events" data-page="${page+1}" aria-label="Next changes" ${page===pages?'disabled':''}>${icon('chevron-right',19)}</button></div></nav>`:''}</section>`;
-  return `<p class="digest-date">${esc(longDate(data.date))}</p><div class="digest-metrics">${[['Total events',data.total],['People',data.by_actor.length],['Action types',Object.keys(data.by_action).length]].map(([label,count])=>`<div><span>${label}</span><strong>${count}</strong></div>`).join('')}</div>${content}`;
+  data=data.by_action?calendarSummary(data,data.date):data;
+  const {esc,icon}=ctx,pages=Math.max(1,Math.ceil(data.total/6));page=Math.max(1,Math.min(pages,page));const rows=data.events.slice((page-1)*6,page*6);
+  const groups=(items,actions=false)=>`<ul>${items.map(item=>`<li><span>${esc(actions?calendarActionLabel(item.name):item.name)}</span><strong>${item.count}</strong></li>`).join('')}</ul>`;
+  return `<p class="digest-date">${esc(longDate(data.date))}</p><div class="digest-metrics">${[['Total events',data.total],['People',data.actors.length],['Action types',data.actions.length]].map(([label,count])=>`<div><span>${label}</span><strong>${count}</strong></div>`).join('')}</div>${!data.total?'<div class="empty-state"><h3>No activity on this day</h3><p>Choose another date to review its changes.</p></div>':`<section class="digest-highlights"><h3>Highlights</h3><ul>${(data.highlights||data.actions.map(item=>calendarActionLabel(item.name)+': '+item.count+' changes.')).map(text=>`<li>${esc(text)}</li>`).join('')}</ul></section><div class="digest-breakdown"><section><h3>By action</h3>${groups(data.actions,true)}</section><section><h3>By person</h3>${groups(data.actors)}</section></div><section class="digest-events"><h3>All changes <span class="count-label">${data.total}</span></h3><p class="muted">Newest first · UTC</p><ol>${rows.map(event=>`<li><span class="digest-event-icon" aria-hidden="true">${icon('history',17)}</span><div><p>${esc(event.detail||calendarActionLabel(event.action))}</p><span>${esc(event.actor||'Not provided')} · ${esc(calendarActionLabel(event.action))}</span></div><time datetime="${esc(event.date)}">${esc(new Date(event.date).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'UTC'}))}</time></li>`).join('')}</ol>${pages>1?`<nav class="digest-pagination" aria-label="Daily activity pages"><span>${(page-1)*6+1}–${Math.min(page*6,data.total)} of ${data.total} changes</span><div><button class="icon-button" data-action="sec-calendar-events" data-date="${data.date}" data-page="${page-1}" aria-label="Previous changes" ${page===1?'disabled':''}>${icon('chevron-left',19)}</button><span>Page ${page} of ${pages}</span><button class="icon-button" data-action="sec-calendar-events" data-date="${data.date}" data-page="${page+1}" aria-label="Next changes" ${page===pages?'disabled':''}>${icon('chevron-right',19)}</button></div></nav>`:''}</section>`}`;
 }
 function showDigestContent(date,html,ctx){ctx.openModal('Daily Summary · '+shortDate(date),html,'<button class="button secondary" data-action="close-modal">Close</button>');const dialog=document.querySelector('#modal');dialog.dataset.calendarDate=date;dialog.classList.add('calendar-digest-dialog');}
 async function loadDigest(date,ctx) {
   if(!validCalendarDate(date))return;
-  const sequence=++digestVersion;digestController?.abort();digestController=new AbortController();openDigest=null;
+  const sequence=++digestVersion;openDigest=null;
   showDigestContent(date,loadingSkeleton('rows','daily summary'),ctx);
-  try{const raw=await apiRequest('/activity/digest/'+date,{signal:digestController.signal});const data=validateDailyDigest(raw,date),dialog=document.querySelector('#modal');
-    if(sequence!==digestVersion||!dialog.open||dialog.dataset.calendarDate!==date)return;
-    openDigest=data;showDigestContent(date,renderCalendarDigest(data,ctx),ctx);
-  }catch(error){const dialog=document.querySelector('#modal');if(sequence!==digestVersion||!dialog.open||dialog.dataset.calendarDate!==date)return;
-    showDigestContent(date,`<div class="empty-state" role="alert"><h3>Couldn’t load daily summary</h3><p>${ctx.esc(error.message||'Please try again.')}</p><button class="button primary" data-action="sec-calendar-day" data-date="${date}">Try again</button></div>`,ctx);
-  }
+  const changed=await calendarService.loadDay(date),dialog=document.querySelector('#modal');
+  if(!changed||sequence!==digestVersion||!dialog.open||dialog.dataset.calendarDate!==date)return;
+  const state=calendarService.dayState;
+  if(state.status==='ready'){openDigest=state.data;showDigestContent(date,renderCalendarDigest(openDigest,ctx),ctx);}
+  else showDigestContent(date,`<div class="empty-state" role="alert"><h3>Couldn’t load daily summary</h3><p>${ctx.esc(state.error||'Please try again.')}</p><button class="button primary" data-action="sec-calendar-day" data-date="${date}">Try again</button></div>`,ctx);
 }
 async function handleCalendarAction(action,el,ctx) {
   if(action==='sec-calendar-month'||action==='sec-calendar-today'){

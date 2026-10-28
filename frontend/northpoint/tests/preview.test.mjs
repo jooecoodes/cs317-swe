@@ -101,6 +101,9 @@ test('built standalone works offline, renders all views and never persists or sa
   await t.test('Calendar tab opens a daily summary through the actual bundled event handlers',async()=>{
     context.location.hash='#history';ui.route();ui.filters.history={tab:'calendar'};ui.render();assert.ok(body().includes('Loading calendar activity'));
     await wait();assert.ok(body().includes('calendar-grid'));assert.ok(body().includes('More changes'));
+    const dateButtons=[...body().matchAll(/<button[^>]+class="calendar-day[^>]*>([\s\S]*?)<\/button>/g)];assert.ok(dateButtons.length>=28);
+    for(const [,content] of dateButtons)assert.match(content.replace(/<[^>]*>/g,''),/^\d{1,2}$/);
+    assert.ok(!body().includes('class="calendar-day-count"'));
     const date=new Date().toISOString().slice(0,10),day={dataset:{action:'sec-calendar-day',date},id:'calendar-day-'+date};
     await events.click({target:{closest:()=>day}});assert.ok(element('#modal').innerHTML.includes('Daily Summary'));assert.ok(element('#modal').innerHTML.includes('By person'));assert.ok(!element('#modal').innerHTML.includes('[object Object]'));
     const next={dataset:{action:'sec-calendar-month',step:'1'},id:'calendar-next'};await events.click({target:{closest:()=>next}});await wait();assert.notEqual(ui.filters.history.month,date.slice(0,7));
