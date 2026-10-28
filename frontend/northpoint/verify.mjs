@@ -11,5 +11,6 @@ if(/\b(?:fetch|XMLHttpRequest|WebSocket|EventSource|indexedDB|localStorage|sessi
 const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
 if(!html.includes("connect-src 'none'"))throw new Error('The standalone preview must block network connections.');
 if(/(?:src|href)=["']https?:\/\//i.test(html))throw new Error('The preview must bundle its assets.');
-if(!html.includes('Fictional records'))throw new Error('The preview needs its visible fiction notice.');
-console.log(`Checked ${code.length} JavaScript files; no network/storage code; standalone assets and preview notice verified.`);
+if(!html.includes("sourceLabel='v.FE-1.0'"))throw new Error('The frontend version label is missing.');
+if(html.includes('UI preview · Fictional records · Record changes are disabled.')||html.includes('People. Clarity. Accountability.'))throw new Error('Removed branding text remains in the build.');
+console.log(`Checked ${code.length} JavaScript files; no network/storage code; standalone assets and version label verified.`);
