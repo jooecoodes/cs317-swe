@@ -3,11 +3,13 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Static Northpoint interface with fictional read-only examples and an API adapter boundary",
+  "description": "Northpoint frontend connected to the hosted HR APIs",
   "scripts": {
+    "start": "node serve.mjs",
     "build": "node build.mjs",
     "check": "node verify.mjs",
-    "test": "node --test"
+    "test": "node --test",
+    "test:live": "node tooling/check-live.mjs"
   },
   "engines": { "node": ">=24" }
 }

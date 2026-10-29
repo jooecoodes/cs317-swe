@@ -2,7 +2,7 @@ import {apiRequest} from './api-client.js';
 import {calendarDate,calendarRange,calendarRows,calendarSummary} from './calendar-contract.js';
 
 // Inject a parsed-JSON request function to use another transport in tests or integration.
-// The shared apiRequest delegates to data-source.js (preview mode by default).
+// The shared apiRequest delegates to data-source.js (hosted API).
 export function createCalendarService(request=apiRequest) {
   const monthState={key:'',status:'idle',data:null,error:''},dayState={key:'',status:'idle',data:null,error:''};
   const pending={month:null,day:null};let monthVersion=0,dayVersion=0;
@@ -15,6 +15,6 @@ export function createCalendarService(request=apiRequest) {
     finally{if(pending[kind]===controller)pending[kind]=null;}
     return true;
   }
-  return {monthState,dayState,loadMonth(month){const range=calendarRange(month);return load('month',month,'/activity/calendar',range,raw=>calendarRows(raw,range));},loadDay(date){calendarDate(date);return load('day',date,'/activity/digest/'+date,{},raw=>calendarSummary(raw,date));}};
+  return {monthState,dayState,invalidate(){monthVersion++;dayVersion++;for(const kind of ['month','day']){pending[kind]?.abort();pending[kind]=null;}for(const state of [monthState,dayState])Object.assign(state,{key:'',status:'idle',data:null,error:''});},loadMonth(month){const range=calendarRange(month);return load('month',month,'/activity/calendar',range,raw=>calendarRows(raw,range));},loadDay(date){calendarDate(date);return load('day',date,'/activity/digest/'+date,{},raw=>calendarSummary(raw,date));}};
 }
 export const calendarService=createCalendarService();

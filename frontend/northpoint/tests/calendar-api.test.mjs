@@ -48,3 +48,6 @@ test('preview supplies the same raw calendar/digest contracts and explicit empty
   const empty=createPreviewProvider({delayMs:0,scenario:'empty'});assert.deepEqual(await empty.request({path:'/activity/calendar',query:range}),[]);assert.equal(calendarSummary(await empty.request({path:'/activity/digest/'+date}),date).total,0);
   const error=createPreviewProvider({delayMs:0,scenario:'error'});await assert.rejects(error.request({path:'/activity/calendar',query:range}),/Preview error/);
 });
+test('a refresh invalidates calendar data and ignores a pending digest reply',async()=>{
+ let resolve;const service=createCalendarService(()=>new Promise(done=>resolve=done));const pending=service.loadDay(date);service.invalidate();resolve(digest());assert.equal(await pending,false);assert.equal(service.dayState.status,'idle');assert.equal(service.dayState.data,null);assert.equal(service.monthState.key,'');
+});

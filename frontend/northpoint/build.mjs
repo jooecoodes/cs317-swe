@@ -19,14 +19,12 @@ script += `const {validCalendarDate,calendarMonthBounds,shiftCalendarMonth,calen
 ${withoutExports(read('calendar-data.js'))}
 return {validCalendarDate,calendarMonthBounds,shiftCalendarMonth,calendarCells,calendarActionLabel,previewCalendarRows,previewDailyDigest,validateDailyDigest};})();
 `;
-script += `const {previewFixtures}=(()=>{
-${withoutExports(read('preview-fixtures.js'))}
-return {previewFixtures};})();
-`;
-script += `const {createPreviewProvider}=(()=>{
-${withoutExports(read('preview-provider.js'))}
-return {createPreviewProvider};})();
-`;
+script += `const {apiRoute,validateActor}=(()=>{
+${withoutExports(read('api-routes.js'))}
+return {apiRoute,validateActor};})();\n`;
+script += `const {API_BASE_URL,createHostedApiProvider}=(()=>{
+${withoutExports(read('hosted-api.js'))}
+return {API_BASE_URL,createHostedApiProvider};})();\n`;
 script += `const {dataSource,sourceLabel,sourceNotice}=(()=>{
 ${withoutExports(read('data-source.js'))}
 return {dataSource,sourceLabel,sourceNotice};})();
@@ -48,10 +46,10 @@ script += `const {renderDashboard}=(()=>{\n${withoutExports(read('dashboard.js')
 script += `const {enhancePhoneLayout,syncPhoneFilters}=(()=>{\n${withoutExports(read('phone.js'))}\nreturn {enhancePhoneLayout,syncPhoneFilters};})();\n`;
 script += `const {bindEmployeePicker}=(()=>{\n${withoutExports(read('employee-picker.js'))}\nreturn {bindEmployeePicker};})();\n`;
 script += `const {createCalendarService,calendarService}=(()=>{\n${withoutExports(read('calendar-api.js'))}\nreturn {createCalendarService,calendarService};})();\n`;
-script += `const {createCalendarLoader,renderHistoryCalendar,renderCalendarDigest,handleCalendarAction,handleCalendarKeydown}=(()=>{\n${withoutExports(read('calendar.js'))}\nreturn {createCalendarLoader,renderHistoryCalendar,renderCalendarDigest,handleCalendarAction,handleCalendarKeydown};})();\n`;
+script += `const {invalidateHistoryCalendar,createCalendarLoader,renderHistoryCalendar,renderCalendarDigest,handleCalendarAction,handleCalendarKeydown}=(()=>{\n${withoutExports(read('calendar.js'))}\nreturn {invalidateHistoryCalendar,createCalendarLoader,renderHistoryCalendar,renderCalendarDigest,handleCalendarAction,handleCalendarKeydown};})();\n`;
 script += read('app.js').replace(/^import .*?;\s*$/gm, '').replaceAll('./favicon.svg', favicon).replaceAll('./assets/company-logo.png', favicon);
 script = script.replace(/<\/script/gi, '<\\/script');
-const policy = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'";
+const policy = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'self' https://cs317.duckdns.org/app1/; object-src 'none'; base-uri 'none'; form-action 'none'";
 const html = read('index.html')
   .replace('<meta charset="utf-8">', `<meta charset="utf-8">\n  <meta http-equiv="Content-Security-Policy" content="${policy}">\n  <!-- DM Sans is bundled under the SIL Open Font License. See src/assets/fonts/OFL.txt. -->`)
   .replace('<link rel="icon" type="image/png" href="./assets/company-logo.png">', `<link rel="icon" type="image/png" href="${favicon}">`)
@@ -61,4 +59,4 @@ const html = read('index.html')
 if (/@import\s|(?:src|href)=["']https?:\/\//i.test(html)) throw new Error('The offline HTML must not depend on remote assets.');
 fs.writeFileSync(path.join(project, 'index.html'), html);
 if (process.argv[2]) fs.writeFileSync(path.resolve(process.argv[2]), html);
-console.log('Standalone website rebuilt: index.html (static UI preview; network connections blocked)');
+console.log('Northpoint rebuilt: hosted API integration enabled');

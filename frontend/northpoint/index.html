@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'self' https://cs317.duckdns.org/app1/; object-src 'none'; base-uri 'none'; form-action 'none'">
   <!-- DM Sans is bundled under the SIL Open Font License. See src/assets/fonts/OFL.txt. -->
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#244f83">
@@ -141,7 +141,7 @@ function calendarRows(raw,{start,end}) {
 function calendarSummary(raw,date) {
   if(raw?.date!==date||!count(raw.total)||!Array.isArray(raw.events)||raw.total!==raw.events.length||!raw.by_action||typeof raw.by_action!=='object'||Array.isArray(raw.by_action)||!Array.isArray(raw.by_actor)||!Array.isArray(raw.highlights))throw new Error('The daily summary API returned an unexpected response.');
   if(Object.values(raw.by_action).some(value=>!count(value))||Object.values(raw.by_action).reduce((sum,value)=>sum+value,0)!==raw.total||raw.by_actor.some(row=>typeof row?.actor!=='string'||!count(row.count))||raw.by_actor.reduce((sum,row)=>sum+row.count,0)!==raw.total||raw.highlights.some(value=>typeof value!=='string'))throw new Error('The daily summary API returned inconsistent totals.');
-  const ids=new Set(),events=raw.events.map(event=>{if(!Number.isSafeInteger(event.id)||event.id<1||ids.has(event.id)||event.event_date!==date||typeof event.occurred_at!=='string'||Number.isNaN(Date.parse(event.occurred_at))||typeof event.actor!=='string'||typeof event.action!=='string'||typeof event.summary!=='string')throw new Error('The daily summary API returned invalid events.');ids.add(event.id);return {id:event.id,date:event.occurred_at,actor:event.actor,action:event.action,detail:event.summary};}).sort((a,b)=>Date.parse(b.date)-Date.parse(a.date)||b.id-a.id);
+  const ids=new Set(),events=raw.events.map(event=>{if(!Number.isSafeInteger(event.id)||event.id<1||ids.has(event.id)||event.event_date!==date||typeof event.occurred_at!=='string'||Number.isNaN(Date.parse(event.occurred_at))||typeof event.actor!=='string'||typeof event.action!=='string'||typeof event.summary!=='string')throw new Error('The daily summary API returned invalid events.');ids.add(event.id);return {id:event.id,date:/(?:Z|[+-]\d{2}:?\d{2})$/i.test(event.occurred_at)?event.occurred_at:event.occurred_at+'Z',actor:event.actor,action:event.action,detail:event.summary};}).sort((a,b)=>Date.parse(b.date)-Date.parse(a.date)||b.id-a.id);
   return {date,total:raw.total,events,actions:Object.entries(raw.by_action).map(([name,count])=>({name,count})),actors:raw.by_actor.map(({actor,count})=>({name:actor||'Not provided',count})),highlights:raw.highlights};
 }
 function previewCalendarRows(events,{start,end}) {
@@ -213,123 +213,65 @@ function validateDailyDigest(raw,date) {
 }
 
 return {validCalendarDate,calendarMonthBounds,shiftCalendarMonth,calendarCells,calendarActionLabel,previewCalendarRows,previewDailyDigest,validateDailyDigest};})();
-const {previewFixtures}=(()=>{
-// Fictional examples only. No employee data was copied from a real API/database.
-// Relative dates keep the weekly chart useful whenever this UI is reviewed.
-function dateBefore(days,hour=9) {
-  const value=new Date();value.setDate(value.getDate()-days);value.setHours(hour,0,0,0);
-  return value.toISOString();
-}
-const types=[
-  {id:1,name:'Tardiness',description:'Arriving after the scheduled start of a shift.',default_points:2,is_strike:false,is_active:true},
-  {id:2,name:'Safety procedure',description:'Not following an established workplace safety procedure.',default_points:5,is_strike:true,is_active:true},
-  {id:3,name:'Unexcused absence',description:'An absence without the required notice or approval.',default_points:3,is_strike:true,is_active:true},
-  {id:4,name:'Incomplete documentation',description:'Required work documentation was not completed.',default_points:1,is_strike:false,is_active:true},
-  {id:5,name:'Archived category',description:'An inactive example retained for the rulebook preview.',default_points:1,is_strike:false,is_active:false}
+const {apiRoute,validateActor}=(()=>{
+// Allowed routes from the supplied references, plus the existing Calendar contract.
+const routes=[
+ ['GET',/^\/employees$/],['POST',/^\/employees$/,true],
+ ['GET',/^\/employees\/\d+$/],['PATCH',/^\/employees\/\d+$/,true],['DELETE',/^\/employees\/\d+$/,true],
+ ['POST',/^\/employees\/\d+\/(?:deactivate|reactivate)$/,true],
+ ['GET',/^\/employees\/\d+\/violations$/],['POST',/^\/employees\/\d+\/violations$/,true],['POST',/^\/employees\/\d+\/violations\/clear$/],
+ ['GET',/^\/violations\/recent$/],['GET',/^\/violations\/\d+$/],['PATCH',/^\/violations\/\d+$/,true],['POST',/^\/violations\/\d+\/remove$/],
+ ['GET',/^\/violation-removals(?:\/\d+)?$/],['GET',/^\/activity\/(?:timeline|calendar|digest\/\d{4}-\d{2}-\d{2})$/],
+ ['GET',/^\/violation-types(?:\/all|\/\d+)?$/],['POST',/^\/violation-types$/,true],['PATCH',/^\/violation-types\/\d+$/,true],['DELETE',/^\/violation-types\/\d+$/,true],['POST',/^\/violation-types\/\d+\/(?:activate|deactivate)$/,true]
 ];
-const people=[
-  ['Alex','Example','Operations','Coordinator'],['Mina','Sample','Administration','Assistant'],
-  ['Riley','Example','Engineering','Technician'],['Sam','Sample','Operations','Associate'],
-  ['Taylor','Example','Customer Support','Representative'],['Jamie','Sample','Administration','Clerk'],
-  ['Morgan','Example','Engineering','Analyst'],['Casey','Sample','Customer Support','Coordinator'],
-  ['Robin','Example','Operations','Associate'],['Drew','Sample','Engineering','Technician'],
-  ['Avery','Example','Administration','Assistant'],['Jordan','Sample',null,null]
-];
-const employees=people.map(([first,last,department,position],index)=>({
-  id:101+index,employee_code:`PREVIEW-${101+index}`,first_name:first,last_name:last,full_name:`${first} ${last}`,
-  department,position,status:index>=10?'inactive':'active',total_points:0,total_strikes:0,
-  created_at:dateBefore(60-index),updated_at:dateBefore(2)
-}));
-const violations=Array.from({length:19},(_,index)=>{
-  const employee=index<3?employees[0]:employees[1+(index-3)%7];
-  const type=index<3?types[1]:types[index%4];
-  const issued=dateBefore(index<10?index:7+(index-10)*3);
-  employee.total_points+=type.default_points;employee.total_strikes+=Number(type.is_strike);
-  return {id:1001+index,employee_id:employee.id,violation_type_id:type.id,points:type.default_points,is_strike:type.is_strike,
-    notes:'Fictional incident details for reviewing this interface.',issued_by:'Preview User',issued_at:issued,created_at:issued,
-    violation_type:{id:type.id,name:type.name,default_points:type.default_points,is_strike:type.is_strike},violation_type_name:type.name};
-});
-const removals=[0,1].map((index)=>({id:301+index,violation_record_id:901+index,violation_type_id:1,violation_type_name:'Tardiness',points:2,is_strike:false,
-  original_notes:'Fictional record used to preview the removal log.',employee_id:employees[index].id,employee_code:employees[index].employee_code,
-  employee_full_name:employees[index].full_name,original_issued_by:'Preview User',original_issued_at:dateBefore(8+index),
-  removed_by:'Preview User',reason:'Example record removed after reviewing a corrected attendance entry.',removed_at:dateBefore(index+1,14)}));
-const activities=[
-  ...employees.map((employee,index)=>({occurred_at:employee.created_at,actor:'Preview User',action:'employee.created',target_type:'employee',target_id:employee.id,employee_id:employee.id,
-    summary:`Added ${employee.employee_code} (${employee.full_name})`,metadata_json:{employee_code:employee.employee_code,full_name:employee.full_name}})),
-  ...violations.map(record=>{const employee=employees.find(employee=>employee.id===record.employee_id);return {occurred_at:record.issued_at,actor:'Preview User',action:'violation.assigned',target_type:'violation',target_id:record.id,employee_id:employee.id,
-    summary:`Issued '${record.violation_type_name}' to ${employee.full_name}`,metadata_json:{employee_code:employee.employee_code,employee_full_name:employee.full_name,points:record.points,is_strike:record.is_strike}};}),
-  ...removals.map(removal=>({occurred_at:removal.removed_at,actor:removal.removed_by,action:'violation.removed',target_type:'violation',target_id:removal.violation_record_id,employee_id:removal.employee_id,
-    summary:`Removed '${removal.violation_type_name}' from ${removal.employee_full_name}`,metadata_json:{employee_code:removal.employee_code,employee_full_name:removal.employee_full_name,reason:removal.reason}})),
-  {occurred_at:dateBefore(0,10),actor:'Preview User',action:'employee.updated',target_type:'employee',target_id:102,employee_id:102,summary:'Updated PREVIEW-102: position',metadata_json:{changes:{position:'Assistant'}}},
-  {occurred_at:dateBefore(1,10),actor:'Preview User',action:'employee.deactivated',target_type:'employee',target_id:111,employee_id:111,summary:'Deactivated PREVIEW-111 (Avery Example)',metadata_json:{new_status:'inactive'}},
-  {occurred_at:dateBefore(2,10),actor:'Preview User',action:'violation_type.updated',target_type:'violation_type',target_id:1,employee_id:null,summary:'Updated Tardiness description',metadata_json:{changes:{description:types[0].description}}}
-].sort((a,b)=>Date.parse(b.occurred_at)-Date.parse(a.occurred_at)).map((event,index,rows)=>({...event,id:500+rows.length-index,event_date:event.occurred_at.slice(0,10)}));
-const previewFixtures={employees,violations,types,removals,activities};
+function apiRoute(path,method){const row=routes.find(([verb,pattern])=>verb===method&&pattern.test(path));if(!row)throw new Error('This action is not defined in the API contract.');return {actor:row[2]===true};}
+function validateActor(value){const actor=typeof value==='string'?value.trim():'';if(!actor)throw new Error('Set your display name in Settings before saving.');if(/[^\x20-\x7e\u00a0-\u00ff]/.test(actor))throw new Error('Your display name cannot be sent in X-Actor. Update it in Settings before saving.');return actor;}
 
-return {previewFixtures};})();
-const {createPreviewProvider}=(()=>{
+return {apiRoute,validateActor};})();
+const {API_BASE_URL,createHostedApiProvider}=(()=>{
 
-
-const previewWriteMessage='This is a UI-only preview. Record changes are disabled. Connect the backend adapter to enable saving; your form entries have been kept.';
-function failure(message,status=400,code='preview-request') {return Object.assign(new Error(message),{status,code,uncertain:false});}
-function cancelled(){return new DOMException('Request cancelled.','AbortError');}
-function pause(ms,signal) {
-  return new Promise((resolve,reject)=>{
-    if(signal?.aborted){reject(cancelled());return;}
-    const abort=()=>{clearTimeout(timer);reject(cancelled());};
-    const timer=setTimeout(()=>{signal?.removeEventListener('abort',abort);resolve();},ms);
-    signal?.addEventListener('abort',abort,{once:true});
-  });
+const API_BASE_URL='https://cs317.duckdns.org/app1';
+function failure(message,extra={}){return Object.assign(new Error(message),{handled:true,uncertain:false,...extra});}
+function serverMessage(raw,status){
+ if(typeof raw?.detail==='string')return raw.detail;
+ if(Array.isArray(raw?.detail))return raw.detail.map(item=>`${(item.loc||[]).filter(part=>part!=='body').join(' · ')}: ${item.msg||'Invalid value'}`).join('; ');
+ return ({400:'The server could not accept these details.',401:'The hosted API requires authentication. Ask the backend team for the deployed access setup.',403:'The hosted API denied access to this action.',404:'This record no longer exists. Refresh the list.',409:'This change conflicts with an existing record. Review the details.',422:'Review the highlighted field details.',429:'Too many requests. Please wait a moment and try again.'})[status]||`The hosted API returned HTTP ${status}. Please try again.`;
 }
-function page(items,query) {
-  const limit=Math.max(1,Math.min(200,Number(query.limit)||50)),offset=Math.max(0,Number(query.offset)||0);
-  return {items:items.slice(offset,offset+limit),total:items.length,limit,offset};
-}
-const clone=value=>JSON.parse(JSON.stringify(value));
-function required(items,id){const row=items.find(item=>item.id===Number(id));if(!row)throw failure('This preview record is not available.',404);return row;}
-function createPreviewProvider({scenario='normal',delayMs=140}={}) {
-  if(!['normal','empty','error'].includes(scenario))throw new Error('Unknown preview scenario.');
-  return {mode:'preview',async request({path,method='GET',query={},signal}={}) {
-    // No POST/PATCH/DELETE changes, in-memory writes, queues, or persistence.
-    if(method!=='GET')throw failure(previewWriteMessage,501,'preview-only');
-    await pause(delayMs,signal);
-    if(scenario==='error')throw failure('Preview error state: records could not be loaded. Use Try again to reload the preview.',503,'preview-error');
-    const fixtures=scenario==='empty'?{employees:[],violations:[],types:[],removals:[],activities:[]}:previewFixtures;
-    const {employees,violations,types,removals,activities}=fixtures;
-    let match,result;
-    if(path==='/employees') {
-      const list=employees.filter(row=>query.include_inactive===true||query.include_inactive==='true'||row.status==='active');
-      result=page(list.map(({id,employee_code,full_name,department,position,status,total_points,total_strikes})=>({id,employee_code,full_name,department,position,status,total_points,total_strikes})),query);
-    } else if((match=path.match(/^\/employees\/(\d+)\/violations$/))) {
-      required(employees,match[1]);result=page(violations.filter(row=>row.employee_id===Number(match[1])),query).items;
-    } else if((match=path.match(/^\/employees\/(\d+)$/))) {
-      const row=required(employees,match[1]);result={...row,violation_records:violations.filter(record=>record.employee_id===row.id)};
-    } else if(path==='/violation-types') {
-      result=types.filter(row=>row.is_active).map(({id,name,default_points,is_strike})=>({id,name,default_points,is_strike}));
-    } else if(path==='/violation-types/all')result=query.include_inactive===false?types.filter(row=>row.is_active):types;
-    else if((match=path.match(/^\/violation-types\/(\d+)$/)))result=required(types,match[1]);
-    else if(path==='/violations/recent') {
-      const cutoff=Date.now()-(Number(query.days)||30)*86400000;
-      result=violations.filter(row=>Date.parse(row.issued_at)>=cutoff&&(!query.only_strikes||query.only_strikes==='false'||row.is_strike)).sort((a,b)=>Date.parse(b.issued_at)-Date.parse(a.issued_at))
-        .slice(0,Number(query.limit)||50).map(row=>{const employee=required(employees,row.employee_id);return {...row,employee:{id:employee.id,employee_code:employee.employee_code,full_name:employee.full_name}};});
-    } else if((match=path.match(/^\/violations\/(\d+)$/)))result=required(violations,match[1]);
-    else if(path==='/violation-removals')result=page(removals.slice().sort((a,b)=>Date.parse(b.removed_at)-Date.parse(a.removed_at)),query);
-    else if((match=path.match(/^\/violation-removals\/(\d+)$/)))result=required(removals,match[1]);
-    else if(path==='/activity/timeline')result=page(activities,query);
-    else if(path==='/activity/calendar')result=previewCalendarRows(activities,query.start,query.end);
-    else if((match=path.match(/^\/activity\/digest\/(\d{4}-\d{2}-\d{2})$/)))result=previewDailyDigest(activities,match[1]);
-    else throw failure('This read route is not part of the UI preview.',404);
-    return clone(result);
-  }};
+function createHostedApiProvider({fetchImpl=(...args)=>globalThis.fetch(...args),timeoutMs=15000}={}){
+ return {mode:'api',async request({path,method='GET',query={},body,actor,signal}={}){
+  const rule=apiRoute(path,method),write=method!=='GET';
+  const headers={Accept:'application/json'};
+  if(rule.actor)headers['X-Actor']=validateActor(actor);
+  if(body!==undefined)headers['Content-Type']='application/json';
+  const url=new URL(API_BASE_URL+path);
+  for(const [key,value] of Object.entries(query))if(value!==undefined&&value!==null){if(!['string','number','boolean'].includes(typeof value))throw failure('Invalid API query.');url.searchParams.set(key,String(value));}
+  if(signal?.aborted)throw failure('Request cancelled.',{name:'AbortError',code:'cancelled'});
+  const controller=new AbortController();let timedOut=false,dispatched=false;
+  const cancel=()=>controller.abort();signal?.addEventListener('abort',cancel,{once:true});
+  const timer=setTimeout(()=>{timedOut=true;controller.abort();},timeoutMs);
+  try{
+   const options={method,headers,credentials:'omit',cache:'no-store',redirect:'error',signal:controller.signal};if(body!==undefined)options.body=JSON.stringify(body);
+   dispatched=true;const response=await fetchImpl(url.href,options);
+   let raw=null;
+   if(response.status!==204){
+    const json=/\bapplication\/(?:[\w.-]+\+)?json\b/i.test(response.headers.get('content-type')||'');
+    if(json){try{raw=await response.json();}catch{throw failure('The server returned unreadable JSON. Refresh to check the latest records.',{status:response.status,uncertain:write&&(response.ok||response.status>=500),accepted:write&&response.ok});}}
+    else if(response.ok)throw failure('The hosted server returned a page instead of API data. Check the API address and deployed access setup.',{status:response.status,uncertain:write,accepted:write});
+   }
+   if(!response.ok)throw failure(serverMessage(raw,response.status),{status:response.status,code:response.status===409?'conflict':'api-error',backendError:raw?.error,uncertain:write&&response.status>=500});
+   if(raw===null&&response.status!==204)throw failure('The API returned an empty response instead of record data.',{status:response.status,uncertain:write,accepted:write});
+   return raw;
+  }catch(error){
+   if(error.handled)throw error;
+   throw failure(timedOut?'The hosted API took too long to respond. Please try again.':controller.signal.aborted?'Request cancelled.':'Could not reach the hosted API. Check your internet connection. If the API opens separately, ask the backend team to check CORS for this frontend and its write headers.',{code:timedOut?'timeout':controller.signal.aborted?'cancelled':'network',name:controller.signal.aborted&&!timedOut?'AbortError':'Error',uncertain:write&&dispatched});
+  }finally{clearTimeout(timer);signal?.removeEventListener('abort',cancel);}
+ }};
 }
 
-return {createPreviewProvider};})();
+return {API_BASE_URL,createHostedApiProvider};})();
 const {dataSource,sourceLabel,sourceNotice}=(()=>{
 
-// The only integration switch. A future backend adapter implements the same
-// request({path,method,query,body,actor,signal}) interface. Never use preview
-// records as a fallback if that adapter fails. See INTEGRATION.md.
-const dataSource=createPreviewProvider();
+const dataSource=createHostedApiProvider();
 const sourceLabel='v.FE-1.0';
 const sourceNotice='';
 
@@ -444,28 +386,16 @@ function loadingSkeleton(layout = 'rows', label = 'records') {
 return {loadingSkeleton};})();
 const {apiId,apiActor,apiRequest,paginatedApi}=(()=>{
 
-const routes = [
-  ['GET', /^\/employees$/], ['POST', /^\/employees$/],
-  ['GET', /^\/employees\/\d+$/], ['PATCH', /^\/employees\/\d+$/], ['DELETE', /^\/employees\/\d+$/], ['POST', /^\/employees\/\d+\/(?:deactivate|reactivate)$/],
-  ['GET', /^\/employees\/\d+\/violations$/], ['POST', /^\/employees\/\d+\/violations$/], ['POST', /^\/employees\/\d+\/violations\/clear$/],
-  ['GET', /^\/violations\/recent$/], ['GET', /^\/violations\/\d+$/], ['PATCH', /^\/violations\/\d+$/], ['POST', /^\/violations\/\d+\/remove$/],
-  ['GET', /^\/violation-removals(?:\/\d+)?$/], ['GET', /^\/activity\/(?:timeline|calendar|digest\/\d{4}-\d{2}-\d{2})$/],
-  ['GET', /^\/violation-types(?:\/all|\/\d+)?$/], ['POST', /^\/violation-types$/], ['PATCH', /^\/violation-types\/\d+$/], ['DELETE', /^\/violation-types\/\d+$/], ['POST', /^\/violation-types\/\d+\/(?:activate|deactivate)$/]
-];
+
 function apiId(value) {
   const id = String(value ?? '');
   if (!/^\d+$/.test(id) || !Number.isSafeInteger(Number(id)) || Number(id) < 1) throw new Error('The record has no valid backend ID. Refresh the list.');
   return id;
 }
-function apiActor(value) {
-  const actor = typeof value === 'string' ? value.trim() : '';
-  if (!actor) throw new Error('Set your display name in Settings before saving.');
-  if (/[^\x20-\x7e\u00a0-\u00ff]/.test(actor)) throw new Error('Your display name cannot be sent in X-Actor. Update it in Settings before saving.');
-  return actor;
-}
+function apiActor(value){return validateActor(value);}
 
 async function apiRequest(path,{method='GET',query,body,actor,signal}={}) {
-  if(!routes.some(([verb,route])=>method===verb&&route.test(path)))throw new Error('This action is not defined in the API contract.');
+  apiRoute(path,method);
   if(signal?.aborted)throw new DOMException('Request cancelled.','AbortError');
   return dataSource.request({path,method,query:query||{},body,actor,signal});
 }
@@ -492,7 +422,7 @@ async function paginatedApi(path, { array = false, query = {}, ...options } = {}
 return {apiId,apiActor,apiRequest,paginatedApi};})();
 const {normalizeApiEmployee,employeeDirectory,loadEmployeeDirectory,suspendEmployeeDirectory,apiEmployeeSummary,nextApiEmployeeCode,employeeCodeKey,fetchEmployeeDirectorySnapshot,employeeCreatePayload,employeeMatchesCreation,createApiEmployee}=(()=>{
 
-// API-shaped view models. The configured data source currently supplies fiction.
+// Backend totals and API IDs are kept separate from display employee codes.
 const employeeDirectory={status:'idle',items:[],total:0,error:''};
 let requestSequence=0,currentController=null;
 function nonnegative(value, field) {
@@ -607,13 +537,14 @@ function employeeMatchesCreation(employee, payload) {
 
 async function createApiEmployee(values,actor) {
   const payload=employeeCreatePayload(values);
-  return normalizeApiEmployee(await apiRequest('/employees',{method:'POST',body:payload,actor}));
+  const raw=await apiRequest('/employees',{method:'POST',body:payload,actor});
+  try{return normalizeApiEmployee(raw);}catch{throw createError('The server accepted the request, but its employee reply could not be verified. Check save status before another attempt.','unverified',{uncertain:true,accepted:true});}
 }
 
 return {normalizeApiEmployee,employeeDirectory,loadEmployeeDirectory,suspendEmployeeDirectory,apiEmployeeSummary,nextApiEmployeeCode,employeeCodeKey,fetchEmployeeDirectorySnapshot,employeeCreatePayload,employeeMatchesCreation,createApiEmployee};})();
 const {store,saveStore,employeeSummary,visibleEmployees,visibleViolations}=(()=>{
 // View state only. Nothing is saved to browser storage or a database.
-const defaults={organization:'Northpoint',textSize:'standard',role:'HR',name:'Preview User',department:''};
+const defaults={organization:'Northpoint',textSize:'standard',role:'HR',name:'',department:''};
 const store={employees:[],violations:[],types:[],removals:[],activities:[],users:[],settings:{...defaults}};
 function saveStore() { /* Preferences apply to this open tab only. */ }
 function visibleEmployees() {
@@ -642,7 +573,7 @@ function watchBackend(listener) { changed = listener; }
 function text(value, field, required = true) { if (value == null && !required) return ''; if (typeof value !== 'string' || required && !value.trim()) throw new Error(`The API returned an invalid ${field}. Please refresh.`); return value; }
 function number(value, field) { if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) throw new Error(`The API returned invalid ${field}. Please refresh.`); return value; }
 function boolean(value, field) { if (typeof value !== 'boolean') throw new Error(`The API returned an invalid ${field}. Please refresh.`); return value; }
-function timestamp(value, field) { const result = text(value, field); if (!/^\d{4}-\d{2}-\d{2}T/.test(result) || Number.isNaN(Date.parse(result))) throw new Error(`The API returned an invalid ${field}. Please refresh.`); return result; }
+function timestamp(value, field) { const result = text(value, field); if (!/^\d{4}-\d{2}-\d{2}T/.test(result) || Number.isNaN(Date.parse(result))) throw new Error(`The API returned an invalid ${field}. Please refresh.`); return /(?:Z|[+-]\d{2}:?\d{2})$/i.test(result)?result:result+'Z'; }
 function normalizeType(raw, activeOnly = false) { return { id: apiId(raw?.id), name: text(raw.name, 'violation name'), description: activeOnly ? '' : text(raw.description, 'description', false), points: number(raw.default_points, 'demerit points'), strike: boolean(raw.is_strike, 'strike value'), active: activeOnly ? true : boolean(raw.is_active, 'type status'), source: 'api' }; }
 function normalizeViolation(raw, employees = store.employees, allowSnapshot = false) {
   const employeeApiId = apiId(raw?.employee_id);
@@ -651,7 +582,7 @@ function normalizeViolation(raw, employees = store.employees, allowSnapshot = fa
   if (!employee) throw new Error('A violation refers to an employee missing from the directory. Refresh the employee list.');
   const status = raw.status == null ? null : String(raw.status).toLowerCase();
   if (status !== null && !['active', 'inactive'].includes(status)) throw new Error('The API returned an unknown case status. Please refresh.');
-  return { id: apiId(raw.id), apiId: apiId(raw.id), employeeId: employee.id, employeeApiId, employee, typeId: apiId(raw.violation_type_id), typeName: text(raw.violation_type_name || raw.violation_type?.name, 'violation name'), points: number(raw.points, 'recorded points'), strike: boolean(raw.is_strike, 'strike value'), date: timestamp(raw.issued_at, 'issue date').slice(0, 10), issuedAt: raw.issued_at, createdAt: timestamp(raw.created_at, 'creation date'), description: text(raw.notes, 'notes', false), recordedBy: text(raw.issued_by, 'issuer', false), status: status === null ? null : status === 'active' ? 'Active' : 'Inactive', source: 'api' };
+  return { id: apiId(raw.id), apiId: apiId(raw.id), employeeId: employee.id, employeeApiId, employee, typeId: apiId(raw.violation_type_id), typeName: text(raw.violation_type_name || raw.violation_type?.name, 'violation name'), points: number(raw.points, 'recorded points'), strike: boolean(raw.is_strike, 'strike value'), date: timestamp(raw.issued_at, 'issue date').slice(0, 10), issuedAt: timestamp(raw.issued_at, 'issue date'), createdAt: raw.created_at==null?null:timestamp(raw.created_at, 'creation date'), description: text(raw.notes, 'notes', false), recordedBy: text(raw.issued_by, 'issuer', false), status: status === null ? null : status === 'active' ? 'Active' : 'Inactive', source: 'api' };
 }
 function normalizeRemoval(raw) { return { id: apiId(raw.id), violationId: apiId(raw.violation_record_id), employeeApiId: apiId(raw.employee_id), employeeId: text(raw.employee_code, 'employee code'), employeeName: text(raw.employee_full_name, 'employee name'), typeId: apiId(raw.violation_type_id), typeName: text(raw.violation_type_name, 'violation name'), points: number(raw.points, 'removed points'), strike: boolean(raw.is_strike, 'strike value'), reason: text(raw.reason, 'removal reason', false), removedBy: text(raw.removed_by, 'remover', false), date: timestamp(raw.removed_at, 'removal date'), originalNotes: text(raw.original_notes, 'original notes', false), source: 'api' }; }
 function normalizeActivity(raw) { return { id: apiId(raw.id), date: timestamp(raw.occurred_at, 'activity date'), actor: text(raw.actor, 'actor', false), action: text(raw.action, 'action'), detail: text(raw.summary, 'activity summary', false), employeeApiId: raw.employee_id == null ? null : apiId(raw.employee_id), targetType: text(raw.target_type, 'target type'), targetId: raw.target_id == null ? null : String(raw.target_id), metadata: raw.metadata_json && typeof raw.metadata_json === 'object' ? raw.metadata_json : {}, source: 'api' }; }
@@ -1209,14 +1140,14 @@ function renderHistory(ctx) {
       <div class="field"><label for="history-from">From date</label><input id="history-from" type="date" name="from" value="${esc(f.from||'')}"></div><div class="field"><label for="history-to">To date</label><input id="history-to" type="date" name="to" value="${esc(f.to||'')}"></div>
       <div class="filter-actions"><button type="button" class="button ghost" data-action="sec-filter-clear" data-page="history">Clear Filters</button><button type="submit" class="button primary">${icon('search',17)} Search</button></div><p id="secondary-filter-error" class="form-error" role="alert" hidden></p>
     </form></section>
-    <section id="history-log-panel" class="panel history-panel" role="tabpanel" aria-labelledby="history-tab-${tab}" aria-busy="${resource.status==='loading'||resource.status==='idle'}"><div class="panel-header"><div><h2 id="history-table-title">${title} <span class="count-label">${resource.status==='ready'?events.length+' records':resource.status==='error'?'Unavailable':'Loading…'}</span></h2><p>${isRemoval?'Employee violation removals only':'Illustrative activity records'}</p><span id="history-scroll-hint" class="history-scroll-hint">Swipe left or right to see all columns</span></div><span class="muted">Newest first</span></div>${content}${resource.status==='ready'?ctx.pagination(events.length,current,6,'history'):''}</section>`;
+    <section id="history-log-panel" class="panel history-panel" role="tabpanel" aria-labelledby="history-tab-${tab}" aria-busy="${resource.status==='loading'||resource.status==='idle'}"><div class="panel-header"><div><h2 id="history-table-title">${title} <span class="count-label">${resource.status==='ready'?events.length+' records':resource.status==='error'?'Unavailable':'Loading…'}</span></h2><p>${isRemoval?'Employee violation removals only':'All recorded changes'}</p><span id="history-scroll-hint" class="history-scroll-hint">Swipe left or right to see all columns</span></div><span class="muted">Newest first</span></div>${content}${resource.status==='ready'?ctx.pagination(events.length,current,6,'history'):''}</section>`;
 }
 
 return {renderReports,renderHistory};})();
 const {renderSecondary,handleSecondary}=(()=>{
 
 
-/* Static preview views. Preferences apply only to the current tab. */
+/* Connected views. Preferences apply only to the current tab. */
 
 const statuses = ['Active', 'Inactive'];
 const roles = ['HR', 'Supervisor'];
@@ -1242,13 +1173,13 @@ function settings(ctx) {
       ${field('Your display name', `<input name="name" required maxlength="80" autocomplete="name" value="${esc(s.name)}">`)}
       ${field('Text size', `<select name="textSize"><option value="standard"${s.textSize !== 'larger' ? ' selected' : ''}>Standard — comfortable reading</option><option value="larger"${s.textSize === 'larger' ? ' selected' : ''}>Larger — extra reading comfort</option></select>`)}
       <p class="muted" style="margin:0">Larger text increases the size of navigation, forms, and body text throughout the workspace.</p>
-      <div style="padding-top:10px;border-top:1px solid #e8edf3"><h3 style="margin:0 0 16px">Preview a Role</h3><p class="muted">Explore the available views. This previews a view on this tab. Backend permissions are not connected.</p></div>
-      ${field('Role preview', `<select name="role">${roles.map(role => `<option${role === s.role ? ' selected' : ''}>${role}</option>`).join('')}</select>`)}
+      <div style="padding-top:10px;border-top:1px solid #e8edf3"><h3 style="margin:0 0 16px">Workspace view</h3><p class="muted">Choose a department view for this tab. These filters do not change account permissions.</p></div>
+      ${field('Workspace view', `<select name="role">${roles.map(role => `<option${role === s.role ? ' selected' : ''}>${role}</option>`).join('')}</select>`)}
       ${field('Assigned department', `<select name="department"><option value="">Select a department</option>${uniq(ctx.store.employees.map(e => e.department)).map(department => `<option${department === s.department ? ' selected' : ''}>${esc(department)}</option>`).join('')}</select>`)}
       <div><button type="submit" class="button primary">${icon('check')} Save Changes</button></div>
     </form></section><div>
-      <section class="panel"><div class="panel-header"><h2>About This Workspace</h2></div><div class="panel-body"><p><strong>Northpoint</strong><br>Violation Management System</p><p class="muted">A dedicated space for employee records, disciplinary cases, and clear reporting.</p><div class="callout" style="margin-top:20px"><div><strong>About this build</strong><p>This build uses example records. Saving requires a connected backend. Preferences reset when you reload.</p></div></div></div></section>
-      ${s.role === 'HR' ? `<section class="panel"><div class="panel-header"><h2>Reload Preview</h2></div><div class="panel-body"><p class="muted">Reload the fictional employee, violation, rulebook, and activity examples.</p><button class="button secondary" data-action="refresh-data">Reload Preview</button></div></section>` : ''}
+      <section class="panel"><div class="panel-header"><h2>About This Workspace</h2></div><div class="panel-body"><p><strong>Northpoint</strong><br>Violation Management System</p><p class="muted">A dedicated space for employee records, disciplinary cases, and clear reporting.</p><div class="callout" style="margin-top:20px"><div><strong>About this build</strong><p>Employee records, violations and history are connected to the hosted backend. Set your display name before saving changes. Preferences reset when you reload.</p></div></div></div></section>
+      ${s.role === 'HR' ? `<section class="panel"><div class="panel-header"><h2>Refresh Data</h2></div><div class="panel-body"><p class="muted">Reload employees, violations, rulebook and history from the hosted backend.</p><button class="button secondary" data-action="refresh-data">Refresh Data</button></div></section>` : ''}
     </div></div>`;
 }
 
@@ -1264,8 +1195,8 @@ function help(ctx) {
     <details open><summary><strong>What is a demerit point?</strong></summary><p>Demerit points are the penalty value assigned to a violation type. An employee’s total adds the points from their recorded violations. Removed records are excluded.</p></details>
     <details><summary><strong>What is a strike?</strong></summary><p>A strike marks a violation that counts toward disciplinary follow-up. Employees with two or more strikes appear in the repeat-offender watchlist. Your organization’s policies determine the appropriate action.</p></details>
     <details><summary><strong>Can I make the text larger?</strong></summary><p>Yes. Open Settings, choose Larger under Text size, and select Save Changes. Your preference applies to this tab and resets on reload.</p></details>
-    <details><summary><strong>Why can I only see one department?</strong></summary><p>The Supervisor role preview shows the assigned department. The HR view includes all departments. You can explore a different role in Settings.</p></details>
-    <details><summary><strong>Is this connected to the company’s employee system?</strong></summary><p>This build currently uses example records and makes no API requests. Saving requires a connected backend. See the integration guide for connection steps.</p></details>
+    <details><summary><strong>Why can I only see one department?</strong></summary><p>The Supervisor workspace view filters to the assigned department. The HR view includes all departments. Change your view in Settings.</p></details>
+    <details><summary><strong>Is this connected to the company’s employee system?</strong></summary><p>Yes. Records are read from and saved to the hosted backend. If the connection fails, you will see an error. No record changes are saved locally.</p></details>
   </div></section>
   <div class="callout">${icon('info')}<div><strong>Keyboard-friendly by design</strong><p>Use Tab to move between controls and Enter or Space to select a button. Press Escape to close a dialog. Every field has a visible label.</p></div></div>`;
 }
@@ -1322,7 +1253,7 @@ function handleSecondary(action, el, ctx) {
     document.documentElement.dataset.textSize = values.textSize;
     document.body.classList.toggle('larger-text', values.textSize === 'larger');
     ctx.render();
-    ctx.toast('Preferences applied to this preview.');
+    ctx.toast('Preferences applied to this tab.');
     return true;
   }
   if (action === 'sec-user-add' || action === 'sec-user-save') { ctx.toast('Users & Roles: Coming Soon.','info'); return true; }
@@ -1549,7 +1480,7 @@ const {createCalendarService,calendarService}=(()=>{
 
 
 // Inject a parsed-JSON request function to use another transport in tests or integration.
-// The shared apiRequest delegates to data-source.js (preview mode by default).
+// The shared apiRequest delegates to data-source.js (hosted API).
 function createCalendarService(request=apiRequest) {
   const monthState={key:'',status:'idle',data:null,error:''},dayState={key:'',status:'idle',data:null,error:''};
   const pending={month:null,day:null};let monthVersion=0,dayVersion=0;
@@ -1562,12 +1493,12 @@ function createCalendarService(request=apiRequest) {
     finally{if(pending[kind]===controller)pending[kind]=null;}
     return true;
   }
-  return {monthState,dayState,loadMonth(month){const range=calendarRange(month);return load('month',month,'/activity/calendar',range,raw=>calendarRows(raw,range));},loadDay(date){calendarDate(date);return load('day',date,'/activity/digest/'+date,{},raw=>calendarSummary(raw,date));}};
+  return {monthState,dayState,invalidate(){monthVersion++;dayVersion++;for(const kind of ['month','day']){pending[kind]?.abort();pending[kind]=null;}for(const state of [monthState,dayState])Object.assign(state,{key:'',status:'idle',data:null,error:''});},loadMonth(month){const range=calendarRange(month);return load('month',month,'/activity/calendar',range,raw=>calendarRows(raw,range));},loadDay(date){calendarDate(date);return load('day',date,'/activity/digest/'+date,{},raw=>calendarSummary(raw,date));}};
 }
 const calendarService=createCalendarService();
 
 return {createCalendarService,calendarService};})();
-const {createCalendarLoader,renderHistoryCalendar,renderCalendarDigest,handleCalendarAction,handleCalendarKeydown}=(()=>{
+const {invalidateHistoryCalendar,createCalendarLoader,renderHistoryCalendar,renderCalendarDigest,handleCalendarAction,handleCalendarKeydown}=(()=>{
 
 
 
@@ -1576,10 +1507,11 @@ const {createCalendarLoader,renderHistoryCalendar,renderCalendarDigest,handleCal
 function createCalendarLoader(request=apiRequest) {
   const service=createCalendarService(request),source=service.monthState;
   const state={get month(){return source.key;},get status(){return source.status;},get rows(){return source.data||[];},get error(){return source.error;}};
-  return {state,load:month=>service.loadMonth(month)};
+  return {state,load:month=>service.loadMonth(month),invalidate:()=>service.invalidate()};
 }
 const monthLoader=createCalendarLoader();
 let digestVersion=0,openDigest=null;
+function invalidateHistoryCalendar(){monthLoader.invalidate();calendarService.invalidate();digestVersion++;openDigest=null;}
 const utcToday=()=>new Date().toISOString().slice(0,10);
 const longDate=date=>new Date(date+'T12:00:00Z').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric',timeZone:'UTC'});
 const shortDate=date=>new Date(date+'T12:00:00Z').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'});
@@ -1638,7 +1570,7 @@ function handleCalendarKeydown(event,ctx) {
   return true;
 }
 
-return {createCalendarLoader,renderHistoryCalendar,renderCalendarDigest,handleCalendarAction,handleCalendarKeydown};})();
+return {invalidateHistoryCalendar,createCalendarLoader,renderHistoryCalendar,renderCalendarDigest,handleCalendarAction,handleCalendarKeydown};})();
 
 
 
@@ -1763,7 +1695,7 @@ function resourceState(resource,label='records',layout='rows'){
     if(resource.status==='ready')return '';
     const failed=resource.status==='error';
     if(!failed)return loadingSkeleton(layout==='rows'&&/details|employee form|violation type$/.test(label)?'form':layout,label);
-    return `<div class="empty-state" role="${failed?'alert':'status'}" aria-live="polite">${icon(failed?'alert':'refresh',30)}<h3>${failed?'Couldn’t load '+esc(label):'Loading '+esc(label)+'…'}</h3><p>${failed?esc(resource.error):'Preparing the workspace preview.'}</p>${failed?`<button class="button primary" data-action="refresh-data" style="margin-top:18px">${icon('refresh',17)} Try again</button>`:''}</div>`;
+    return `<div class="empty-state" role="${failed?'alert':'status'}" aria-live="polite">${icon(failed?'alert':'refresh',30)}<h3>${failed?'Couldn’t load '+esc(label):'Loading '+esc(label)+'…'}</h3><p>${failed?esc(resource.error):'Getting the latest backend data.'}</p>${failed?`<button class="button primary" data-action="refresh-data" style="margin-top:18px">${icon('refresh',17)} Try again</button>`:''}</div>`;
   }
   function dataGate(names){
     if(names.includes('employees')&&employeeDirectory.status!=='ready')return employeeDirectory.status==='error'?'<section class="panel">'+employeeLoadState(employeeDirectory,icon,esc)+'</section>':loadingSkeleton(page,'employee data');
@@ -1846,7 +1778,7 @@ async function employeeForm(id) {
   if(e.department&&!departments.includes(e.department))departments.push(e.department);
   openModal(id?'Edit Employee':'Add Employee',`<form id="employee-form" data-id="${esc(id||'')}" data-source="api"><p class="form-error" role="alert"></p><div class="form-grid ${id?'':'employee-create-grid'}">
     <div class="field employee-first-name"><label for="emp-first-name">First name (required)</label><input id="emp-first-name" name="firstName" required maxlength="100" autocomplete="given-name" value="${esc(e.firstName||'')}"></div>
-    <div class="field employee-code"><label for="emp-code">Employee code</label><input id="emp-code" name="employee_code" required maxlength="50" value="${esc(e.id)}" ${id?'readonly aria-readonly="true"':'autocomplete="off" spellcheck="false"'} aria-describedby="emp-code-help"><small id="emp-code-help">${id?'Employee code stays the same.':'Sample code for this form preview. You can change it.'}</small></div>
+    <div class="field employee-code"><label for="emp-code">Employee code</label><input id="emp-code" name="employee_code" required maxlength="50" value="${esc(e.id)}" ${id?'readonly aria-readonly="true"':'autocomplete="off" spellcheck="false"'} aria-describedby="emp-code-help"><small id="emp-code-help">${id?'Employee code stays the same.':'Generated from unused employee codes. You can change it.'}</small></div>
     <div class="field"><label for="emp-last-name">Last name (required)</label><input id="emp-last-name" name="lastName" required maxlength="100" autocomplete="family-name" value="${esc(e.lastName||'')}"></div>
     <div class="field"><label for="emp-department">Department <span class="muted">(optional)</span></label>${id?`<input id="emp-department" name="department" list="employee-departments" maxlength="100" value="${esc(e.department||'')}"><datalist id="employee-departments">${departments.map(department=>`<option value="${esc(department)}"></option>`).join('')}</datalist>`:`<select id="emp-department" name="department"><option value="">No department assigned</option>${departments.map(department=>`<option value="${esc(department)}" ${department===e.department?'selected':''}>${esc(department)}</option>`).join('')}<option value="__other_department__">Add another department…</option></select>`}</div>
     ${id?'':'<div class="field span-full" id="employee-new-department-field" hidden><label for="emp-new-department">New department name</label><input id="emp-new-department" name="newDepartment" maxlength="100" disabled></div>'}
@@ -1887,7 +1819,7 @@ async function recordForm(employeeId = '', keep = false) {
     <div class="field span-full employee-picker"><label for="record-employee">Employee (required)</label><input id="record-employee" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="employee-suggestions" aria-describedby="employee-picker-status" autocomplete="off" autocapitalize="words" spellcheck="false" required placeholder="Type an employee name or code"><input id="record-employee-id" type="hidden" name="employeeId"><div id="employee-suggestions" class="employee-suggestions" role="listbox" aria-label="Employee suggestions" hidden></div><small id="employee-picker-status" role="status" aria-live="polite">Type a name or employee code, then tap a suggestion.</small></div>
     <div class="field span-full"><label for="record-type">Violation type (required)</label><select id="record-type" name="typeId" required><option value="">Select a violation type</option>${resources.activeTypes.items.map(type => `<option value="${esc(type.id)}" ${type.id === d.typeId ? 'selected' : ''}>${esc(type.name)}</option>`).join('')}</select></div>
     <div class="field"><label for="record-issuer">Issued by</label><select id="record-issuer" name="recordedBy" required>${issuers.map(name => `<option value="${esc(name)}" ${name === d.recordedBy ? 'selected' : ''}>${esc(name)}${name === store.settings.name ? ' (you)' : ''}</option>`).join('')}</select></div>
-    <div class="field"><label for="record-date">Issued at</label><input id="record-date" name="date" type="date" required readonly aria-readonly="true" value="${localDate()}"><small>Today is shown for this form preview.</small></div>
+    <div class="field"><label for="record-date">Issued at</label><input id="record-date" name="date" type="date" required readonly aria-readonly="true" value="${localDate()}"><small>The backend records the current date and time.</small></div>
     <div class="field span-full"><label for="record-description">Notes / Incident details <span class="muted">(optional)</span></label><textarea id="record-description" name="description" maxlength="2000" placeholder="Add any details that may help with the review.">${esc(d.description)}</textarea></div>
     </div></form>`, `<button class="button secondary" data-action="close-modal">Cancel</button><button class="button primary" type="submit" form="record-form">Review & Submit ${icon('arrow', 16)}</button>`);
   bindEmployeePicker(dialog, employees, d.employeeId, esc);
@@ -1925,7 +1857,7 @@ case 'profile':if(dialog.open)closeModal();navigate('profile',id);break;
 case 'toggle-nav':document.body.classList.toggle('nav-open');syncNavigation();if(document.body.classList.contains('nav-open'))document.querySelector('.nav-item.active')?.focus();else document.querySelector('.mobile-toggle')?.focus();break;
 case 'close-modal':closeModal();break;
 case 'dismiss-toast':document.querySelector('#toast-region').innerHTML='';break;
-case 'retry-employees':case 'refresh-data':await refreshWorkspace();ensurePageData(page);break;
+case 'retry-employees':case 'refresh-data':invalidateHistoryCalendar();await refreshWorkspace();ensurePageData(page);break;
 case 'check-mutation':await checkPendingMutation(mutationContext());break;
 case 'add-employee':await employeeForm();break;
 case 'edit-employee':await employeeForm(id);break;
@@ -1942,7 +1874,7 @@ case 'confirm-record':{
   if(checkingDraft||mutationInFlight()||!canRecord()||!draft||!document.querySelector('#confirm-record')?.checked)return;
   checkingDraft=true;
   const confirmButton=dialog.querySelector('[data-action="confirm-record"]');if(confirmButton)confirmButton.disabled=true;
-  try{const employee=visibleEmployees().find(employee=>employee.id===draft.employeeId);if(!employee)return;const current=normalizeType(await apiRequest('/violation-types/'+apiId(draft.typeId)));if(!current.active){formError(dialog,'This violation type is now inactive. Choose another type.');return;}if(current.points!==draft.points||current.strike!==draft.strike){Object.assign(draft,{points:current.points,strike:current.strike});const type=resources.activeTypes.items.find(type=>type.id===current.id);if(type)Object.assign(type,current);recordReview();toast('The violation type changed. Review the updated points and strike before confirming.','info');return;}const input={...draft},before=new Set(store.violations.map(record=>record.id));checkingDraft=false;await mutate({message:'Violation recorded successfully.',execute:()=>issueViolation(employee.apiId,input,store.settings.name),reconcile:async()=>{const rows=await apiRequest('/employees/'+apiId(employee.apiId)+'/violations',{query:{limit:50,offset:0}});if(!Array.isArray(rows))throw Error('Could not read the employee history.');return rows.some(row=>!before.has(String(row.id))&&String(row.violation_type_id)===input.typeId&&(row.notes||'')===input.description&&row.issued_by===input.recordedBy)?true:null;}});}
+  try{const employee=visibleEmployees().find(employee=>employee.id===draft.employeeId);if(!employee)return;const current=normalizeType(await apiRequest('/violation-types/'+apiId(draft.typeId)));if(!current.active){formError(dialog,'This violation type is now inactive. Choose another type.');return;}if(current.points!==draft.points||current.strike!==draft.strike){Object.assign(draft,{points:current.points,strike:current.strike});const type=resources.activeTypes.items.find(type=>type.id===current.id);if(type)Object.assign(type,current);recordReview();toast('The violation type changed. Review the updated points and strike before confirming.','info');return;}const input={...draft},before=new Set(store.violations.map(record=>record.id));checkingDraft=false;await mutate({message:'Violation recorded successfully.',execute:()=>issueViolation(employee.apiId,input,store.settings.name),reconcile:async()=>{const rows=await paginatedApi('/employees/'+apiId(employee.apiId)+'/violations',{array:true});if(!Array.isArray(rows))throw Error('Could not read the employee history.');return rows.some(row=>!before.has(String(row.id))&&String(row.violation_type_id)===input.typeId&&(row.notes||'')===input.description&&row.issued_by===input.recordedBy)?true:null;}});}
   catch(error){formError(dialog,error.message||'The violation could not be saved.');}
   finally{checkingDraft=false;if(confirmButton?.isConnected)confirmButton.disabled=!document.querySelector('#confirm-record')?.checked;}
   break;
@@ -1955,7 +1887,7 @@ case 'paginate':if(el.dataset.page==='employees')employeePage=Number(el.dataset.
 
 case 'watchlist':filters.employees={strikes:'watchlist'};employeePage=1;navigate('employees');break;
 case 'dashboard-card':{const target=el.dataset.target;if(target==='watchlist'){filters.employees={strikes:'watchlist'};employeePage=1;navigate('employees');}else if(target==='points'){filters.reports={};navigate('reports');}else if(target==='employees'){filters.employees={};employeePage=1;navigate('employees');}else{filters.violations={};violationPage=1;navigate('violations');}break;}
-case 'account':openModal('Your Profile',`<div class="callout">${icon('info')}<p>This is a fictional preview user. Role selection previews the interface on this tab; sign-in and permissions belong to the backend integration.</p></div><div class="profile-top" style="padding:0 0 24px">${avatar({name:store.settings.name,id:'EMP-000'})}<div><h2>${esc(store.settings.name || 'Set your name in Settings')}</h2><p class="muted">${esc(store.settings.role)} · Northpoint</p></div></div><form id="role-form"><div class="field"><label for="demo-role">View workspace as</label><select id="demo-role" name="role">${['HR','Supervisor'].map(r=>`<option ${store.settings.role===r?'selected':''}>${r}</option>`).join('')}</select></div><div class="field" style="margin-top:18px"><label for="demo-dept">Supervisor’s assigned department</label><select id="demo-dept" name="department">${unique(store.employees.map(e=>e.department)).map(d=>`<option ${store.settings.department===d?'selected':''}>${esc(d)}</option>`).join('')}</select></div></form>`,`<button class="button secondary" data-action="close-modal">Cancel</button><button class="button primary" type="submit" form="role-form">Switch View</button>`);break;
+case 'account':openModal('Your Profile',`<div class="callout">${icon('info')}<p>Your display name is used to record who makes changes. Workspace views filter this tab; they do not authenticate an account.</p></div><div class="profile-top" style="padding:0 0 24px">${avatar({name:store.settings.name,id:'EMP-000'})}<div><h2>${esc(store.settings.name || 'Set your name in Settings')}</h2><p class="muted">${esc(store.settings.role)} · Northpoint</p></div></div><form id="role-form"><div class="field"><label for="demo-role">View workspace as</label><select id="demo-role" name="role">${['HR','Supervisor'].map(r=>`<option ${store.settings.role===r?'selected':''}>${r}</option>`).join('')}</select></div><div class="field" style="margin-top:18px"><label for="demo-dept">Supervisor’s assigned department</label><select id="demo-dept" name="department">${unique(store.employees.map(e=>e.department)).map(d=>`<option ${store.settings.department===d?'selected':''}>${esc(d)}</option>`).join('')}</select></div></form>`,`<button class="button secondary" data-action="close-modal">Cancel</button><button class="button primary" type="submit" form="role-form">Switch View</button>`);break;
 case 'export-employees':downloadCSV('NorthPoint-Employees', [['Employee ID','Name','Department','Position','Employment Status','Demerit Points','Strikes'],...visibleEmployees().map(e=>{const s=employeeSummary(e.id);return [e.id,e.name,e.department,e.position,e.status,s.points,s.strikes];})]);break;
 case 'export-violations':downloadCSV('NorthPoint-Violations',[['Case number','Employee ID','Employee','Violation','Incident date','Demerit Points','Strike','Recorded by','Status'],...visibleViolations().map(v=>[v.id,v.employeeId,store.employees.find(e=>e.id===v.employeeId)?.name,v.typeName,v.date,v.points,v.strike?'Yes':'No',v.recordedBy,v.status])]);break;
 
@@ -1975,7 +1907,7 @@ case 'employee-form': {
     const payload=employeeUpdatePayload(values,editingEmployee);
     if(!Object.keys(payload).length){toast('No employee details have changed.','info');return;}
     await mutate({message:'Employee updated successfully.',execute:async()=>{await patchEmployee(id,payload,store.settings.name);invalidateEmployeeProfile();},reconcile:async()=>employeeMatchesUpdate((await fetchEmployeeProfile(id)).employee,payload)},form);
-  }else await submitApiEmployeeForm(form,values,{dialog,actor:store.settings.name,refresh:refreshApiEmployees,formError,closeModal,render,toast,resetFilters:()=>{filters.employees={};employeePage=1;store.employees=employeeDirectory.items;void Promise.all([loadRecords(true),loadRecent(true),loadTimeline(true),loadRemovals(true)]);}});
+  }else await submitApiEmployeeForm(form,values,{dialog,actor:store.settings.name,refresh:refreshApiEmployees,formError,closeModal,render,toast,resetFilters:()=>{invalidateHistoryCalendar();filters.employees={};employeePage=1;store.employees=employeeDirectory.items;void Promise.all([loadRecords(true),loadRecent(true),loadTimeline(true),loadRemovals(true)]);}});
   break;
 }
 case 'employee-state-form':{
@@ -2017,7 +1949,7 @@ dialog.addEventListener('cancel',event=>{if(employeeCreateInFlight()||mutationIn
 dialog.addEventListener('click',event=>{if(event.target===dialog){const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)closeModal();}});
 function syncNavigation(){const sidebar=document.querySelector('.sidebar');const open=document.body.classList.contains('nav-open');if(sidebar){sidebar.inert=matchMedia('(max-width:900px)').matches&&!open;sidebar.setAttribute('aria-hidden',String(sidebar.inert));}const workspace=document.querySelector('.workspace');if(workspace)workspace.inert=matchMedia('(max-width:900px)').matches&&open;document.querySelector('.mobile-toggle')?.setAttribute('aria-expanded',String(open));}
 window.addEventListener('resize',()=>{syncNavigation();syncPhoneFilters();});
-function refreshWeeklyDashboard(){if(page==='dashboard'&&!dialog.open&&startOfWeek(localDate())!==displayedWeek)void refreshWorkspace();}
+function refreshWeeklyDashboard(){if(page==='dashboard'&&!dialog.open&&startOfWeek(localDate())!==displayedWeek)void (invalidateHistoryCalendar(),refreshWorkspace());}
 window.addEventListener('focus',refreshWeeklyDashboard);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshWeeklyDashboard();});
 setInterval(refreshWeeklyDashboard,60000);

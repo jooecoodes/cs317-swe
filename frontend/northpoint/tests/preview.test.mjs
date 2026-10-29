@@ -10,6 +10,8 @@ import {fetchEmployeeProfile,patchEmployee,changeEmployeeState} from '../src/emp
 import {saveType,changeType,issueViolation,updateViolation,deleteViolation} from '../src/mutations.js';
 import {refreshWorkspace,resources,normalizeViolation,normalizeRemoval,normalizeType,normalizeActivity} from '../src/backend.js';
 import {store} from '../src/data.js';
+import {dataSource} from '../src/data-source.js';
+Object.assign(dataSource,createPreviewProvider());
 
 test('preview reads have the backend contract and internally consistent totals',async()=>{
   const source=createPreviewProvider({delayMs:0});
@@ -69,14 +71,15 @@ test('view adapters load every resource from the provider without network access
   }finally{globalThis.fetch=fetchBefore;}
 });
 
-test('built standalone works offline, renders all views and never persists or saves records',async t=>{
+test('built frontend uses the real transport to render supplied API responses without persistence',async t=>{
   const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
-  assert.ok(html.includes("connect-src 'none'"));
+  assert.ok(html.includes('https://cs317.duckdns.org/app1'));assert.ok(!html.includes('const previewFixtures'));
   const script=html.match(/<script>\n([\s\S]*?)\n<\/script>/)[1];
   const events={},nodes=new Map();let networkCalls=0,storageCalls=0;
   function element(selector){if(!nodes.has(selector))nodes.set(selector,{innerHTML:'',textContent:'',open:false,isConnected:true,dataset:{},elements:{},checked:true,disabled:false,addEventListener(){},setAttribute(){},focus(){},scrollIntoView(){},getClientRects:()=>[],classList:{toggle(){},contains:()=>false,remove(){},add(){}},querySelector:element,querySelectorAll:()=>[],showModal(){this.open=true;},close(){this.open=false;}});return nodes.get(selector);}
   class Form{constructor(id,values){this.id=id;this.dataset={};this.values=values;this.elements=Object.fromEntries(Object.entries(values).map(([name,value])=>[name,{name,value,disabled:false}]));}querySelector=element;querySelectorAll(){return [];}setAttribute(){}reportValidity(){return true;}}
-  const context={document:{querySelector:element,querySelectorAll:()=>[],getElementById:id=>element('#'+id),addEventListener:(name,fn)=>events[name]=fn,body:element('body'),documentElement:{dataset:{}},hidden:false},window:{addEventListener(){},scrollTo(){}},navigator:{onLine:false},location:{hash:'#dashboard'},fetch(){networkCalls++;throw Error('Network forbidden');},URL,DOMException,AbortController,queueMicrotask,HTMLFormElement:Form,FormData:class{constructor(form){return Object.entries(form.values);}},matchMedia:()=>({matches:false}),setTimeout,clearTimeout,setInterval(){},console};
+  const fixtureHttpSource=createPreviewProvider();
+  const context={document:{querySelector:element,querySelectorAll:()=>[],getElementById:id=>element('#'+id),addEventListener:(name,fn)=>events[name]=fn,body:element('body'),documentElement:{dataset:{}},hidden:false},window:{addEventListener(){},scrollTo(){}},navigator:{onLine:false},location:{hash:'#dashboard'},async fetch(url,options){networkCalls++;const parsed=new URL(url);assert.equal(parsed.origin,'https://cs317.duckdns.org');assert.ok(parsed.pathname.startsWith('/app1/'));try{const data=await fixtureHttpSource.request({path:parsed.pathname.replace('/app1',''),method:options.method,query:Object.fromEntries(parsed.searchParams),signal:options.signal});return new Response(JSON.stringify(data),{headers:{'Content-Type':'application/json'}});}catch(error){return new Response(JSON.stringify({detail:error.message}),{status:error.code==='preview-only'?403:error.status||500,headers:{'Content-Type':'application/json'}});}},URL,DOMException,AbortController,queueMicrotask,HTMLFormElement:Form,FormData:class{constructor(form){return Object.entries(form.values);}},matchMedia:()=>({matches:false}),setTimeout,clearTimeout,setInterval(){},console};
   for(const key of ['localStorage','sessionStorage','indexedDB'])Object.defineProperty(context,key,{get(){storageCalls++;throw Error('Persistence forbidden');}});
   vm.runInNewContext(script+'\nglobalThis.fixture={store,resources,employeeDirectory,route,filters,render,employeeForm,employeeProfile,saveStore};',context);
   const ui=context.fixture,body=()=>element('#app').innerHTML,wait=()=>new Promise(resolve=>setTimeout(resolve,450));await wait();await wait();
@@ -90,14 +93,14 @@ test('built standalone works offline, renders all views and never persists or sa
     await ui.employeeForm('api/101');assert.ok(element('#modal').innerHTML.includes('Alex'));assert.ok(element('#modal').innerHTML.includes('Save Changes'));
   });
   await t.test('employee form submission keeps the draft and does not invent a saved record',async()=>{
-    const form=new Form('employee-form',{employee_code:'PREVIEW-DRAFT',firstName:'Unsaved',lastName:'Example',department:'',position:''});
+    ui.store.settings.name='UI Test Actor';const form=new Form('employee-form',{employee_code:'PREVIEW-DRAFT',firstName:'Unsaved',lastName:'Example',department:'',position:''});
     await events.submit({target:form,preventDefault(){}});assert.equal(ui.store.employees.length,12);assert.equal(form.elements.firstName.value,'Unsaved');assert.equal(ui.store.employees.some(employee=>employee.id==='PREVIEW-DRAFT'),false);assert.match(element('.form-error').textContent,/UI-only preview/);
   });
   await t.test('all reports and both history tabs remain available',()=>{
     context.location.hash='#reports';ui.route();for(const tab of ['activity','offenders','watchlist','departments','rulebook','clean']){ui.filters.reports={tab};ui.render();assert.ok(body().includes('id="report-panel"'),'report panel '+tab);assert.doesNotMatch(body(),/>\s*NaN\s*<|(?:height|width|value)="NaN"/,'finite report values '+tab);}
     context.location.hash='#history';ui.route();for(const tab of ['activity','removals']){ui.filters.history={tab};ui.render();assert.ok(body().includes(tab==='activity'?'Activity Logs':'Removal Logs'));assert.ok(body().includes('history-table-scroll'));}
   });
-  await t.test('record data and preferences never reach browser storage or the network',()=>{ui.saveStore();assert.equal(networkCalls,0);assert.equal(storageCalls,0);});
+  await t.test('record data and preferences never reach browser storage',()=>{ui.saveStore();assert.ok(networkCalls>0);assert.equal(storageCalls,0);});
   await t.test('Calendar tab opens a daily summary through the actual bundled event handlers',async()=>{
     context.location.hash='#history';ui.route();ui.filters.history={tab:'calendar'};ui.render();assert.ok(body().includes('Loading calendar activity'));
     await wait();assert.ok(body().includes('calendar-grid'));assert.ok(body().includes('More changes'));
@@ -107,6 +110,6 @@ test('built standalone works offline, renders all views and never persists or sa
     const date=new Date().toISOString().slice(0,10),day={dataset:{action:'sec-calendar-day',date},id:'calendar-day-'+date};
     await events.click({target:{closest:()=>day}});assert.ok(element('#modal').innerHTML.includes('Daily Summary'));assert.ok(element('#modal').innerHTML.includes('By person'));assert.ok(!element('#modal').innerHTML.includes('[object Object]'));
     const next={dataset:{action:'sec-calendar-month',step:'1'},id:'calendar-next'};await events.click({target:{closest:()=>next}});await wait();assert.notEqual(ui.filters.history.month,date.slice(0,7));
-    const today={dataset:{action:'sec-calendar-today'},id:'calendar-today'};await events.click({target:{closest:()=>today}});await wait();assert.equal(ui.filters.history.month,date.slice(0,7));assert.equal(networkCalls,0);assert.equal(storageCalls,0);
+    const today={dataset:{action:'sec-calendar-today'},id:'calendar-today'};await events.click({target:{closest:()=>today}});await wait();assert.equal(ui.filters.history.month,date.slice(0,7));assert.ok(networkCalls>0);assert.equal(storageCalls,0);
   });
 });

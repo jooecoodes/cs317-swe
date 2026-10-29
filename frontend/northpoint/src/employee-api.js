@@ -1,5 +1,5 @@
 import {apiRequest,paginatedApi} from './api-client.js';
-// API-shaped view models. The configured data source currently supplies fiction.
+// Backend totals and API IDs are kept separate from display employee codes.
 export const employeeDirectory={status:'idle',items:[],total:0,error:''};
 let requestSequence=0,currentController=null;
 function nonnegative(value, field) {
@@ -114,5 +114,6 @@ export function employeeMatchesCreation(employee, payload) {
 
 export async function createApiEmployee(values,actor) {
   const payload=employeeCreatePayload(values);
-  return normalizeApiEmployee(await apiRequest('/employees',{method:'POST',body:payload,actor}));
+  const raw=await apiRequest('/employees',{method:'POST',body:payload,actor});
+  try{return normalizeApiEmployee(raw);}catch{throw createError('The server accepted the request, but its employee reply could not be verified. Check save status before another attempt.','unverified',{uncertain:true,accepted:true});}
 }
