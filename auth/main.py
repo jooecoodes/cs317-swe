@@ -1,4 +1,5 @@
 import hashlib, hmac, html, os, secrets, sqlite3, time
+import unicodedata
 from contextlib import closing
 from pathlib import Path
 
@@ -55,6 +56,12 @@ with closing(db()) as _c, _c:
         if col not in cols:
             _c.execute(f"ALTER TABLE devices ADD COLUMN {col} INTEGER")
 
+with closing(db()) as _c, _c:
+    ucols = {r["name"] for r in _c.execute("PRAGMA table_info(users)")}
+    for col in ("first_name", "last_name"):
+        if col not in ucols:
+            _c.execute(f"ALTER TABLE users ADD COLUMN {col} TEXT")
+
 
 # ---------- hashing ----------
 def hash_password(pw: str) -> str:
@@ -81,6 +88,16 @@ DUMMY_HASH = hash_password("dummy")  # keeps timing similar for unknown users
 
 
 # ---------- helpers ----------
+def full_name(row) -> str:
+    n = f"{row['first_name'] or ''} {row['last_name'] or ''}".strip()
+    return n or row["username"]          # old accounts fall back to the username
+
+
+def header_safe(s: str) -> str:
+    """HTTP headers must be plain ASCII-ish. 'José Peña' becomes 'Jose Pena'."""
+    out = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode().strip()
+    return out or "unknown"
+
 def safe_next(n: str) -> str:
     """Only allow same-site relative redirects."""
     if n and n.startswith("/") and not n.startswith("//") and "\\" not in n:
@@ -166,11 +183,14 @@ def verify(request: Request):
         token = request.cookies.get(COOKIE)
         if token:
             row = c.execute(
-                "SELECT u.username FROM sessions s JOIN users u ON u.id=s.user_id "
+                "SELECT u.username, u.first_name, u.last_name "
+                "FROM sessions s JOIN users u ON u.id=s.user_id "
                 "WHERE s.token_hash=? AND s.expires_at>?",
                 (hash_token(token), now)).fetchone()
             if row:
-                return Response(status_code=200, headers={"X-User": row["username"]})
+                return Response(status_code=200, headers={
+                    "X-User": header_safe(full_name(row)),
+                    "X-Username": row["username"]})
 
         bearer = request.headers.get("authorization", "")
         if bearer.lower().startswith("bearer "):
@@ -226,3 +246,21 @@ def device_logout(request: Request):
             c.execute("UPDATE devices SET revoked=1 WHERE token_hash=?",
                       (hash_token(bearer[7:].strip()),))
     return {"status": "ok"}
+
+@auth_app.get("/me")
+def me(request: Request):
+    token = request.cookies.get(COOKIE)
+    if token:
+        with closing(db()) as c:
+            row = c.execute(
+                "SELECT u.id, u.username, u.first_name, u.last_name "
+                "FROM sessions s JOIN users u ON u.id=s.user_id "
+                "WHERE s.token_hash=? AND s.expires_at>?",
+                (hash_token(token), int(time.time()))).fetchone()
+        if row:
+            return JSONResponse(
+                {"id": row["id"], "username": row["username"],
+                 "first_name": row["first_name"], "last_name": row["last_name"],
+                 "full_name": full_name(row)},
+                headers={"Cache-Control": "no-store"})
+    return JSONResponse({"detail": "Not signed in"}, status_code=401)
