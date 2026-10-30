@@ -202,9 +202,32 @@ class ActivityOut(BaseModel):
     action: str
     photo_id: Optional[int] = None
     photo_display_name: Optional[str] = None
+    photo_exists: Optional[bool] = None
+    photo_url: Optional[str] = None
+    download_url: Optional[str] = None
+    thumbnail_url: Optional[str] = None
     details: dict = Field(default_factory=dict)
     created_at: datetime.datetime
 
+
+class ActorStat(BaseModel):
+    actor: str
+    total: int
+    last_seen: datetime.datetime
+    actions: Dict[str, int] = Field(default_factory=dict)
+
+
+class ActorListResponse(BaseModel):
+    actors: List[ActorStat]
+
+
+class PhotoBatchRequest(BaseModel):
+    ids: List[int] = Field(..., min_length=1, max_length=200)
+
+
+class PhotoBatchResponse(BaseModel):
+    found: List[PhotoOut]
+    missing: List[int]
 
 class ActivityListResponse(BaseModel):
     total: int
@@ -355,23 +378,44 @@ def delete_file_on_disk(photo: PhotoRecord) -> Optional[str]:
         return path
     return None
 
-def serialize_activity(log: ActivityLog) -> dict:
+def serialize_activity(
+    log: ActivityLog, photo_exists: Optional[bool] = None
+) -> dict:
     details: dict = {}
     if log.details:
         try:
             details = json.loads(log.details)
         except (ValueError, TypeError):
             details = {"raw": log.details}
+
+    pid = log.photo_id
+    if pid is None:
+        # Non-photo action (future: employee_add, document_issue, etc.)
+        exists: Optional[bool] = None
+        photo_url = download_url = thumbnail_url = None
+    elif photo_exists:
+        exists = True
+        photo_url = f"/photos/{pid}/file"
+        download_url = f"/photos/{pid}/download"
+        thumbnail_url = f"/photos/{pid}/file"  # same for now; swap when we add thumbnails
+    else:
+        # Caller said "gone" OR didn't tell us — hide links defensively.
+        exists = False
+        photo_url = download_url = thumbnail_url = None
+
     return {
         "id": log.id,
         "actor": log.actor,
         "action": log.action,
-        "photo_id": log.photo_id,
+        "photo_id": pid,
         "photo_display_name": log.photo_display_name,
+        "photo_exists": exists,
+        "photo_url": photo_url,
+        "download_url": download_url,
+        "thumbnail_url": thumbnail_url,
         "details": details,
         "created_at": log.created_at,
     }
-
 
 def log_activity(
     db: Session,
@@ -522,6 +566,15 @@ def build_range_summary(
             )
 
     return " ".join(parts)
+
+def _photo_exists_map(db: Session, photo_ids: List[Optional[int]]) -> Dict[int, bool]:
+    """Batch-check which photo ids still exist. One query, no N+1."""
+    ids = [pid for pid in set(photo_ids) if pid is not None]
+    if not ids:
+        return {}
+    rows = db.query(PhotoRecord.id).filter(PhotoRecord.id.in_(ids)).all()
+    present = {r[0] for r in rows}
+    return {pid: (pid in present) for pid in ids}
 
 # ---------------------------------------------------------------------------
 # App
@@ -918,11 +971,18 @@ def delete_photo(
 # ---------------------------------------------------------------------------
 @pt_app.get("/activity", response_model=ActivityListResponse)
 def list_activity(
-    actor: Optional[str] = Query(None, description="Filter by actor"),
+    actor: Optional[str] = Query(None, description="Case-insensitive exact match"),
     action: Optional[str] = Query(
         None, pattern="^(upload|edit|rename|delete)$"
     ),
     photo_id: Optional[int] = Query(None),
+    q: Optional[str] = Query(
+        None,
+        description="Free text — matches actor, photo name, and details JSON",
+    ),
+    photo_display_name: Optional[str] = Query(
+        None, description="Partial match on the snapshot photo name"
+    ),
     from_date: Optional[datetime.date] = Query(None),
     to_date: Optional[datetime.date] = Query(None),
     limit: int = Query(50, ge=1, le=500),
@@ -932,11 +992,24 @@ def list_activity(
 ):
     filters = []
     if actor:
-        filters.append(ActivityLog.actor == actor)
+        filters.append(func.lower(ActivityLog.actor) == actor.lower())
     if action:
         filters.append(ActivityLog.action == action)
     if photo_id is not None:
         filters.append(ActivityLog.photo_id == photo_id)
+    if photo_display_name:
+        filters.append(
+            ActivityLog.photo_display_name.ilike(f"%{photo_display_name}%")
+        )
+    if q:
+        like = f"%{q}%"
+        filters.append(
+            or_(
+                ActivityLog.actor.ilike(like),
+                ActivityLog.photo_display_name.ilike(like),
+                ActivityLog.details.ilike(like),
+            )
+        )
     if from_date:
         filters.append(
             ActivityLog.created_at
@@ -959,24 +1032,33 @@ def list_activity(
         .all()
     )
 
+    exists_map = _photo_exists_map(db, [r.photo_id for r in rows])
+
     return {
         "total": total,
         "limit": limit,
         "offset": offset,
-        "items": [serialize_activity(r) for r in rows],
+        "items": [
+            serialize_activity(r, exists_map.get(r.photo_id) if r.photo_id else None)
+            for r in rows
+        ],
     }
-
 
 # ---------------------------------------------------------------------------
 # ACTIVITY — daily digest (calendar view)
 # ---------------------------------------------------------------------------
 @pt_app.get("/activity/digest", response_model=DigestResponse)
 def get_activity_digest(
-    from_date: Optional[datetime.date] = Query(None, description="Defaults to today"),
-    to_date: Optional[datetime.date] = Query(None, description="Defaults to from_date"),
-    actor: Optional[str] = Query(None),
+    from_date: Optional[datetime.date] = Query(None),
+    to_date: Optional[datetime.date] = Query(None),
+    actor: Optional[str] = Query(None, description="Case-insensitive exact match"),
     action: Optional[str] = Query(None, pattern="^(upload|edit|rename|delete)$"),
-    include_items: bool = Query(True, description="Set false for a compact calendar"),
+    q: Optional[str] = Query(
+        None,
+        description="Free text — matches actor, photo name, and details JSON",
+    ),
+    photo_display_name: Optional[str] = Query(None),
+    include_items: bool = Query(True),
     _requester: str = Depends(get_actor),
     db: Session = Depends(get_db),
 ):
@@ -996,9 +1078,22 @@ def get_activity_digest(
 
     filters = [ActivityLog.created_at >= start, ActivityLog.created_at <= end]
     if actor:
-        filters.append(ActivityLog.actor == actor)
+        filters.append(func.lower(ActivityLog.actor) == actor.lower())
     if action:
         filters.append(ActivityLog.action == action)
+    if photo_display_name:
+        filters.append(
+            ActivityLog.photo_display_name.ilike(f"%{photo_display_name}%")
+        )
+    if q:
+        like = f"%{q}%"
+        filters.append(
+            or_(
+                ActivityLog.actor.ilike(like),
+                ActivityLog.photo_display_name.ilike(like),
+                ActivityLog.details.ilike(like),
+            )
+        )
 
     rows = (
         db.query(ActivityLog)
@@ -1006,6 +1101,8 @@ def get_activity_digest(
         .order_by(ActivityLog.created_at.asc(), ActivityLog.id.asc())
         .all()
     )
+
+    exists_map = _photo_exists_map(db, [r.photo_id for r in rows])
 
     # ---- aggregate across the whole range --------------------------------
     totals_by_action: Dict[str, int] = {}
@@ -1081,7 +1178,12 @@ def get_activity_digest(
                 },
                 "actors": actor_summaries,
                 "items": (
-                    [serialize_activity(e) for e in day_items]
+                    [
+                        serialize_activity(
+                            e, exists_map.get(e.photo_id) if e.photo_id else None
+                        )
+                        for e in day_items
+                    ]
                     if include_items
                     else []
                 ),
@@ -1124,7 +1226,9 @@ def get_photo_history(
     )
 
     photo = db.get(PhotoRecord, photo_id)
-    if photo is not None:
+    photo_exists = photo is not None
+
+    if photo_exists:
         display_name = (
             photo.display_name or photo.original_filename or photo.filename
         )
@@ -1134,7 +1238,71 @@ def get_photo_history(
     return {
         "photo_id": photo_id,
         "photo_display_name": display_name,
-        "photo_exists": photo is not None,
+        "photo_exists": photo_exists,
         "total": total,
-        "items": [serialize_activity(r) for r in rows],
+        "items": [serialize_activity(r, photo_exists) for r in rows],
     }
+
+@pt_app.get("/activity/actors", response_model=ActorListResponse)
+def list_activity_actors(
+    from_date: Optional[datetime.date] = Query(None),
+    to_date: Optional[datetime.date] = Query(None),
+    q: Optional[str] = Query(None, description="Partial match on actor name"),
+    _requester: str = Depends(get_actor),
+    db: Session = Depends(get_db),
+):
+    filters = []
+    if from_date:
+        filters.append(
+            ActivityLog.created_at
+            >= datetime.datetime.combine(from_date, datetime.time.min)
+        )
+    if to_date:
+        filters.append(
+            ActivityLog.created_at
+            <= datetime.datetime.combine(to_date, datetime.time.max)
+        )
+    if q:
+        filters.append(ActivityLog.actor.ilike(f"%{q}%"))
+
+    rows = db.query(ActivityLog).filter(*filters).all()
+
+    agg: Dict[str, dict] = {}
+    for r in rows:
+        bucket = agg.setdefault(
+            r.actor,
+            {"actor": r.actor, "total": 0, "actions": {}, "last_seen": r.created_at},
+        )
+        bucket["total"] += 1
+        bucket["actions"][r.action] = bucket["actions"].get(r.action, 0) + 1
+        if r.created_at > bucket["last_seen"]:
+            bucket["last_seen"] = r.created_at
+
+    actors = sorted(agg.values(), key=lambda x: (-x["total"], x["actor"]))
+    return {"actors": actors}
+
+@pt_app.post("/photos/batch", response_model=PhotoBatchResponse)
+def get_photos_batch(
+    payload: PhotoBatchRequest,
+    _requester: str = Depends(get_actor),
+    db: Session = Depends(get_db),
+):
+    """Fetch many photo records in one call, e.g. for a gallery of
+    uploads a specific actor did on a specific day."""
+    # dedupe while preserving order
+    seen: set = set()
+    unique_ids: List[int] = []
+    for pid in payload.ids:
+        if pid not in seen:
+            seen.add(pid)
+            unique_ids.append(pid)
+
+    photos = (
+        db.query(PhotoRecord).filter(PhotoRecord.id.in_(unique_ids)).all()
+    )
+    by_id = {p.id: p for p in photos}
+
+    found = [serialize(by_id[pid]) for pid in unique_ids if pid in by_id]
+    missing = [pid for pid in unique_ids if pid not in by_id]
+
+    return {"found": found, "missing": missing}
