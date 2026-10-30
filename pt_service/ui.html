@@ -596,6 +596,22 @@
         }
       }
 
+      .activity-summary {
+        padding: 14px 16px;
+        background: var(--panel-2);
+        border-bottom: 1px solid var(--border);
+        border-radius: var(--radius) var(--radius) 0 0;
+        margin: -16px -16px 16px -16px;
+        font-size: 0.88rem;
+        line-height: 1.5;
+      }
+      .summary-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 8px;
+      }
+
       .cal-nav {
         display: flex;
         align-items: center;
@@ -667,6 +683,26 @@
         margin-top: 2px;
       }
 
+      .cal-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        margin-top: 4px;
+        background: var(--muted);
+      }
+      .cal-dot.upload {
+        background: var(--ok);
+      }
+      .cal-dot.edit {
+        background: var(--accent);
+      }
+      .cal-dot.rename {
+        background: var(--warn);
+      }
+      .cal-dot.delete {
+        background: var(--danger);
+      }
+
       .feed-panel {
         padding: 0;
         max-height: 75vh;
@@ -675,11 +711,21 @@
       }
       .feed-header {
         padding: 16px;
-        border-bottom: 1px solid var(--border);
         font-weight: 600;
         font-size: 0.95rem;
         background: var(--panel-2);
         border-radius: var(--radius) var(--radius) 0 0;
+      }
+      .feed-summary {
+        padding: 12px 16px;
+        background: var(--panel-2);
+        font-size: 0.85rem;
+        border-bottom: 1px solid var(--border);
+        color: #c6cddb;
+        line-height: 1.5;
+      }
+      .feed-summary:empty {
+        display: none;
       }
       .feed-list {
         padding: 16px;
@@ -723,32 +769,24 @@
         color: var(--accent);
         text-decoration: none;
       }
-      .feed-photo-name:hover {
-        text-decoration: underline;
-      }
-      .feed-details {
+
+      .event-details {
         margin-top: 6px;
-        padding: 8px;
-        background: var(--panel-2);
-        border-radius: 6px;
-        font-size: 0.78rem;
+        font-size: 0.8rem;
+        color: #c6cddb;
       }
-      .change-row {
-        margin-bottom: 4px;
+      .history-title {
+        font-size: 0.9rem;
+        font-weight: 600;
+        margin-bottom: 12px;
+        margin-top: 16px;
       }
-      .change-row:last-child {
-        margin-bottom: 0;
+      .history-row {
+        padding: 8px 0;
+        border-bottom: 1px solid #1d222b;
       }
-      .change-field {
-        color: var(--muted);
-        text-transform: capitalize;
-      }
-      .change-from {
-        color: var(--danger);
-        text-decoration: line-through;
-      }
-      .change-to {
-        color: var(--ok);
+      .history-row:last-child {
+        border-bottom: 0;
       }
 
       /* ============================================================
@@ -1259,6 +1297,10 @@
       <div class="activity-layout">
         <!-- Calendar Panel -->
         <div class="panel" style="margin-bottom: 0">
+          <div class="activity-summary" id="activitySummary">
+            Loading summary...
+          </div>
+
           <div class="cal-nav">
             <button type="button" id="calPrev">&lt;</button>
             <span id="calMonthLabel">Loading...</span>
@@ -1278,6 +1320,7 @@
           <div class="feed-header" id="feedTitle">
             Select a day to view activity
           </div>
+          <div class="feed-summary" id="feedSummary"></div>
           <div class="feed-list" id="feedList">
             <div class="empty" style="border: 0; padding: 40px 20px">
               <div class="big">📅</div>
@@ -1419,10 +1462,10 @@
           const opts = Object.assign({}, options);
           const method = (opts.method || "GET").toUpperCase();
 
-          // Send X-Actor on writes OR if the path explicitly requires it (like /activity)
           const needsAuth =
             (method !== "GET" && method !== "HEAD") ||
-            path.startsWith("/activity");
+            path.startsWith("/activity") ||
+            path.includes("/history");
 
           if (needsAuth && actor) {
             opts.headers = Object.assign({}, opts.headers, {
@@ -1555,6 +1598,23 @@
             hour: "2-digit",
             minute: "2-digit",
           });
+        }
+
+        function formatTime(s) {
+          if (!s) return "—";
+          const d = new Date(s);
+          if (isNaN(d.getTime())) return s;
+          return d.toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+        }
+
+        function formatYMD(date) {
+          const y = date.getFullYear();
+          const m = String(date.getMonth() + 1).padStart(2, "0");
+          const d = String(date.getDate()).padStart(2, "0");
+          return `${y}-${m}-${d}`;
         }
 
         /* ============================================================
@@ -1830,9 +1890,27 @@
 
         async function openDetail(id) {
           try {
+            let history = null;
+            try {
+              history = await api(`/photos/${id}/history`);
+            } catch (e) {
+              console.warn("Could not load history", e);
+            }
+
+            if (history && !history.photo_exists) {
+              state.current = {
+                id,
+                display_name: history.photo_display_name,
+                _deleted: true,
+              };
+              renderDetail(state.current, history);
+              openModal();
+              return;
+            }
+
             const photo = await api("/photos/" + id);
             state.current = photo;
-            renderDetail(photo);
+            renderDetail(photo, history);
             openModal();
           } catch (err) {
             if (err.status === 410) {
@@ -1853,14 +1931,41 @@
           }
         }
 
-        function renderDetail(photo) {
-          $("#modalTitle").textContent =
+        function renderDetail(photo, history) {
+          const title =
             photo.display_name ||
             photo.original_filename ||
             "Photo #" + photo.id;
+          $("#modalTitle").textContent = title;
 
           const media = $("#modalMedia");
           media.innerHTML = "";
+
+          if (photo._deleted) {
+            const box = el("div", "broken-box");
+            box.appendChild(el("div", "broken-icon", "🗑️"));
+            box.appendChild(el("p", null, "This photo has been deleted."));
+            media.appendChild(box);
+
+            const info = $("#modalInfo");
+            info.innerHTML = "";
+            const dl = el("dl", "meta");
+            const row = el("div", "meta-row");
+            row.appendChild(el("dt", null, "ID"));
+            row.appendChild(el("dd", null, "#" + photo.id));
+            dl.appendChild(row);
+
+            info.appendChild(dl);
+            renderHistory(info, history);
+
+            const foot = $("#modalFoot");
+            foot.innerHTML = "";
+            const right = el("div", "foot-right");
+            right.appendChild(btn("Close", "btn", closeModal));
+            foot.appendChild(right);
+            return;
+          }
+
           const heic = looksHeic(photo);
           const img = new Image();
           img.className = "modal-img";
@@ -1904,6 +2009,7 @@
           media.appendChild(img);
 
           renderMetaTable(photo);
+          renderHistory($("#modalInfo"), history);
           renderModalActions(photo);
         }
 
@@ -2353,13 +2459,6 @@
         /* ============================================================
      ACTIVITY VIEW LOGIC
      ============================================================ */
-        function formatYMD(date) {
-          const y = date.getFullYear();
-          const m = String(date.getMonth() + 1).padStart(2, "0");
-          const d = String(date.getDate()).padStart(2, "0");
-          return `${y}-${m}-${d}`;
-        }
-
         async function loadActivityDigest() {
           if (!actor) {
             toast(
@@ -2386,6 +2485,29 @@
               `/activity/digest?from_date=${firstDay}&to_date=${lastDay}&include_items=false`,
             );
             activityState.digest = data;
+
+            // Update summary
+            const sumBox = $("#activitySummary");
+            sumBox.innerHTML = "";
+            if (data.summary) {
+              sumBox.appendChild(el("p", null, data.summary));
+              if (data.totals_by_action) {
+                const actionsDiv = el("div", "summary-actions");
+                for (const [act, count] of Object.entries(
+                  data.totals_by_action,
+                )) {
+                  if (count > 0) {
+                    actionsDiv.appendChild(
+                      el("span", "chip chip-sm", `${act}: ${count}`),
+                    );
+                  }
+                }
+                sumBox.appendChild(actionsDiv);
+              }
+            } else {
+              sumBox.textContent = "No activity this month.";
+            }
+
             renderCalendar();
           } catch (err) {
             $("#calGrid").innerHTML = "";
@@ -2419,7 +2541,18 @@
 
             if (dayData) {
               cell.classList.add("has-activity");
-              cell.appendChild(el("span", "cal-badge", dayData.total));
+              cell.title = dayData.summary || "";
+
+              if (dayData.highlights && dayData.highlights.top_action) {
+                const dot = el(
+                  "div",
+                  "cal-dot " + dayData.highlights.top_action,
+                );
+                cell.appendChild(dot);
+              }
+              if (dayData.total) {
+                cell.appendChild(el("span", "cal-badge", dayData.total));
+              }
             }
 
             if (activityState.selectedDate === dateStr) {
@@ -2438,14 +2571,25 @@
 
         async function loadActivityFeed(dateStr) {
           $("#feedTitle").textContent = `Activity for ${dateStr}`;
+          $("#feedSummary").textContent = "";
           $("#feedList").innerHTML =
             '<div style="text-align: center; padding: 20px; color: var(--muted);">Loading...</div>';
 
           try {
             const data = await api(
-              `/activity?from_date=${dateStr}&to_date=${dateStr}&limit=200`,
+              `/activity/digest?from_date=${dateStr}&to_date=${dateStr}&include_items=true`,
             );
-            activityState.feed = data.items;
+            const dayData =
+              data.days && data.days.find((d) => d.date === dateStr);
+
+            if (!dayData) {
+              $("#feedList").innerHTML =
+                '<div class="empty" style="border:0; padding: 40px 20px;"><p class="small">No activity recorded on this day.</p></div>';
+              return;
+            }
+
+            $("#feedSummary").textContent = dayData.summary || "";
+            activityState.feed = dayData.items || [];
             renderActivityFeed();
           } catch (err) {
             $("#feedList").innerHTML = "";
@@ -2459,7 +2603,7 @@
 
           if (!activityState.feed || activityState.feed.length === 0) {
             list.innerHTML =
-              '<div class="empty" style="border:0; padding: 40px 20px;"><p class="small">No activity recorded on this day.</p></div>';
+              '<div class="empty" style="border:0; padding: 40px 20px;"><p class="small">No items recorded.</p></div>';
             return;
           }
 
@@ -2479,18 +2623,12 @@
             const content = el("div", "feed-content");
 
             // Meta (Time / Actor / Action)
-            const time = new Date(item.created_at).toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            });
+            const time = formatTime(item.created_at);
             const meta = el("div", "feed-meta");
             meta.appendChild(el("span", null, time));
             meta.appendChild(el("span", null, "•"));
             meta.appendChild(el("span", "feed-actor", item.actor));
             meta.appendChild(el("span", "feed-action", item.action));
-            if (item.details && item.details.bulk) {
-              meta.appendChild(el("span", "chip chip-sm", "Bulk"));
-            }
             content.appendChild(meta);
 
             // Photo Info
@@ -2498,22 +2636,101 @@
             photoText.innerHTML = `Photo: <span class="feed-photo-name">${item.photo_display_name || "#" + item.photo_id}</span>`;
             content.appendChild(photoText);
 
-            // Details (Changes)
-            if (item.details && item.details.changes) {
-              const details = el("div", "feed-details");
-              for (const [field, change] of Object.entries(
-                item.details.changes,
-              )) {
-                const line = el("div", "change-row");
-                line.innerHTML = `<span class="change-field">${field}</span>: <span class="change-from">${change.from || "(empty)"}</span> → <span class="change-to">${change.to || "(empty)"}</span>`;
-                details.appendChild(line);
-              }
-              content.appendChild(details);
-            }
+            // Details
+            content.appendChild(formatEventDetails(item.action, item.details));
 
             row.appendChild(content);
             list.appendChild(row);
           }
+        }
+
+        function formatEventDetails(action, details) {
+          const wrap = el("div", "event-details");
+          if (!details) return wrap;
+
+          if (action === "upload") {
+            wrap.appendChild(el("span", null, `Uploaded `));
+            wrap.appendChild(
+              el("strong", null, details.original_filename || "file"),
+            );
+            if (details.size_bytes) {
+              wrap.appendChild(
+                el("span", null, ` (${formatBytes(details.size_bytes)})`),
+              );
+            }
+          } else if (action === "edit") {
+            if (details.changes) {
+              const changesList = [];
+              for (const [field, change] of Object.entries(details.changes)) {
+                changesList.push(
+                  `${field} from "${change.from || "empty"}" to "${change.to || "empty"}"`,
+                );
+              }
+              wrap.appendChild(
+                el("span", null, `Changed ${changesList.join(", ")}`),
+              );
+            }
+          } else if (action === "rename") {
+            if (details.display_name) {
+              let txt = `Renamed to "${details.display_name.to}"`;
+              if (details.filename) txt += ` (file also renamed)`;
+              wrap.appendChild(el("span", null, txt));
+            }
+          } else if (action === "delete") {
+            wrap.appendChild(el("span", null, "Deleted "));
+            if (details.filename) {
+              wrap.appendChild(el("strong", null, details.filename));
+            } else {
+              wrap.appendChild(el("span", null, "photo"));
+            }
+            if (details.missing_on_disk) {
+              wrap.appendChild(el("span", null, " (already missing on disk)"));
+            }
+            if (details.bulk) {
+              const chip = el("span", "chip chip-sm", "Bulk");
+              chip.style.marginLeft = "6px";
+              wrap.appendChild(chip);
+            }
+          } else {
+            wrap.appendChild(el("span", null, action));
+          }
+
+          return wrap;
+        }
+
+        function renderHistory(container, history) {
+          if (!history || !history.items || history.items.length === 0) return;
+
+          const hr = el("hr");
+          hr.style.border = "0";
+          hr.style.borderTop = "1px solid var(--border)";
+          hr.style.margin = "16px 0";
+          container.appendChild(hr);
+
+          container.appendChild(el("h3", "history-title", "Photo History"));
+
+          const list = el("div", "history-list");
+          for (const item of history.items) {
+            const row = el("div", "history-row");
+
+            const header = el("div");
+            header.style.display = "flex";
+            header.style.gap = "8px";
+            header.style.alignItems = "center";
+            header.style.fontSize = "0.78rem";
+            header.style.color = "var(--muted)";
+
+            header.appendChild(el("span", null, formatDate(item.created_at)));
+            header.appendChild(el("span", null, "•"));
+            header.appendChild(el("span", null, item.actor));
+            header.appendChild(el("span", "chip chip-sm", item.action));
+
+            row.appendChild(header);
+            row.appendChild(formatEventDetails(item.action, item.details));
+
+            list.appendChild(row);
+          }
+          container.appendChild(list);
         }
 
         function switchView(view) {
