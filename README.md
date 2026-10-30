@@ -81,4 +81,13 @@ docker compose -f docker-compose.yaml -f docker-compose.local.yaml restart app1
 # reset auth data
 rm auth/auth.db
 ```
+
+## API schemas (OpenAPI)
+
+Every FastAPI service publishes its schema at `/openapi.json`. The services aren't exposed to the host — only nginx can reach them — so pull the schema through the nginx container and write it to the host:
+
+```bash
+docker compose exec nginx wget -qO- http://app1:8000/openapi.json > app1_openapi.json
+docker compose exec nginx wget -qO- http://app2:8000/openapi.json > app2_openapi.json
+docker compose exec nginx wget -qO- http://app3:8000/openapi.json > app3_openapi.json
 ```
