@@ -39,14 +39,14 @@ function dailyChart(data, esc, formatDate) {
 }
 
 export function renderReports(ctx) {
-  const { esc, store, visibleEmployees, visibleViolations, formatDate } = ctx;
+  const { esc, icon, store, visibleEmployees, visibleViolations, formatDate } = ctx;
   const f = ctx.getFilters('reports');
   const tab = reportTabs.some(([id]) => id === f.tab) ? f.tab : 'activity';
   const data = analyticsData(visibleEmployees(), visibleViolations(), store.types, f.days);
   let content = '';
   if (tab === 'activity') {
     content = `<div class="report-period-row"><p>Activity in the selected period</p><div class="field"><label for="report-period">Time period</label><select id="report-period">${[7, 30, 90].map(days => `<option value="${days}" ${data.days === days ? 'selected' : ''}>Last ${days} days</option>`).join('')}</select></div></div>
-      <div class="activity-metrics">${[['Events', data.events, `Last ${data.days} days`], ['Points', data.points, 'Demerit points issued'], ['Daily Average', data.dailyAverage.toFixed(2), 'Violations per day']].map(([label, value, detail]) => `<article class="metric-card"><span class="metric-title">${label}</span><strong class="metric-number">${value}</strong><span class="metric-bottom">${detail}</span></article>`).join('')}</div>
+      <div class="activity-metrics">${[['Events', data.events, `Last ${data.days} days`], ['Points', data.points, 'Demerit points issued'], ['Daily Average', data.dailyAverage.toFixed(2), 'Violations per day']].map(([label, value, detail]) => `<article class="metric-card"><span class="metric-title">${label}</span><strong class="metric-number">${value}</strong><span class="metric-bottom">${detail}</span>${label==='Daily Average'&&ctx.renderYesterdayChange?ctx.renderYesterdayChange(ctx.comparison?.dailyAverage,icon,ctx.comparison?.reason,2):''}</article>`).join('')}</div>
       ${dailyChart(data, esc, formatDate)}<div class="percentage-grid">${percentagePanel('Violations by Department', data.byDepartment, esc)}${percentagePanel('Most Common Violations', data.byType, esc)}${percentagePanel('Employee Status', data.employeeStatus, esc, {unit:'employee',includeZero:true,description:'Active and inactive employees · Current directory'})}</div>`;
   } else if (tab === 'offenders') {
     content = tablePanel('Top Offenders', 'All recorded violations · Highest points first', ['Name', 'Points'], data.topOffenders.map(employee => [profileName(employee, esc), `<strong>${employee.points}</strong>`]), ctx);

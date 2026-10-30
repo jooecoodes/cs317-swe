@@ -8,5 +8,14 @@ const routes=[
  ['GET',/^\/violation-removals(?:\/\d+)?$/],['GET',/^\/activity\/(?:timeline|calendar|digest\/\d{4}-\d{2}-\d{2})$/],
  ['GET',/^\/violation-types(?:\/all|\/\d+)?$/],['POST',/^\/violation-types$/,true],['PATCH',/^\/violation-types\/\d+$/,true],['DELETE',/^\/violation-types\/\d+$/,true],['POST',/^\/violation-types\/\d+\/(?:activate|deactivate)$/,true]
 ];
-export function apiRoute(path,method){const row=routes.find(([verb,pattern])=>verb===method&&pattern.test(path));if(!row)throw new Error('This action is not defined in the API contract.');return {actor:row[2]===true};}
-export function validateActor(value){const actor=typeof value==='string'?value.trim():'';if(!actor)throw new Error('Set your display name in Settings before saving.');if(/[^\x20-\x7e\u00a0-\u00ff]/.test(actor))throw new Error('Your display name cannot be sent in X-Actor. Update it in Settings before saving.');return actor;}
+export function apiRoute(path,method,service='hr'){
+ if(service==='session'&&path==='/me'&&method==='GET')return {actor:false};
+ if(service==='photos'){
+  const allowed=method==='GET'&&/^\/(?:photos(?:\/\d+)?|stats|activity(?:\/digest)?)$/.test(path)||method==='POST'&&path==='/upload'||['PATCH','DELETE'].includes(method)&&/^\/photos\/\d+$/.test(path);
+  if(allowed)return {actor:method!=='GET'};
+  throw new Error('This action is not defined in the photo API contract.');
+ }
+ if(service!=='hr')throw new Error('Unknown API service.');
+ const row=routes.find(([verb,pattern])=>verb===method&&pattern.test(path));if(!row)throw new Error('This action is not defined in the API contract.');return {actor:row[2]===true};
+}
+export function validateActor(value){const actor=typeof value==='string'?value.trim():'';if(!actor)throw new Error('Sign in before saving changes.');if(/[^\x20-\x7e\u00a0-\u00ff]/.test(actor))throw new Error('Your username cannot be sent as an actor header. Contact your administrator.');return actor;}

@@ -1,28 +1,73 @@
 # Northpoint frontend
 
-The current frontend is connected to **https://cs317.duckdns.org/app1** using the supplied API-INTEGRATION.md and APIREFERHERE.txt contracts. Employees, Add/Edit Employee, profiles, employee status/delete, violations, rulebook, dashboard, reports, History and Calendar use backend requests. The version label remains `v.FE-1.0`; the existing desktop/phone layout and simplified footer are retained.
+## Photos, camera and sign-in
 
-## Open the website
+Photo Library is part of the main sidebar at `/#photos`, with Photos and Activity Log tabs. The activity tab contains the month calendar and newest-first logs. Camera is in the same sidebar at `/#camera`; `/camera.html` redirects there. Upload Photo sends multipart form data to the existing `/app2/upload` endpoint. Lists, statistics, files and activity use the existing Photo API. No photo records are cached locally or fabricated on errors.
 
-Open the built **index.html** in your browser while connected to the internet. **npm, Docker and a local backend are not required to use the bundled page.** The browser must permit the hosted API's CORS response for its origin. All styles, fonts and images are bundled in the page.
+Camera uses the phone’s native capture/image picker. When the timestamp is enabled, it is burned into a JPEG before upload. A desktop opens an image picker rather than a live webcam stream. The original photo stays on the device. Unknown upload outcomes are not automatically retried; refresh and review recent photos/activity before explicitly allowing another upload.
 
-If you prefer serving the frontend over HTTP and have Node installed, `node serve.mjs` (or `npm start`) serves only the HTML at **http://localhost:4173/**. API requests still go directly to the hosted backend. For another port, set PORT. For a phone on the same network, set HOST to `0.0.0.0` and open the computer's LAN IP on that port. Restart the server after rebuilding.
+The signed-in username comes from the new read-only `/auth/me` endpoint. It uses the existing HTTP-only session cookie, returns only `{username}`, is never cached, and returns 401 for missing/expired sessions. Settings shows this username as read-only. Existing Nginx `/auth/` routing already supports it. Restart `auth` after updating that backend file.
 
-Set **Your display name** in Settings before making changes. The documented write endpoints use it as X-Actor, and violation removal uses it as removed_by. No default person is assigned. Workspace role choices are local view filters, not authenticated account roles. Users & Roles remains Coming Soon.
+## Yesterday comparisons
 
-Loading, successful saves, validation/conflict/access errors, timeouts and lost responses are handled. Records are never stored locally or queued offline. No failed API request falls back to sample records. Unconfirmed saves use Check save status to read the backend before another write is allowed.
+Dashboard Employees, Total Violations, Total Points and Watchlist show signed numeric changes against the prior day’s closing totals. Reports Daily Average compares the selected rolling window with the same-length window ending yesterday. Manila time defines day boundaries. No percentage or prior-period label is used. Photo Total Photos and Storage Used have no comparison indicators.
+
+Comparisons reverse today’s recorded HR audit events. New hard-delete events include aggregate and violation snapshots so totals can be reconstructed later. Old hard-deletion logs without these snapshots, missing history, and department transfers without prior department details show `— vs yesterday` rather than fabricated changes. Hover the indicator for the reason. Restart `app1` after updating `queries.py`; no schema migration is required.
+
+Northpoint uses the backend API for employees, violations, rulebook, dashboard, reports, History and Calendar. The existing desktop/phone design remains unchanged. Records are never stored in the browser or queued offline, and failed requests never fall back to sample data.
+
+## One API configuration
+
+Edit **frontend/northpoint/config.js**, beside the generated index.html:
+
+```javascript
+const BASE_URL = 'http://localhost:8081/app1/';
+```
+
+This is the only server URL setting for Northpoint. It is loaded before the application, and the browser connection policy follows the same value. Save the file and reload the page; **no rebuild or npm command is needed for a URL change**. Keep config.js beside index.html when copying or deploying the frontend. The older frontend/js/script.js configuration does not control Northpoint.
+
+For a phone, localhost refers to the phone. Change BASE_URL to `http://YOUR-PC-LAN-IP:8081/app1/`, then open `http://YOUR-PC-LAN-IP:8081/` on both devices. Use the same hostname and port for the page and API so the sign-in cookie is sent.
+
+## Run with the local backend
+
+Start Docker Desktop. In the **repository root**, run:
+
+```powershell
+docker compose -f docker-compose.yaml -f docker-compose.local.yaml up -d --build
+```
+
+Open **http://localhost:8081/**. The existing backend sign-in page appears first; after signing in, Northpoint opens at `/`. API requests use the same-origin session cookie. If the session expires, requests show an authentication error without inventing data. Opening index.html directly or using a separate preview port does not provide this same-origin login session.
+
+If you need an account, the backend's existing account command is:
+
+```powershell
+docker compose -f docker-compose.yaml -f docker-compose.local.yaml exec auth uv run --no-sync python -m auth.manage create-user YOUR_USERNAME
+```
+
+If the stack is already running, apply the frontend mount by recreating only Nginx:
+
+```powershell
+docker compose -f docker-compose.yaml -f docker-compose.local.yaml up -d --no-deps --force-recreate nginx
+```
+
+The temporary change is in **docker-compose.local.yaml**: `./frontend/northpoint:/usr/share/nginx/html:ro`. It replaces the base file's frontend mount only for local runs. The main docker-compose.yaml and nginx/nginx.conf remain unchanged; `/app1/`, `/app2/`, `/app3/` and `/auth/` keep their existing routes and authentication. Remove that local volume override and recreate Nginx to restore the original frontend. Before deploying Northpoint elsewhere, set config.js to that deployment's API address.
+
+Your signed-in username is used automatically for changes. Existing documented X-Actor and removal payload behavior is retained; Nginx also forwards the authenticated username. Workspace role choices are view filters, not account permissions. Users & Roles remains Coming Soon. Loading, success, conflict, access and lost-response handling remain in place; unconfirmed saves are checked by GET before another write is allowed.
 
 ## Development checks
 
-Node 24+ is needed only to rebuild or run these developer checks:
+Node 24+ is needed only for development; it is not required to open the Docker-served website:
 
 ```powershell
 node build.mjs
 node verify.mjs
 node --test
-node tooling/check-live.mjs
 ```
 
-The equivalent npm scripts are build, check, test and test:live. The live check makes GET/OPTIONS requests only; it never creates, edits or deletes company records. Automated write tests use synthetic responses through the real transport/adapters and generated UI handlers. Fixture modules are isolated to tests and excluded from the bundled website.
+The generated page bundles its styles, fonts and logo and loads config.js separately. Uploaded photo files are served by the photo API. Tests verify configuration changes without rebuilding, request paths, session-cookie mode, existing adapters, UI handlers and error behavior. Write tests use controlled responses or an isolated HTTP test server, never company records.
 
-See **INTEGRATION.md** for the implemented endpoint map, error behavior and known backend limits. The two supplied API reference files are preserved as received.
+`node serve.mjs` is an optional static preview server. It serves index.html and config.js; use the Docker URL for authenticated API access. `node tooling/check-live.mjs` is an optional GET-only backend check; if run outside the browser it has no sign-in cookie and will report authentication failures on the protected local stack.
+
+## Additional checks
+
+Run `node --test` for frontend regression, photo API and yesterday-comparison tests. Run `uv run python frontend/northpoint/tests/auth-session.py` from the repository root to test anonymous, invalid, valid and expired sessions using a temporary database. Tests do not upload photos or modify company records.

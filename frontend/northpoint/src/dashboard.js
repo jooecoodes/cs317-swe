@@ -40,8 +40,15 @@ export function renderDashboard(ctx) {
     ['Total Points', summary.points, 'clipboard', 'amber', 'Recorded demerit points', 'points'],
     ['Watchlist', summary.watchlist.length, 'alert', 'purple', 'Employees with 2 or more strikes', 'watchlist']
   ];
+  const directoryReady=ctx.employeeDirectory?.status==='ready';
+  const quickActions=[
+    {label:'Issue Violation',icon:'shield',action:'record',disabled:!['HR','Supervisor'].includes(store.settings.role)||!directoryReady,hint:'Load employees before issuing a violation.'},
+    {label:'Add Employee',icon:'users',action:'add-employee',disabled:store.settings.role!=='HR'||!directoryReady,hint:store.settings.role!=='HR'?'Available in the HR workspace view.':'Load employees before adding an employee.'},
+    {label:'Timestamp Camera',icon:'camera',action:'navigate',page:'camera',disabled:false}
+  ];
   return `<div class="dashboard-simple">
-    <div class="metrics-grid">${cards.map(card => `<article class="metric-card"><div class="metric-top"><span class="metric-title">${card[0]}</span><span class="metric-icon ${card[3]}">${icon(card[2], 20)}</span></div><div class="metric-number">${card[1]}</div><div class="metric-bottom">${card[4]}</div><button class="metric-card-link" data-action="dashboard-card" data-target="${card[5]}" aria-label="View ${card[0].toLowerCase()}"></button></article>`).join('')}</div>
+    <div class="metrics-grid">${cards.map(card => `<article class="metric-card"><div class="metric-top"><span class="metric-title">${card[0]}</span><span class="metric-icon ${card[3]}">${icon(card[2], 20)}</span></div><div class="metric-number">${card[1]}</div>${ctx.renderYesterdayChange?ctx.renderYesterdayChange(ctx.comparison?.[card[5]==='employees'?'employees':card[5]==='violations'?'violations':card[5]],icon,ctx.comparison?.reason):''}<div class="metric-bottom">${card[4]}</div><button class="metric-card-link" data-action="dashboard-card" data-target="${card[5]}" aria-label="View ${card[0].toLowerCase()}"></button></article>`).join('')}</div>
+    <section class="dashboard-quick-actions" aria-labelledby="dashboard-quick-title"><h2 id="dashboard-quick-title">What would you like to do?</h2><div class="dashboard-action-grid">${quickActions.map(item=>`<button class="dashboard-action-tile" data-action="${item.action}" ${item.page?'data-page="'+item.page+'"':''} ${item.disabled?'disabled title="'+item.hint+'"':''}><span class="dashboard-action-icon">${icon(item.icon,25)}</span><span>${item.label}</span></button>`).join('')}</div></section>
     <div class="dashboard-main-row">
       <section class="panel weekly-panel"><div class="panel-header"><div><h2>Violation Trends</h2><p>Weekly totals · Monday to Sunday</p></div><span class="period-label">Last 6 weeks</span></div><div class="weekly-chart-body">${weeklyChart(weeks, esc)}</div><div class="weekly-chart-footer"><span><i class="legend-dot light"></i> Weekly violations</span><span><i class="legend-dot"></i> Current week (last bar)</span></div></section>
       <section class="panel dashboard-activity-panel"><div class="panel-header"><div><h2>Recent Activity</h2><p>Last 14 days · Latest 5 violations</p></div></div>${ctx.recentState || (recentActivity.length ? `<div class="dashboard-activity-list">${recentActivity.map(violation => {

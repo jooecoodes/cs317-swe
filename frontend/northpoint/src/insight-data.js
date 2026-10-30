@@ -1,3 +1,4 @@
+import {businessDate} from './yesterday.js';
 import { dashboardSummary, localDate } from './domain.js';
 
 export function sortEmployeeRecords(employees, summary, order = 'newest') {
@@ -15,7 +16,7 @@ export function sortEmployeeRecords(employees, summary, order = 'newest') {
   return employees.slice().sort(compare[order] || compare.newest);
 }
 
-export function analyticsData(employees, violations, types, days = 30, today = localDate()) {
+export function analyticsData(employees, violations, types, days = 30, today = businessDate()) {
   days = [7, 30, 90].includes(Number(days)) ? Number(days) : 30;
   const summary = dashboardSummary(employees, violations, []);
   const ids = new Set(employees.map(employee => employee.id));

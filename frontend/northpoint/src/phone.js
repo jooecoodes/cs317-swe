@@ -2,8 +2,15 @@
 const PHONE_QUERY='(max-width:900px)';
 let previousPhoneMode=null;
 
+function positionDashboardActions(phone){
+  const quick=document.querySelector('.dashboard-quick-actions'),metrics=document.querySelector('.dashboard-simple>.metrics-grid');
+  if(!quick?.parentElement||quick.parentElement!==metrics?.parentElement)return;
+  if(phone)metrics.before(quick);else metrics.after(quick);
+}
+
 export function enhancePhoneLayout({icon}) {
   const phone=matchMedia(PHONE_QUERY).matches;
+  positionDashboardActions(phone);
   document.querySelectorAll('main table').forEach(table=>{
     if(table.dataset.phoneLayout==='table'||table.closest('.desktop-records'))return;
     table.classList.add('phone-table');
@@ -42,6 +49,7 @@ export function enhancePhoneLayout({icon}) {
 
 export function syncPhoneFilters() {
   const phone=matchMedia(PHONE_QUERY).matches;
+  positionDashboardActions(phone);
   if(phone!==previousPhoneMode){
     document.querySelectorAll('.phone-filters').forEach(details=>details.open=!phone);
     previousPhoneMode=phone;

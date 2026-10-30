@@ -2,6 +2,10 @@ services:
   nginx:
     ports:
       - "8081:80"
+    # Local preview only: Northpoint is served at / after signing in.
+    # Compose replaces the base mount with the same container target.
+    volumes:
+      - ./frontend/northpoint:/usr/share/nginx/html:ro
   auth:
     environment:
       - AUTH_COOKIE_SECURE=0

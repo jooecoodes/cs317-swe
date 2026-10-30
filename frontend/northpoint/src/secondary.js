@@ -23,7 +23,7 @@ function settings(ctx) {
   const s = ctx.store.settings;
   const { esc, icon } = ctx;
   return `<div class="two-column" style="align-items:start"><section class="panel"><div class="panel-header"><div><h2>Your Preferences</h2><p class="muted">Make this workspace comfortable for you</p></div></div><form id="secondary-settings-form" class="panel-body" style="display:grid;gap:22px">
-      ${field('Your display name', `<input name="name" required maxlength="80" autocomplete="name" value="${esc(s.name)}">`)}
+      <div class="field"><span>Signed-in username</span><strong>${esc(ctx.sessionState?.username||s.name||'Sign in required')}</strong>${ctx.sessionState?.status==='error'?`<p class="muted">${esc(ctx.sessionState.error)}</p><button class="button secondary" type="button" data-action="session-retry">Retry Sign-in Check</button>`:''}</div>
       ${field('Text size', `<select name="textSize"><option value="standard"${s.textSize !== 'larger' ? ' selected' : ''}>Standard — comfortable reading</option><option value="larger"${s.textSize === 'larger' ? ' selected' : ''}>Larger — extra reading comfort</option></select>`)}
       <p class="muted" style="margin:0">Larger text increases the size of navigation, forms, and body text throughout the workspace.</p>
       <div style="padding-top:10px;border-top:1px solid #e8edf3"><h3 style="margin:0 0 16px">Workspace view</h3><p class="muted">Choose a department view for this tab. These filters do not change account permissions.</p></div>
@@ -31,7 +31,7 @@ function settings(ctx) {
       ${field('Assigned department', `<select name="department"><option value="">Select a department</option>${uniq(ctx.store.employees.map(e => e.department)).map(department => `<option${department === s.department ? ' selected' : ''}>${esc(department)}</option>`).join('')}</select>`)}
       <div><button type="submit" class="button primary">${icon('check')} Save Changes</button></div>
     </form></section><div>
-      <section class="panel"><div class="panel-header"><h2>About This Workspace</h2></div><div class="panel-body"><p><strong>Northpoint</strong><br>Violation Management System</p><p class="muted">A dedicated space for employee records, disciplinary cases, and clear reporting.</p><div class="callout" style="margin-top:20px"><div><strong>About this build</strong><p>Employee records, violations and history are connected to the hosted backend. Set your display name before saving changes. Preferences reset when you reload.</p></div></div></div></section>
+      <section class="panel"><div class="panel-header"><h2>About This Workspace</h2></div><div class="panel-body"><p><strong>Northpoint</strong><br>Violation Management System</p><p class="muted">A dedicated space for employee records, disciplinary cases, and clear reporting.</p><div class="callout" style="margin-top:20px"><div><strong>About this build</strong><p>Employee records, violations and history are connected to the hosted backend. Your signed-in username is used automatically. Preferences reset when you reload.</p></div></div></div></section>
       ${s.role === 'HR' ? `<section class="panel"><div class="panel-header"><h2>Refresh Data</h2></div><div class="panel-body"><p class="muted">Reload employees, violations, rulebook and history from the hosted backend.</p><button class="button secondary" data-action="refresh-data">Refresh Data</button></div></section>` : ''}
     </div></div>`;
 }
@@ -98,10 +98,8 @@ export function handleSecondary(action, el, ctx) {
     const form = document.getElementById('secondary-settings-form');
     if (!form.reportValidity()) return true;
     const values = Object.fromEntries(new FormData(form));
-    values.name = values.name.trim();
-    if (!values.name) { ctx.toast('Enter your display name before saving.'); return true; }
     if(!roles.includes(values.role)){ctx.toast('Choose HR or Supervisor.');return true;}
-    Object.assign(ctx.store.settings, {name:values.name,textSize:values.textSize==='larger'?'larger':'standard',role:values.role,department:values.department||''});
+    Object.assign(ctx.store.settings, {textSize:values.textSize==='larger'?'larger':'standard',role:values.role,department:values.department||''});
     ctx.saveStore();
     document.documentElement.dataset.textSize = values.textSize;
     document.body.classList.toggle('larger-text', values.textSize === 'larger');
