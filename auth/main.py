@@ -1,9 +1,11 @@
 import hashlib, hmac, html, os, secrets, sqlite3, time
+import unicodedata
 from contextlib import closing
 from pathlib import Path
 
 from fastapi import FastAPI, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, RedirectResponse, Response, JSONResponse
+from pydantic import BaseModel
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = Path(os.getenv("AUTH_DB_PATH", BASE_DIR / "auth.db"))
@@ -14,6 +16,7 @@ SESSION_TTL = 7 * 24 * 3600
 # what a device token may do: POST anywhere under /app3/, nothing else
 DEVICE_ALLOWED_PREFIX = "/app3/"
 DEVICE_ALLOWED_METHOD = "POST"
+DEVICE_ALLOWED = {(DEVICE_ALLOWED_METHOD, DEVICE_ALLOWED_PREFIX)}
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users(
@@ -39,6 +42,25 @@ def db():
 
 with closing(db()) as _c:
     _c.executescript(SCHEMA)
+
+DEVICE_TTL = 7 * 24 * 3600   # sliding inactivity window
+RENEW_AFTER = 24 * 3600      # extend at most once a day
+
+with closing(db()) as _c, _c:
+    _c.execute("""CREATE TABLE IF NOT EXISTS trackers(
+        id INTEGER PRIMARY KEY, username TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL, disabled INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL)""")
+    cols = {r["name"] for r in _c.execute("PRAGMA table_info(devices)")}
+    for col in ("tracker_id", "expires_at", "last_used"):
+        if col not in cols:
+            _c.execute(f"ALTER TABLE devices ADD COLUMN {col} INTEGER")
+
+with closing(db()) as _c, _c:
+    ucols = {r["name"] for r in _c.execute("PRAGMA table_info(users)")}
+    for col in ("first_name", "last_name"):
+        if col not in ucols:
+            _c.execute(f"ALTER TABLE users ADD COLUMN {col} TEXT")
 
 
 # ---------- hashing ----------
@@ -66,6 +88,16 @@ DUMMY_HASH = hash_password("dummy")  # keeps timing similar for unknown users
 
 
 # ---------- helpers ----------
+def full_name(row) -> str:
+    n = f"{row['first_name'] or ''} {row['last_name'] or ''}".strip()
+    return n or row["username"]          # old accounts fall back to the username
+
+
+def header_safe(s: str) -> str:
+    """HTTP headers must be plain ASCII-ish. 'José Peña' becomes 'Jose Pena'."""
+    out = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode().strip()
+    return out or "unknown"
+
 def safe_next(n: str) -> str:
     """Only allow same-site relative redirects."""
     if n and n.startswith("/") and not n.startswith("//") and "\\" not in n:
@@ -169,17 +201,84 @@ def verify(request: Request):
         token = request.cookies.get(COOKIE)
         if token:
             row = c.execute(
-                "SELECT u.username FROM sessions s JOIN users u ON u.id=s.user_id "
+                "SELECT u.username, u.first_name, u.last_name "
+                "FROM sessions s JOIN users u ON u.id=s.user_id "
                 "WHERE s.token_hash=? AND s.expires_at>?",
                 (hash_token(token), now)).fetchone()
             if row:
-                return Response(status_code=200, headers={"X-User": row["username"]})
+                return Response(status_code=200, headers={
+                    "X-User": header_safe(full_name(row)),
+                    "X-Username": row["username"]})
 
         bearer = request.headers.get("authorization", "")
         if bearer.lower().startswith("bearer "):
             dev = c.execute(
-                "SELECT name FROM devices WHERE token_hash=? AND revoked=0",
-                (hash_token(bearer[7:].strip()),)).fetchone()
-            if dev and method == DEVICE_ALLOWED_METHOD and path.startswith(DEVICE_ALLOWED_PREFIX):
-                return Response(status_code=200, headers={"X-Device": dev["name"]})
+                "SELECT d.id, d.name, d.last_used FROM devices d "
+                "LEFT JOIN trackers t ON t.id = d.tracker_id "
+                "WHERE d.token_hash=? AND d.revoked=0 "
+                "AND (d.expires_at IS NULL OR d.expires_at>?) "
+                "AND (d.tracker_id IS NULL OR t.disabled=0)",
+                (hash_token(bearer[7:].strip()), now)).fetchone()
+            if dev and (method, path) in DEVICE_ALLOWED:
+                if now - (dev["last_used"] or 0) > RENEW_AFTER:
+                    with c:
+                        c.execute("UPDATE devices SET last_used=?, expires_at=? WHERE id=?",
+                                  (now, now + DEVICE_TTL, dev["id"]))
+                return Response(status_code=200, headers={"X-Device": dev["name"]})    
     return Response(status_code=401)
+
+
+# mob device part
+
+class TrackerLogin(BaseModel):
+    username: str
+    password: str
+    device_id: str
+
+
+@auth_app.post("/device-login")
+def device_login(body: TrackerLogin):
+    with closing(db()) as c, c:
+        row = c.execute(
+            "SELECT id, password_hash FROM trackers WHERE username=? AND disabled=0",
+            (body.username.strip(),)).fetchone()
+        ok = check_password(body.password, row["password_hash"] if row else DUMMY_HASH)
+        if not (row and ok):
+            return JSONResponse({"detail": "Wrong username or password."}, status_code=401)
+        token = secrets.token_urlsafe(32)
+        now = int(time.time())
+        name = f"{body.username.strip()}:{body.device_id[:64]}"
+        c.execute("DELETE FROM devices WHERE name=?", (name,))  # one token per tracker+phone
+        c.execute(
+            "INSERT INTO devices(name,token_hash,created_at,tracker_id,expires_at,last_used) "
+            "VALUES(?,?,?,?,?,?)",
+            (name, hash_token(token), now, row["id"], now + DEVICE_TTL, now))
+    return {"token": token, "expires_at": now + DEVICE_TTL}
+
+
+@auth_app.post("/device-logout")
+def device_logout(request: Request):
+    bearer = request.headers.get("authorization", "")
+    if bearer.lower().startswith("bearer "):
+        with closing(db()) as c, c:
+            c.execute("UPDATE devices SET revoked=1 WHERE token_hash=?",
+                      (hash_token(bearer[7:].strip()),))
+    return {"status": "ok"}
+
+@auth_app.get("/me")
+def me(request: Request):
+    token = request.cookies.get(COOKIE)
+    if token:
+        with closing(db()) as c:
+            row = c.execute(
+                "SELECT u.id, u.username, u.first_name, u.last_name "
+                "FROM sessions s JOIN users u ON u.id=s.user_id "
+                "WHERE s.token_hash=? AND s.expires_at>?",
+                (hash_token(token), int(time.time()))).fetchone()
+        if row:
+            return JSONResponse(
+                {"id": row["id"], "username": row["username"],
+                 "first_name": row["first_name"], "last_name": row["last_name"],
+                 "full_name": full_name(row)},
+                headers={"Cache-Control": "no-store"})
+    return JSONResponse({"detail": "Not signed in"}, status_code=401)

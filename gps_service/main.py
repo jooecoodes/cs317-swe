@@ -3,27 +3,30 @@ import threading
 
 from pathlib import Path
 from zoneinfo import ZoneInfo
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy import create_engine, Column, Integer, BigInteger, Float, String, Index, event
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 TZ = ZoneInfo("Asia/Manila")
 
 # ---------- Anti-Jitter Settings (Tuned for Real Android GPS) ----------
-MAX_ACC = 25          # Reject GPS fixes with accuracy radius worse than 25m
-MAX_SPEED = 55        # Reject sudden teleports faster than 55 m/s (~200 km/h)
-GAP = 60              # Start a new route segment if offline > 60s
-MIN_MOVE = 15         # Stationary deadzone radius (meters) while stopped
-BREAKOUT_DIST = 20    # Final confirmation point must be >= 20m from stationary anchor
-MOVE_MIN_STEP = 4     # Ignore micro-wobbles (< 4m) even when already in moving state
-ACC_MULTIPLIER = 1.8  # Require movement > 1.8x reported GPS error radius
-CONFIRM_COUNT = 3     # Consecutive outward points required to unlock movement
-MIN_STRAIGHTNESS = 0.75 # Net distance / total path length ratio to reject zig-zag drift
-WINDOW_SIZE = 5       # 5-point rolling median filter for smooth real-world paths
-MAX_REJECTS = 5       # Consecutive high-speed points required to accept a large jump
+MAX_ACC = 25
+MAX_SPEED = 55
+GAP = 60
+MIN_MOVE = 15
+BREAKOUT_DIST = 20
+MOVE_MIN_STEP = 4
+ACC_MULTIPLIER = 1.8
+CONFIRM_COUNT = 3
+MIN_STRAIGHTNESS = 0.75
+WINDOW_SIZE = 5
+MAX_REJECTS = 5
+
+ONLINE_SECONDS = 15   # a ping newer than this counts as online
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "tracking.db"
@@ -65,7 +68,7 @@ gps_service = FastAPI()
 gps_service.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 state = {}  # device_id -> {lat, lon, ts, seen, seg, rejects, moving, pending, window}
-live = {}   # device_id -> {lat, lon, last_seen}
+live = {}   # device_id -> {lat, lon, last_seen, first_seen, acc, tracker}
 
 def purge():
     with SessionLocal() as db:
@@ -98,12 +101,9 @@ def haversine(a, b, c, d):
     return 12742000 * math.asin(math.sqrt(h))
 
 def is_coherent_breakout(anchor_lat, anchor_lon, pts):
-    """Verify that pending points move steadily outward in a consistent direction (not indoor zig-zag jitter)."""
     dists = [haversine(anchor_lat, anchor_lon, pt[0], pt[1]) for pt in pts]
-    # 1. Must end beyond BREAKOUT_DIST and move progressively further from anchor
     if dists[-1] < BREAKOUT_DIST or not all(dists[i] < dists[i + 1] for i in range(len(dists) - 1)):
         return False
-    # 2. Check straightness ratio (net displacement / total path steps)
     step_sum = sum(haversine(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1]) for i in range(len(pts) - 1))
     if step_sum < 1.0:
         return False
@@ -122,22 +122,28 @@ def load_state(db, dev):
 
 
 @gps_service.get("/map")
-async def serve_camera_app():
+async def serve_map_app():
     return FileResponse(BASE_DIR / "map.html")
 
 @gps_service.post("/")
-def receive(batch: Batch, db=Depends(get_db)):
+def receive(batch: Batch, db=Depends(get_db), x_device: str | None = Header(None)):
+    # Device binding: tracker tokens are named "username:device_id". If nginx
+    # stamped such a name, the payload id must match it. Tokens without a colon
+    # (made with add-device) and requests without the header skip this check.
+    if x_device and ":" in x_device and x_device.split(":", 1)[1] != batch.id:
+        raise HTTPException(status_code=403, detail="Token does not belong to this device")
+
     s = load_state(db, batch.id)
     rows = []
 
     for p in sorted(batch.points, key=lambda p: p.ts):
         if s is not None and p.ts <= s["seen"]:
-            continue                                   # duplicate / out of order
+            continue
 
         if p.acc is not None and p.acc > MAX_ACC:
             if s is not None:
                 s["seen"] = p.ts
-            continue                                   # unreliable fix
+            continue
 
         if s is None:
             s = {
@@ -153,20 +159,17 @@ def receive(batch: Batch, db=Depends(get_db)):
         d = haversine(s["lat"], s["lon"], p.lat, p.lon)
         dt = max(p.ts - s["ts"], 1)
 
-        # 1. Stationary / Jitter check
         jitter_radius = max(MIN_MOVE, (p.acc or 10) * ACC_MULTIPLIER)
         if not s["moving"] and d < jitter_radius:
             s["rejects"] = 0
             s["pending"].clear()
-            continue                                   # standing still inside anchor radius
+            continue
 
-        # If already moving, drop tiny micro-wobbles (< 4m) or switch back to stationary if stopped
         if s["moving"] and d < MOVE_MIN_STEP:
             s["moving"] = False
             s["pending"].clear()
             continue
 
-        # 2. Speed spike / teleport check
         if d / dt > MAX_SPEED and gap <= GAP:
             s["rejects"] += 1
             if s["rejects"] < MAX_REJECTS:
@@ -176,7 +179,6 @@ def receive(batch: Batch, db=Depends(get_db)):
             s["pending"].clear()
             s["window"].clear()
         elif not s["moving"]:
-            # 3. Accumulate points in pending buffer to confirm genuine directional movement
             s["pending"].append((p.lat, p.lon, p.ts))
             if len(s["pending"]) > CONFIRM_COUNT:
                 s["pending"].pop(0)
@@ -184,7 +186,6 @@ def receive(batch: Batch, db=Depends(get_db)):
                 continue
             if not is_coherent_breakout(s["lat"], s["lon"], s["pending"]):
                 continue
-            # Movement confirmed! Clear window and flush pending points cleanly
             s["moving"] = True
             s["window"] = [(s["lat"], s["lon"])]
             pending_pts = list(s["pending"])
@@ -203,7 +204,6 @@ def receive(batch: Batch, db=Depends(get_db)):
             s["seg"] += 1
             s["window"].clear()
 
-        # 4. Smooth coordinates with a 5-point rolling median
         s["window"].append((p.lat, p.lon))
         if len(s["window"]) > WINDOW_SIZE:
             s["window"].pop(0)
@@ -214,11 +214,32 @@ def receive(batch: Batch, db=Depends(get_db)):
         rows.append(TrackPoint(device_id=batch.id, ts=p.ts, lat=smooth_lat, lon=smooth_lon, segment=s["seg"]))
 
     state[batch.id] = s
+
     if rows:
-        db.add_all(rows)
-        db.commit()
+        try:
+            db.add_all(rows)
+            db.commit()
+        except IntegrityError:          # same batch arrived twice at once
+            db.rollback()
+            for r in rows:
+                try:
+                    db.add(TrackPoint(device_id=r.device_id, ts=r.ts, lat=r.lat,
+                                      lon=r.lon, segment=r.segment))
+                    db.commit()
+                except IntegrityError:
+                    db.rollback()
+
     if s:
-        live[batch.id] = {"lat": s["lat"], "lon": s["lon"], "last_seen": time.time()}
+        now = time.time()
+        prev = live.get(batch.id, {})
+        last_acc = batch.points[-1].acc if batch.points else prev.get("acc")
+        tracker = x_device.split(":", 1)[0] if x_device else prev.get("tracker")
+        # a gap since the last ping means a new "online session"
+        first_seen = prev.get("first_seen", now)
+        if now - prev.get("last_seen", 0) > ONLINE_SECONDS:
+            first_seen = now
+        live[batch.id] = {"lat": s["lat"], "lon": s["lon"], "last_seen": now,
+                          "first_seen": first_seen, "acc": last_acc, "tracker": tracker}
     return {"status": "success", "saved": len(rows)}
 
 @gps_service.get("/live/{dev}")
@@ -226,8 +247,29 @@ def get_live(dev: str):
     d = live.get(dev)
     if not d:
         return {"status": "not_connected"}
-    online = time.time() - d["last_seen"] < 15
+    online = time.time() - d["last_seen"] < ONLINE_SECONDS
     return {"status": "online" if online else "disconnected", "lat": d["lat"], "lon": d["lon"]}
+
+@gps_service.get("/devices")
+def devices(include_offline: bool = False):
+    now = time.time()
+    out = []
+    for dev, d in list(live.items()):
+        age = now - d["last_seen"]
+        online = age < ONLINE_SECONDS
+        if not online and not include_offline:
+            continue
+        out.append({
+            "device_id": dev,
+            "tracker": d.get("tracker"),
+            "status": "online" if online else "disconnected",
+            "lat": d["lat"], "lon": d["lon"],
+            "accuracy_m": d.get("acc"),
+            "last_seen_seconds_ago": int(age),
+            "online_for_seconds": int(d["last_seen"] - d.get("first_seen", d["last_seen"])) if online else 0,
+        })
+    out.sort(key=lambda x: x["last_seen_seconds_ago"])
+    return {"count": len(out), "devices": out}
 
 @gps_service.get("/route/{dev}")
 def route(dev: str, db=Depends(get_db)):
