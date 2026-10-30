@@ -91,3 +91,15 @@ docker compose exec nginx wget -qO- http://app1:8000/openapi.json > app1_openapi
 docker compose exec nginx wget -qO- http://app2:8000/openapi.json > app2_openapi.json
 docker compose exec nginx wget -qO- http://app3:8000/openapi.json > app3_openapi.json
 ```
+
+Rule:
+```bash
+public URL = /<appN> + path in appN_openapi.json
+```
+
+| Spec file[cite: 1] | Path in the spec[cite: 1] | Real URL through nginx[cite: 1] |
+| :--- | :--- | :--- |
+| `app1_openapi.json` | `/employees` | `/app1/employees` |
+| `app2_openapi.json` | `/photos/5/file` | `/app2/photos/5/file` |
+| `app3_openapi.json` | `/live/{dev}` | `/app3/live/{dev}` |
+| `app3_openapi.json` | `/` (the upload) | `/app3/` (keep the trailing slash) |
