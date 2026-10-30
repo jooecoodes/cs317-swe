@@ -12,9 +12,11 @@
     />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   </head>
-  <body class="bg-gray-900 text-white h-screen flex flex-col font-sans">
+  <body
+    class="bg-gray-900 text-white h-screen flex flex-col font-sans overflow-hidden"
+  >
     <!-- Top Control Bar -->
-    <div
+    <header
       class="bg-gray-800 p-4 shadow-lg flex flex-wrap gap-4 items-center justify-between z-10 relative"
     >
       <div class="flex items-center gap-4 flex-wrap">
@@ -22,176 +24,248 @@
 
         <input
           type="text"
-          id="serverUrl"
-          placeholder="Server URL (e.g., http://localhost/app3)"
-          class="bg-gray-700 text-white px-4 py-2 rounded border border-gray-600 focus:outline-none focus:border-blue-400 w-72"
-        />
-
-        <input
-          type="text"
           id="deviceId"
           placeholder="Device ID"
+          autocomplete="off"
           class="bg-gray-700 text-white px-4 py-2 rounded border border-gray-600 focus:outline-none focus:border-blue-400"
         />
 
         <button
           id="trackBtn"
-          onclick="toggleTracking()"
           class="bg-blue-600 hover:bg-blue-500 px-6 py-2 rounded font-bold transition-colors"
         >
           Start Tracking
         </button>
       </div>
 
-      <!-- Status Indicator -->
-      <div class="flex items-center gap-2 bg-gray-700 px-4 py-2 rounded">
-        <div id="statusDot" class="w-3 h-3 rounded-full bg-gray-400"></div>
-        <span id="statusText" class="font-semibold text-gray-300"
-          >Not Connected</span
-        >
-      </div>
-    </div>
+      <div class="flex items-center gap-4 flex-wrap">
+        <!-- Status Indicator -->
+        <div class="flex items-center gap-2 bg-gray-700 px-4 py-2 rounded">
+          <div id="statusDot" class="w-3 h-3 rounded-full bg-gray-400"></div>
+          <span id="statusText" class="font-semibold text-gray-300"
+            >Not Connected</span
+          >
+        </div>
 
-    <!-- The Map -->
-    <div id="map" class="flex-grow z-0"></div>
+        <!-- Signed-in user -->
+        <div
+          class="flex items-center gap-3 bg-gray-700 px-4 py-2 rounded text-sm"
+        >
+          <span id="userName" class="text-gray-200">…</span>
+          <a
+            href="/auth/logout"
+            class="text-blue-400 hover:text-blue-300 underline"
+            >Log out</a
+          >
+        </div>
+      </div>
+    </header>
+
+    <!-- Main: side panel + map -->
+    <main class="flex-1 flex min-h-0 overflow-hidden">
+      <!-- Live Trackers panel -->
+      <aside
+        class="w-80 shrink-0 bg-gray-800 border-r border-gray-700 flex flex-col min-h-0"
+      >
+        <div
+          class="p-4 border-b border-gray-700 flex items-center justify-between"
+        >
+          <h2 class="font-bold text-sm uppercase tracking-wide text-gray-300">
+            Live Trackers
+          </h2>
+          <span
+            id="onlineCount"
+            class="text-xs bg-gray-700 px-2 py-1 rounded-full text-gray-300"
+            >0 online</span
+          >
+        </div>
+
+        <label
+          class="flex items-center gap-2 px-4 py-2 text-xs text-gray-400 border-b border-gray-700 cursor-pointer select-none"
+        >
+          <input type="checkbox" id="includeOffline" class="accent-blue-500" />
+          Show recently offline
+        </label>
+
+        <div id="deviceList" class="flex-1 overflow-y-auto"></div>
+      </aside>
+
+      <!-- The Map -->
+      <div id="map" class="flex-1"></div>
+    </main>
 
     <script>
-      // 1. Initialize Map
+      // ---------------------------------------------------------------------
+      // Config
+      // All API calls are same-origin and prefixed with /app3 (nginx routes
+      // this to app3). No hostnames, no ports, no ngrok.
+      // ---------------------------------------------------------------------
+      const BASE = "/app3";
+
+      // ---------------------------------------------------------------------
+      // Global 401 handler
+      // API calls return a plain 401 (no redirect). If a session expires while
+      // the page is open, bounce to login and preserve where we were.
+      // ---------------------------------------------------------------------
+      function handle401(res) {
+        if (res.status === 401) {
+          location.href =
+            "/auth/login?next=" + encodeURIComponent(location.pathname);
+          return true;
+        }
+        return false;
+      }
+
+      async function loadMe() {
+        try {
+          const res = await fetch("/auth/me", {
+            cache: "no-store",
+            headers: { Accept: "application/json" },
+          });
+          if (handle401(res)) return;
+          if (!res.ok) return;
+          const me = await res.json();
+          const name = me.full_name || me.username || "Unknown";
+          document.getElementById("userName").textContent =
+            "Signed in as " + name;
+        } catch (e) {
+          /* header just stays at "…" if this fails; not fatal */
+        }
+      }
+
+      // ---------------------------------------------------------------------
+      // Map
+      // ---------------------------------------------------------------------
       const map = L.map("map").setView([8.4803, 124.6498], 13);
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 19,
         attribution: "&copy; OpenStreetMap contributors",
       }).addTo(map);
 
+      // ---------------------------------------------------------------------
+      // State
+      // ---------------------------------------------------------------------
       let marker = null;
       let routeLine = null;
       let pollInterval = null;
+      let deviceInterval = null;
       let isTracking = false;
+      let currentDeviceId = null;
       let lastLat = null;
       let lastLon = null;
+      let latestDevices = { count: 0, devices: [] };
 
-      // UI Elements
+      // UI elements
       const trackBtn = document.getElementById("trackBtn");
-      const serverInput = document.getElementById("serverUrl");
       const deviceInput = document.getElementById("deviceId");
       const statusDot = document.getElementById("statusDot");
       const statusText = document.getElementById("statusText");
 
-      // Load saved URL from browser memory, or default to current host + /app3
-      if (localStorage.getItem("serverUrl")) {
-        serverInput.value = localStorage.getItem("serverUrl");
-      } else {
-        serverInput.value = window.location.origin + "/app3";
+      // ---------------------------------------------------------------------
+      // Tracking lifecycle
+      // ---------------------------------------------------------------------
+      function clearLayers() {
+        if (routeLine) {
+          map.removeLayer(routeLine);
+          routeLine = null;
+        }
+        if (marker) {
+          map.removeLayer(marker);
+          marker = null;
+        }
+        lastLat = null;
+        lastLon = null;
       }
 
-      serverInput.addEventListener("input", (e) => {
-        let url = e.target.value.trim();
-        if (url.endsWith("/")) url = url.slice(0, -1);
-        localStorage.setItem("serverUrl", url);
-      });
-
-      // Switch devices automatically when the ID is changed while tracking
-      deviceInput.addEventListener("change", () => {
-        if (isTracking) {
-          toggleTracking(); // stop
-          toggleTracking(); // start with the new ID
+      function startTracking(deviceId) {
+        deviceId = (deviceId || "").trim();
+        if (!deviceId) {
+          alert("Please enter a Device ID.");
+          return;
         }
-      });
+        if (isTracking) stopTracking();
 
-      function getBaseUrl() {
-        let baseUrl = serverInput.value.trim();
-        if (baseUrl.endsWith("/")) baseUrl = baseUrl.slice(0, -1);
-        return baseUrl;
+        currentDeviceId = deviceId;
+        deviceInput.value = deviceId;
+        isTracking = true;
+
+        trackBtn.innerText = "Stop Tracking";
+        trackBtn.className =
+          "bg-red-600 hover:bg-red-500 px-6 py-2 rounded font-bold transition-colors";
+
+        clearLayers();
+        routeLine = L.polyline([], {
+          color: "#3b82f6",
+          weight: 4,
+          opacity: 0.8,
+        }).addTo(map);
+
+        fetchRouteHistory();
+        fetchLocation();
+        pollInterval = setInterval(fetchLocation, 2000);
+        renderDevices(); // refresh highlight immediately
+      }
+
+      function stopTracking() {
+        if (pollInterval) clearInterval(pollInterval);
+        pollInterval = null;
+        isTracking = false;
+        trackBtn.innerText = "Start Tracking";
+        trackBtn.className =
+          "bg-blue-600 hover:bg-blue-500 px-6 py-2 rounded font-bold transition-colors";
+        updateStatus("not_connected");
+        renderDevices();
       }
 
       function toggleTracking() {
-        if (isTracking) {
-          clearInterval(pollInterval);
-          isTracking = false;
-          trackBtn.innerText = "Start Tracking";
-          trackBtn.className =
-            "bg-blue-600 hover:bg-blue-500 px-6 py-2 rounded font-bold transition-colors";
-          updateStatus("not_connected");
-        } else {
-          if (!serverInput.value.trim() || !deviceInput.value.trim()) {
-            alert("Please enter both the Server URL and Device ID.");
-            return;
-          }
-
-          isTracking = true;
-          lastLat = null;
-          lastLon = null;
-          trackBtn.innerText = "Stop Tracking";
-          trackBtn.className =
-            "bg-red-600 hover:bg-red-500 px-6 py-2 rounded font-bold transition-colors";
-
-          // Clear old line and marker if switching sessions/devices
-          if (routeLine) {
-            map.removeLayer(routeLine);
-            routeLine = null;
-          }
-          if (marker) {
-            map.removeLayer(marker);
-            marker = null;
-          }
-
-          routeLine = L.polyline([], {
-            color: "#3b82f6",
-            weight: 4,
-            opacity: 0.8,
-          }).addTo(map);
-
-          fetchRouteHistory();
-          fetchLocation();
-          pollInterval = setInterval(fetchLocation, 2000);
-        }
+        if (isTracking) stopTracking();
+        else startTracking(deviceInput.value);
       }
 
-      async function fetchRouteHistory() {
-        const baseUrl = getBaseUrl();
-        const id = deviceInput.value.trim();
-
-        try {
-          const response = await fetch(`${baseUrl}/route/${id}`, {
-            headers: { "ngrok-skip-browser-warning": "true" },
-          });
-          const data = await response.json();
-          if (routeLine && Array.isArray(data.segments)) {
-            routeLine.setLatLngs(data.segments);
-          }
-        } catch (err) {
-          console.log("No route history found for today yet.");
+      // Hook called by clicking a row in the Live Trackers panel.
+      window.focusDevice = function (d) {
+        if (!d || !d.device_id) return;
+        startTracking(d.device_id);
+        if (typeof d.lat === "number" && typeof d.lon === "number") {
+          map.panTo([d.lat, d.lon], { animate: true, duration: 0.5 });
         }
-      }
+      };
 
+      // ---------------------------------------------------------------------
+      // API: live position for the tracked device
+      // ---------------------------------------------------------------------
       async function fetchLocation() {
-        const baseUrl = getBaseUrl();
-        const id = deviceInput.value.trim();
+        if (!currentDeviceId) return;
+        const id = currentDeviceId;
 
         try {
-          const response = await fetch(`${baseUrl}/live/${id}`, {
-            headers: { "ngrok-skip-browser-warning": "true" },
+          const res = await fetch(BASE + "/live/" + encodeURIComponent(id), {
+            headers: { Accept: "application/json" },
           });
+          if (handle401(res)) return;
+          if (!res.ok) throw new Error("HTTP " + res.status);
 
-          const data = await response.json();
+          const data = await res.json();
           updateStatus(data.status);
 
-          if (data.status === "online") {
-            const { lat, lon } = data;
-            const moved = lat !== lastLat || lon !== lastLon;
+          if (
+            data.status === "online" &&
+            typeof data.lat === "number" &&
+            typeof data.lon === "number"
+          ) {
+            const moved = data.lat !== lastLat || data.lon !== lastLon;
 
             if (!marker) {
-              marker = L.marker([lat, lon]).addTo(map);
+              marker = L.marker([data.lat, data.lon]).addTo(map);
             } else if (moved) {
-              marker.setLatLng([lat, lon]);
+              marker.setLatLng([data.lat, data.lon]);
             }
 
-            // Only redraw route and pan camera if the filtered position actually changed
             if (moved) {
-              lastLat = lat;
-              lastLon = lon;
+              lastLat = data.lat;
+              lastLon = data.lon;
               fetchRouteHistory();
-              map.panTo([lat, lon], { animate: true, duration: 0.5 });
+              map.panTo([data.lat, data.lon], { animate: true, duration: 0.5 });
             }
           }
         } catch (error) {
@@ -200,6 +274,150 @@
         }
       }
 
+      // ---------------------------------------------------------------------
+      // API: today's route history for the tracked device
+      // ---------------------------------------------------------------------
+      async function fetchRouteHistory() {
+        if (!currentDeviceId) return;
+        const id = currentDeviceId;
+
+        try {
+          const res = await fetch(BASE + "/route/" + encodeURIComponent(id), {
+            headers: { Accept: "application/json" },
+          });
+          if (handle401(res)) return;
+          if (!res.ok) throw new Error("HTTP " + res.status);
+
+          const data = await res.json();
+          if (routeLine && Array.isArray(data.segments)) {
+            routeLine.setLatLngs(data.segments);
+          }
+        } catch (err) {
+          console.log("No route history found for today yet.");
+        }
+      }
+
+      // ---------------------------------------------------------------------
+      // API: devices list (polled every 3s)
+      // ---------------------------------------------------------------------
+      async function fetchDevices() {
+        const includeOffline =
+          document.getElementById("includeOffline").checked;
+        const url =
+          BASE + "/devices" + (includeOffline ? "?include_offline=1" : "");
+
+        try {
+          const res = await fetch(url, {
+            headers: { Accept: "application/json" },
+          });
+          if (handle401(res)) return;
+          if (!res.ok) throw new Error("HTTP " + res.status);
+
+          latestDevices = await res.json();
+          renderDevices();
+        } catch (err) {
+          console.error("Error fetching devices:", err);
+        }
+      }
+
+      // ---------------------------------------------------------------------
+      // Devices panel rendering
+      // Only textContent — never innerHTML — for tracker / device_id.
+      // ---------------------------------------------------------------------
+      function fmtAgo(s) {
+        if (typeof s !== "number" || s < 0) return "—";
+        if (s < 60) return s + "s ago";
+        const m = Math.floor(s / 60);
+        const r = s % 60;
+        if (m < 60) return m + "m " + r + "s ago";
+        const h = Math.floor(m / 60);
+        return h + "h " + (m % 60) + "m ago";
+      }
+
+      function fmtDur(s) {
+        if (typeof s !== "number" || s < 0) return "—";
+        if (s < 60) return s + "s";
+        const m = Math.floor(s / 60);
+        const r = s % 60;
+        if (m < 60) return m + "m " + r + "s";
+        const h = Math.floor(m / 60);
+        return h + "h " + (m % 60) + "m";
+      }
+
+      function renderDevices() {
+        const list = document.getElementById("deviceList");
+        const countEl = document.getElementById("onlineCount");
+        const devices = latestDevices.devices || [];
+
+        countEl.textContent =
+          (latestDevices.count ?? devices.length) + " online";
+
+        list.textContent = "";
+
+        if (devices.length === 0) {
+          const empty = document.createElement("div");
+          empty.className = "px-4 py-6 text-sm text-gray-500 text-center";
+          empty.textContent = "No devices reporting.";
+          list.appendChild(empty);
+          return;
+        }
+
+        for (const d of devices) {
+          const row = document.createElement("button");
+          row.type = "button";
+          row.className =
+            "w-full text-left px-4 py-3 border-b border-gray-700 hover:bg-gray-700 transition-colors block";
+          if (d.device_id === currentDeviceId) {
+            row.classList.add("bg-gray-700", "border-l-4", "border-blue-500");
+          }
+          row.addEventListener("click", () => window.focusDevice(d));
+
+          const top = document.createElement("div");
+          top.className = "flex items-center justify-between gap-2";
+
+          const name = document.createElement("span");
+          name.className = "font-semibold text-sm text-gray-100 truncate";
+          name.textContent = d.tracker || "unknown";
+
+          const dot = document.createElement("span");
+          dot.className =
+            "w-2 h-2 rounded-full shrink-0 " +
+            (d.status === "online" ? "bg-green-500" : "bg-gray-500");
+
+          top.append(name, dot);
+
+          const idLine = document.createElement("div");
+          idLine.className = "text-[11px] text-gray-400 font-mono truncate";
+          idLine.textContent = d.device_id;
+
+          const meta = document.createElement("div");
+          meta.className =
+            "text-[11px] text-gray-400 mt-1 flex flex-wrap gap-x-3";
+
+          const seen = document.createElement("span");
+          seen.textContent = "seen " + fmtAgo(d.last_seen_seconds_ago);
+          meta.appendChild(seen);
+
+          if (typeof d.online_for_seconds === "number") {
+            const up = document.createElement("span");
+            up.textContent = "up " + fmtDur(d.online_for_seconds);
+            meta.appendChild(up);
+          }
+
+          if (typeof d.accuracy_m === "number") {
+            const acc = document.createElement("span");
+            acc.textContent = "±" + Math.round(d.accuracy_m) + " m";
+            meta.appendChild(acc);
+          }
+
+          row.append(top, idLine, meta);
+          list.appendChild(row);
+        }
+      }
+
+      // ---------------------------------------------------------------------
+      // Status pill
+      // ---------------------------------------------------------------------
       function updateStatus(status) {
         if (status === "online") {
           statusDot.className =
@@ -216,6 +434,21 @@
           statusText.className = "font-semibold text-gray-300";
         }
       }
+
+      // ---------------------------------------------------------------------
+      // Wire up
+      // ---------------------------------------------------------------------
+      trackBtn.addEventListener("click", toggleTracking);
+      deviceInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") toggleTracking();
+      });
+      document
+        .getElementById("includeOffline")
+        .addEventListener("change", fetchDevices);
+
+      loadMe();
+      fetchDevices();
+      deviceInterval = setInterval(fetchDevices, 3000);
     </script>
   </body>
 </html>
