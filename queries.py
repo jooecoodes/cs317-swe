@@ -240,14 +240,7 @@ def delete_employee(session: Session, employee_id: int, *, actor: str, commit: b
         target_type="employee", target_id=employee.id, employee_id=employee.id,
         summary=f"Hard-deleted {employee.employee_code} ({employee.full_name})",
         metadata={"employee_code": employee.employee_code, "full_name": employee.full_name,
-                  "department": employee.department,
-                  "violation_count": len(employee.violation_records),
-                  "total_points": sum(r.points for r in employee.violation_records),
-                  "total_strikes": sum(1 for r in employee.violation_records if r.is_strike),
-                  "violation_records": [{"id": r.id, "points": r.points,
-                                         "is_strike": r.is_strike,
-                                         "issued_at": r.issued_at.isoformat()}
-                                        for r in employee.violation_records]},
+                  "violation_count": len(employee.violation_records)},
     )
     session.delete(employee)
     if commit:
