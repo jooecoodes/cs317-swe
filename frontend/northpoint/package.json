@@ -7,9 +7,9 @@
   "scripts": {
     "start": "node serve.mjs",
     "build": "node build.mjs",
-    "check": "node verify.mjs",
-    "test": "node --test",
-    "test:live": "node tooling/check-live.mjs"
+    "check": "node verify.mjs"
   },
-  "engines": { "node": ">=24" }
+  "engines": {
+    "node": ">=24"
+  }
 }

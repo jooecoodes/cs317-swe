@@ -1,0 +1,21 @@
+// Allowed routes from the supplied references, plus the existing Calendar contract.
+const routes=[
+ ['GET',/^\/employees$/],['POST',/^\/employees$/,true],
+ ['GET',/^\/employees\/\d+$/],['PATCH',/^\/employees\/\d+$/,true],['DELETE',/^\/employees\/\d+$/,true],
+ ['POST',/^\/employees\/\d+\/(?:deactivate|reactivate)$/,true],
+ ['GET',/^\/employees\/\d+\/violations$/],['POST',/^\/employees\/\d+\/violations$/,true],['POST',/^\/employees\/\d+\/violations\/clear$/],
+ ['GET',/^\/violations\/recent$/],['GET',/^\/violations\/\d+$/],['PATCH',/^\/violations\/\d+$/,true],['POST',/^\/violations\/\d+\/remove$/],
+ ['GET',/^\/violation-removals(?:\/\d+)?$/],['GET',/^\/activity\/(?:timeline|calendar|digest\/\d{4}-\d{2}-\d{2})$/],
+ ['GET',/^\/violation-types(?:\/all|\/\d+)?$/],['POST',/^\/violation-types$/,true],['PATCH',/^\/violation-types\/\d+$/,true],['DELETE',/^\/violation-types\/\d+$/,true],['POST',/^\/violation-types\/\d+\/(?:activate|deactivate)$/,true]
+];
+export function apiRoute(path,method,service='hr'){
+ if(service==='session'&&path==='/me'&&method==='GET')return {actor:false};
+ if(service==='photos'){
+  const allowed=method==='GET'&&/^\/(?:photos(?:\/\d+(?:\/history)?)?|stats|activity(?:\/(?:digest|actors))?)$/.test(path)||method==='POST'&&['/upload','/photos/batch'].includes(path)||['PATCH','DELETE'].includes(method)&&/^\/photos\/\d+$/.test(path);
+  if(allowed)return {actor:method!=='GET'};
+  throw new Error('This action is not defined in the photo API contract.');
+ }
+ if(service!=='hr')throw new Error('Unknown API service.');
+ const row=routes.find(([verb,pattern])=>verb===method&&pattern.test(path));if(!row)throw new Error('This action is not defined in the API contract.');return {actor:row[2]===true};
+}
+export function validateActor(value){const actor=typeof value==='string'?value.trim():'';if(!actor)throw new Error('Sign in before saving changes.');if(/[\r\n\x00]/.test(actor))throw new Error('Your signed-in name contains invalid header characters. Contact your administrator.');return actor.normalize('NFKD').replace(/[^\x20-\x7e]/g,'').trim()||'unknown';}
