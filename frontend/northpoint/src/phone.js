@@ -34,7 +34,7 @@ export function enhancePhoneLayout({icon}) {
     });
   });
   document.querySelectorAll('#employee-filters,#violation-filters,#type-filters,#secondary-filter').forEach(form=>{
-    if(form.closest('.phone-filters'))return;
+    if(form.classList.contains('record-toolbar')||form.closest('.phone-filters'))return;
     const count=[...form.elements].filter(field=>field.name&&!['button','submit','reset'].includes(field.type)&&!(field.name==='order'&&['desc','newest'].includes(field.value))&&(field.type==='checkbox'?field.checked:Boolean(field.value))).length;
     const disclosure=document.createElement('details');
     disclosure.className='phone-filters';

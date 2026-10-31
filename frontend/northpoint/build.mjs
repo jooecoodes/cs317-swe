@@ -7,7 +7,7 @@ const source = path.join(project, 'src');
 const read = name => fs.readFileSync(path.join(source, name), 'utf8');
 const withoutExports = content => content.replace(/^import .*?;\s*$/gm, '').replace(/\bexport\s+(?=(?:async\s+)?(?:function|const|let)\b)/g, '');
 const favicon = 'data:image/png;base64,' + fs.readFileSync(path.join(source,'assets/company-logo.png')).toString('base64');
-let styles = read('styles.css')+'\n'+read('photos.css');
+let styles = read('styles.css')+'\n'+read('photos.css')+'\n'+read('compact-records.css');
 for (const name of ['dm-sans-latin-ext.woff2', 'dm-sans-latin.woff2']) {
   const encoded = fs.readFileSync(path.join(source, 'assets/fonts', name)).toString('base64');
   styles = styles.replaceAll(`./assets/fonts/${name}`, `data:font/woff2;base64,${encoded}`);
@@ -39,7 +39,9 @@ script += `const {employeeProfile,fetchEmployeeProfile,loadEmployeeProfile,inval
 script += `const {submitApiEmployeeForm,employeeCreateInFlight,pendingEmployeeCreation}=(()=>{\n${withoutExports(read('employee-create.js'))}\nreturn {submitApiEmployeeForm,employeeCreateInFlight,pendingEmployeeCreation};})();\n`;
 script += `const {mutationInFlight,pendingMutation,runMutation,checkPendingMutation,saveType,changeType,issueViolation,updateViolation,deleteViolation}=(()=>{\n${withoutExports(read('mutations.js'))}\nreturn {mutationInFlight,pendingMutation,runMutation,checkPendingMutation,saveType,changeType,issueViolation,updateViolation,deleteViolation};})();\n`;
 script += `const {sortEmployeeRecords,analyticsData,historyEvents}=(()=>{\n${withoutExports(read('insight-data.js'))}\nreturn {sortEmployeeRecords,analyticsData,historyEvents};})();\n`;
-script += `const {renderEmployees,renderViolations,employeeLoadState}=(()=>{\n${withoutExports(read('records.js'))}\nreturn {renderEmployees,renderViolations,employeeLoadState};})();\n`;
+script += `const {recordChoice,recordDateFilter,recordToolbar,handleRecordFilterToggle,closeRecordFilters}=(()=>{\n${withoutExports(read('record-ui.js'))}\nreturn {recordChoice,recordDateFilter,recordToolbar,handleRecordFilterToggle,closeRecordFilters};})();\n`;
+script += `const {employeeCreationTime,isNewEmployee,employeeDateErrors,retryEmployeeDates,ensureEmployeeDates}=(()=>{\n${withoutExports(read('employee-new.js'))}\nreturn {employeeCreationTime,isNewEmployee,employeeDateErrors,retryEmployeeDates,ensureEmployeeDates};})();\n`;
+script += `const {renderEmployees,renderViolations,renderTypesList,employeeLoadState}=(()=>{\n${withoutExports(read('records.js'))}\nreturn {renderEmployees,renderViolations,renderTypesList,employeeLoadState};})();\n`;
 script += `const {renderReports,renderHistory}=(()=>{\n${withoutExports(read('insights.js'))}\nreturn {renderReports,renderHistory};})();\n`;
 script += `const {renderSecondary,handleSecondary}=(()=>{\n${withoutExports(read('secondary.js'))}\nreturn {renderSecondary,handleSecondary};})();\n`;
 script += `const {renderDashboard}=(()=>{\n${withoutExports(read('dashboard.js'))}\nreturn {renderDashboard};})();\n`;
@@ -59,7 +61,7 @@ script = script.replace(/<\/script/gi, '<\\/script');
 const html = read('index.html')
   .replace('<meta charset="utf-8">', `<meta charset="utf-8">\n  <script src="./config.js"></script>\n  <!-- DM Sans is bundled under the SIL Open Font License. See src/assets/fonts/OFL.txt. -->`)
   .replace('<link rel="icon" type="image/png" href="./assets/company-logo.png">', `<link rel="icon" type="image/png" href="${favicon}">`)
-  .replace(/^[ \t]*<link rel="stylesheet" href="\.\/photos\.css">\r?\n/m, '')
+  .replace(/^[ \t]*<link rel="stylesheet" href="\.\/(?:photos|compact-records)\.css">\r?\n/gm, '')
   .replace('<link rel="stylesheet" href="./styles.css">', `<style>\n${styles}\n</style>`)
   .replace('<script type="module" src="./app.js"></script>', `<script>\n${script}\n</script>`)
   .replace('</body>', `<script type="text/plain" id="dm-sans-font-license">\n${read('assets/fonts/OFL.txt').replace(/<\/script/gi, '<\\/script')}\n</script>\n</body>`);

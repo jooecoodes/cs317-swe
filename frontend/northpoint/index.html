@@ -140,6 +140,40 @@ dialog.calendar-digest-dialog{max-width:calc(100vw - 24px)}
 .np-photo-activity-layout .callout{margin:16px;overflow-wrap:anywhere}
 @media(max-width:680px){.np-photo-activity-layout .np-photo-pagination>div{width:100%}.np-photo-activity-layout .np-photo-pagination .button:first-child{flex-basis:100%}}
 
+/* Compact directory views; scoped so reports and profile tables keep their layout. */
+.record-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:0 0 17px;padding:0;border:0;background:transparent;position:relative;z-index:5}
+.record-search{display:flex;align-items:center;gap:9px;border:1px solid #dce3eb;background:#fff;border-radius:9px;padding:0 12px;flex:1 1 190px;min-width:190px;max-width:290px;color:#8090a0}.record-search-submit{display:flex;align-items:center;justify-content:center;min-height:40px;padding:0;border:0;background:none;color:#8090a0;flex-shrink:0}
+.record-search input{border:0;background:none;padding:10px 0;min-height:42px;box-shadow:none;font-size:14px;width:100%;min-width:0}
+.record-search:focus-within{outline:2px solid #638bb8;outline-offset:2px}.record-search input:focus{outline:0;box-shadow:none}
+.record-filter-controls{display:flex;align-items:center;flex-wrap:wrap;gap:8px;flex:1 1 auto}
+.record-filter{position:relative;min-width:0;margin:0;padding:0;border:0}.record-filter>summary{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:42px;max-width:200px;padding:9px 12px;border:1px solid #dce3eb;background:#fff;border-radius:9px;font-size:13px;color:#45586e;cursor:pointer;list-style:none}
+.record-filter>summary::-webkit-details-marker{display:none}.record-filter>summary span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.record-filter>summary svg{flex-shrink:0}.record-filter[open]>summary{border-color:#86a6c9;background:#f6f9fc}
+.record-filter-popup{position:absolute;left:0;top:calc(100% + 7px);width:min(290px,calc(100vw - 40px));z-index:30;border:1px solid #d8e2ec;border-radius:12px;background:#fff;box-shadow:0 10px 28px #25496b20;overflow:hidden}
+.record-filter-heading{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid #e9eef4;font-size:14px}.record-filter-heading .icon-button{width:32px;height:32px;min-height:32px;min-width:32px}
+.record-filter-options{max-height:min(320px,48dvh);overflow-y:auto;overscroll-behavior:contain;padding:5px}
+.record-filter-option{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px 11px;min-height:44px;font-size:14px;color:#344c64;line-height:1.5;border-radius:6px;cursor:pointer}
+.record-filter-option:hover{background:#f3f6fa}.record-filter-option input{width:17px;height:17px;min-height:0;flex-shrink:0;accent-color:#527ca9;margin:0}.record-filter-option:has(input:disabled){opacity:.5;cursor:default}
+.record-date-fields{display:grid;gap:14px;padding:15px}.record-date-fields input{min-height:43px;font-size:14px}.record-toolbar-actions{display:flex;gap:7px;margin-left:auto}.record-toolbar-actions .button{min-height:42px;padding:9px 13px;font-size:13px}.record-toolbar>.form-error{flex-basis:100%;margin:0}
+.compact-records{border-radius:10px}.compact-records .panel-header{padding:15px 16px;min-height:0;border-bottom:1px solid #e7edf3;gap:12px}.compact-records .panel-header h2{font-size:16px;font-weight:600}.compact-records .panel-header>.muted{font-size:12px}.compact-records .count-label{font-size:11px;padding:3px 7px;background:#f1f4f7;color:#647589;border-radius:5px}
+.compact-records table{font-size:13px;min-width:760px}.compact-records th{padding:10px 14px;background:#f7f8fa;font-size:12px;font-weight:500;color:#5a6877;border-bottom:1px solid #e5eaf0}.compact-records td{padding:10px 14px;font-size:13px;color:#36495d;line-height:1.5;border-bottom:1px solid #edf0f4}.compact-records tbody tr{background:transparent}.compact-records tbody tr:hover{background:#f6f9fc}
+.compact-records .record-person{display:inline-flex;flex-direction:column;align-items:flex-start;border:0;background:none;padding:2px 0;color:#34475a;text-align:left;min-height:0;line-height:1.5;max-width:280px}
+.record-person-name{display:inline-flex;align-items:baseline;gap:6px;max-width:240px;font-size:14px;font-weight:500;overflow-wrap:anywhere}.record-name-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.compact-records td:first-child{min-width:240px}.record-department{display:block;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.record-person:hover .record-person-name,.record-person:focus-visible .record-person-name{color:#285c92;text-decoration:underline;text-underline-offset:3px}
+.record-person-code,.record-secondary{display:block;font-size:12px;color:#7a8898;margin-top:2px;line-height:1.45}.compact-records .type-description{max-width:340px;font-size:12px;line-height:1.5}.record-action{display:inline-flex;align-items:center;gap:4px;border:0;background:none;color:#5b6f83;font-size:12px;line-height:1.5;white-space:nowrap;min-height:30px;padding:3px 0}.record-action:hover{color:#285c92;text-decoration:underline;text-underline-offset:3px}
+.record-person:focus-visible,.record-action:focus-visible,.record-filter>summary:focus-visible{outline:2px solid #638bb8;outline-offset:3px;border-radius:4px}
+.compact-records .pill{font-size:11px;padding:2px 7px;font-weight:500}.compact-records .row-actions{gap:12px}.compact-records .row-actions>.icon-button{width:30px;height:30px;min-height:30px;min-width:30px}.record-inline-strike{display:inline-block;margin-left:6px;font-size:11px;color:#966436;white-space:nowrap}.record-points{white-space:nowrap}
+.employee-new-label{display:inline-block;margin-left:5px;flex-shrink:0;font-size:11px;font-weight:500;color:#398069;white-space:nowrap;text-decoration:none}.record-person-name .employee-new-label{margin-left:0}.record-label-error{padding:10px 16px;color:#7b6547;font-size:12px}.record-label-error .text-button{font-size:inherit}
+.compact-records .table-footer{padding:12px 16px;font-size:12px}.compact-records .pagination button{min-height:30px;min-width:30px;width:30px;height:30px}
+@media(max-width:900px){
+ .record-toolbar{gap:9px;margin-bottom:16px;align-items:flex-start}.record-search{flex-basis:100%;max-width:none}.record-search input{font-size:16px;min-height:46px}.record-filter-controls{gap:7px;flex:1 1 180px}.record-filter>summary{font-size:13px;min-height:44px;max-width:170px;padding:9px 11px}.record-toolbar-actions{gap:8px}.record-toolbar-actions .button{min-height:44px;padding:9px 15px}
+ .type-directory table{min-width:760px}.compact-records .table-footer{padding:12px 14px}.compact-records .pagination button{min-width:38px;min-height:40px;width:38px;height:40px}.compact-records .panel-header{padding:14px 15px;flex-wrap:wrap}
+}
+.larger-text .compact-records td,.larger-text .record-person-name,.larger-text .record-filter-option{font-size:17px}.larger-text .record-secondary,.larger-text .record-person-code{font-size:14px}
+
+.compact-record-scroll{max-width:100%;overflow-x:auto;overscroll-behavior-x:contain;touch-action:pan-x pan-y;scrollbar-width:thin}
+.compact-record-scroll:focus-visible{outline:2px solid #638bb8;outline-offset:-2px}
+.record-scroll-hint{display:none}
+@media(max-width:900px){.record-scroll-hint{display:block;margin:0;padding:9px 15px;color:#65798d;font-size:12px;border-bottom:1px solid #e7edf3}.compact-record-scroll th{white-space:nowrap}.compact-records .record-person,.compact-records .record-action{min-height:44px}.compact-records .row-actions>.icon-button{min-height:44px;min-width:44px}.compact-records td{padding-top:6px;padding-bottom:6px}}
+
 </style>
 </head>
 <body>
@@ -1008,83 +1042,104 @@ function historyEvents(store, employees, violations, filters = {}) {
 }
 
 return {sortEmployeeRecords,analyticsData,historyEvents};})();
-const {renderEmployees,renderViolations,employeeLoadState}=(()=>{
-
-
-const unique = values => [...new Set(values.filter(Boolean))].sort();
-function options(values, current, all, esc) {
-  return `<option value="">${esc(all)}</option>${values.map(value => `<option value="${esc(value)}" ${value === current ? 'selected' : ''}>${esc(value)}</option>`).join('')}`;
+const {recordChoice,recordDateFilter,recordToolbar,handleRecordFilterToggle,closeRecordFilters}=(()=>{
+function recordChoice(name,label,choices,current,esc,icon){
+ const selected=choices.find(choice=>choice[0]===current)||choices[0];
+ return `<details class="record-filter"><summary><span>${esc(selected[1])}</span>${icon('chevron-down',14)}</summary><div class="record-filter-popup"><div class="record-filter-heading"><strong>${esc(label)}</strong><button type="button" class="icon-button" data-action="close-record-filter" aria-label="Close ${esc(label)} filter">${icon('close',16)}</button></div><div class="record-filter-options">${choices.map(([value,text,disabled])=>`<label class="record-filter-option"><span>${esc(text)}</span><input type="radio" name="${name}" value="${esc(value)}" ${value===selected[0]?'checked':''} ${disabled?'disabled':''}></label>`).join('')}</div></div></details>`;
 }
-function empty(icon) { return `<div class="empty-state">${icon('search', 30)}<h3>No records found</h3><p>Try adjusting your search or clearing the filters.</p></div>`; }
-
-function employeeLoadState(directory, icon, esc) {
-  if (directory.status === 'error') return `<div class="empty-state" role="alert">${icon('alert', 30)}<h3>Couldn’t load employees</h3><p>${esc(directory.error)}</p><button class="button primary" data-action="retry-employees" style="margin-top:18px">${icon('refresh', 17)} Try again</button></div>`;
-  return loadingSkeleton('rows', 'employees');
+function recordDateFilter(f,esc,icon){
+ return `<details class="record-filter"><summary><span>${f.from||f.to?'Date range applied':'Incident date'}</span>${icon('chevron-down',14)}</summary><div class="record-filter-popup"><div class="record-filter-heading"><strong>Incident date</strong><button class="icon-button" type="button" data-action="close-record-filter" aria-label="Close date filter">${icon('close',16)}</button></div><div class="record-date-fields"><div class="field"><label for="violation-from">From date</label><input id="violation-from" type="date" name="from" value="${esc(f.from||'')}"></div><div class="field"><label for="violation-to">To date</label><input id="violation-to" type="date" name="to" value="${esc(f.to||'')}"></div><button class="button secondary" type="submit">Apply dates</button></div></div></details>`;
 }
-
-function renderEmployees(ctx) {
-  const { esc, icon, badge, employeeSummary, visibleEmployees, person, pagination } = ctx;
-  const f = ctx.getFilters('employees');
-  const directory = ctx.employeeDirectory;
-  const pending = directory && directory.status !== 'ready';
-  const all = visibleEmployees();
-  let employees = all.filter(employee => {
-    const summary = employeeSummary(employee.id);
-    return (!f.query || `${employee.name} ${employee.id}`.toLowerCase().includes(f.query.toLowerCase())) && (!f.department || employee.department === f.department) &&
-      (!f.status || employee.status === f.status) && (!f.strikes || (f.strikes === 'watchlist' ? summary.strikes >= 2 : f.strikes === 'any' ? summary.total > 0 : summary.total === 0));
-  });
-  employees = sortEmployeeRecords(employees, employeeSummary, f.order);
-  const total = employees.length;
-  const page = Math.min(ctx.page, Math.max(1, Math.ceil(total / 8)));
-  ctx.setPage(page);
-  employees = employees.slice((page - 1) * 8, page * 8);
-  const orderOptions = [['newest', 'Most recent first'], ['oldest', 'Least recent first'], ['points', 'Demerit points: high to low'], ['points-low', 'Demerit points: low to high'], ['strikes', 'Most strikes first'], ['name', 'Name: A to Z'], ['name-desc', 'Name: Z to A']];
-  const desktop = `<div class="desktop-records table-wrap"><table><thead><tr><th>Employee</th><th>Department / Position</th><th>Status</th><th>Demerit Points</th><th>Strikes</th><th>Actions</th></tr></thead><tbody>${employees.map(employee => {
-    const summary = employeeSummary(employee.id);
-    return `<tr><td>${person(employee)}</td><td>${esc(employee.department || 'Unassigned')}<div class="person-id">${esc(employee.position || 'Not provided')}</div></td><td>${badge(employee.status)}</td><td><strong>${summary.points}</strong></td><td>${summary.strikes ? badge(`${summary.strikes} ${summary.strikes === 1 ? 'Strike' : 'Strikes'}`) : '<span class="muted">0 Strikes</span>'}</td><td><button class="button ghost small" data-action="profile" data-id="${esc(employee.profileId || employee.id)}">View Profile ${icon('chevron-right', 15)}</button></td></tr>`;
-  }).join('')}</tbody></table></div>`;
-  const phone = `<div class="mobile-record-list" aria-label="Employee records">${employees.map(employee => {
-    const summary = employeeSummary(employee.id);
-    return `<details class="record-disclosure"><summary><span class="record-summary"><strong>${esc(employee.name)}</strong><span class="record-code">${esc(employee.id)}</span><span class="record-category">${esc(employee.department || 'Unassigned')}</span></span><span class="record-chevron" aria-hidden="true">${icon('chevron-down', 21)}</span></summary><div class="record-expanded"><dl><div><dt>Status</dt><dd>${badge(employee.status)}</dd></div><div><dt>Demerit Points</dt><dd>${summary.points}</dd></div><div><dt>Strikes</dt><dd>${summary.strikes}</dd></div></dl><button class="button secondary full" data-action="profile" data-id="${esc(employee.profileId || employee.id)}">View Profile ${icon('chevron-right', 17)}</button></div></details>`;
-  }).join('')}</div>`;
-  return `${ctx.store.settings.role === 'Supervisor' ? `<div class="callout">${icon('info')}<p>You are viewing employees in <strong>${esc(ctx.store.settings.department)}</strong>, your assigned department.</p></div>` : ''}
-    <form id="employee-filters" class="filters">
-      <div class="field span-2"><label for="employee-query">Find an employee</label><input id="employee-query" name="query" placeholder="Search by name or employee ID" value="${esc(f.query || '')}"></div>
-      <div class="field"><label for="employee-department">Department</label><select id="employee-department" name="department">${options(unique(all.map(employee => employee.department)), f.department, 'All departments', esc)}</select></div>
-      <div class="field"><label for="employee-status">Employment status</label><select id="employee-status" name="status">${options(['Active', 'Inactive'], f.status, 'All statuses', esc)}</select></div>
-      <div class="field"><label for="employee-strikes">Violation history</label><select id="employee-strikes" name="strikes"><option value="">All employees</option>${[['watchlist', '2 or more strikes'], ['any', 'With violations'], ['clean', 'No violations']].map(([value, name]) => `<option value="${value}" ${!ctx.store.recordsReady && ['any','clean'].includes(value) ? 'disabled title="Violation history is still loading or unavailable"' : ''} ${f.strikes === value ? 'selected' : ''}>${name}</option>`).join('')}</select></div>
-      <div class="filter-actions" style="grid-column:span 2"><button class="button ghost" type="button" data-action="clear-filters" data-page="employees">Clear Filters</button><button class="button primary" type="submit">${icon('search', 17)} Search</button></div>
-    </form><section class="panel employee-directory" aria-busy="${pending && directory.status !== 'error' ? 'true' : 'false'}"><div class="panel-header"><h2>Employee directory <span class="count-label">${pending ? directory.status === 'error' ? 'Unavailable' : 'Loading…' : total + ' employees'}</span></h2><div class="directory-order field"><label for="employee-order">Order by</label><select id="employee-order" ${pending ? 'disabled' : ''}>${orderOptions.map(([value, name]) => `<option value="${value}" ${(f.order || 'newest') === value ? 'selected' : ''}>${name}</option>`).join('')}</select></div></div>${pending ? employeeLoadState(directory,icon,esc) : employees.length ? desktop + phone : directory && !all.length ? '<div class="empty-state"><h3>No employees returned</h3><p>The employee API returned an empty list.</p></div>' : empty(icon)}${pending ? '' : pagination(total, page, 8, 'employees')}</section>`;
+function recordToolbar(id,page,query,placeholder,controls,esc,icon){
+ return `<form id="${id}" class="record-toolbar" aria-label="${page==='types'?'Violation type':page==='employees'?'Employee':'Violation'} search and filters"><div class="record-search"><label class="sr-only" for="${page}-query">${esc(placeholder)}</label><button class="record-search-submit" type="submit" aria-label="Search ${page==='types'?'violation types':page}">${icon('search',17)}</button><input id="${page}-query" name="query" type="search" value="${esc(query||'')}" placeholder="${esc(placeholder)}" autocomplete="off"></div><div class="record-filter-controls">${controls}</div><div class="record-toolbar-actions"><button class="button ghost small" type="button" data-action="clear-filters" data-page="${page}">Clear</button></div>${page==='violations'?'<p id="filter-error" class="form-error" role="alert"></p>':''}</form>`;
+}
+function handleRecordFilterToggle(event){
+ const details=event.target;if(!details.matches?.('.record-filter')||!details.open)return;
+ document.querySelectorAll('.record-filter[open]').forEach(other=>{if(other!==details)other.open=false;});
+ const popup=details.querySelector('.record-filter-popup');popup.style.transform='';
+ const rect=popup.getBoundingClientRect(),width=globalThis.innerWidth;
+ const shift=rect.right>width-16?width-16-rect.right:rect.left<16?16-rect.left:0;
+ if(shift)popup.style.transform=`translateX(${shift}px)`;
+}
+function closeRecordFilters(target){
+ document.querySelectorAll('.record-filter[open]').forEach(details=>{if(!details.contains(target))details.open=false;});
 }
 
-function renderViolations(ctx) {
-  const { store, esc, icon, person, badge, formatDate, violationBadge, violationStatusOptions, pagination } = ctx;
-  const f = ctx.getFilters('violations');
-  let records = ctx.visibleViolations().filter(record => {
-    const employee = store.employees.find(employee => employee.id === record.employeeId);
-    return (!f.query || `${employee?.name} ${record.id} ${record.employeeId}`.toLowerCase().includes(f.query.toLowerCase())) && (!f.department || employee?.department === f.department) &&
-      (!f.type || record.typeId === f.type) && (!f.from || record.date >= f.from) && (!f.to || record.date <= f.to) && (!f.strike || record.strike);
-  }).sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
-  const total = records.length;
-  const page = Math.min(ctx.page, Math.max(1, Math.ceil(total / 8)));
-  ctx.setPage(page);
-  records = records.slice((page - 1) * 8, page * 8);
-  const desktop = `<div class="desktop-records table-wrap"><table><thead><tr><th>Employee</th><th>Violation / Case number</th><th>Demerit Points</th><th>Strike</th><th>Incident date</th><th>Recorded by</th><th>Action</th></tr></thead><tbody>${records.map(record => `<tr><td>${person(store.employees.find(employee => employee.id === record.employeeId))}</td><td>${esc(record.typeName)}<div class="person-id">${esc(record.id)}</div></td><td>${record.points}</td><td>${record.strike ? badge('Strike Violation') : 'No'}</td><td>${formatDate(record.date)}</td><td>${esc(record.recordedBy)}</td><td><button class="button ghost small" data-action="case-details" data-id="${esc(record.id)}">View Case ${icon('chevron-right', 14)}</button></td></tr>`).join('')}</tbody></table></div>`;
-  const phone = `<div class="mobile-record-list" aria-label="Violation records">${records.map(record => {
-    const employee = store.employees.find(employee => employee.id === record.employeeId);
-    return `<details class="record-disclosure"><summary><span class="record-summary"><strong>${esc(employee.name)}</strong><span class="record-code">${esc(employee.id)}</span><span class="record-category">${esc(record.typeName)}</span></span><span class="record-chevron" aria-hidden="true">${icon('chevron-down', 21)}</span></summary><div class="record-expanded"><dl><div><dt>Case number</dt><dd>${esc(record.id)}</dd></div><div><dt>Demerit Points</dt><dd>${record.points}</dd></div><div><dt>Strike</dt><dd>${record.strike ? 'Yes' : 'No'}</dd></div><div><dt>Incident Date</dt><dd>${formatDate(record.date)}</dd></div><div><dt>Recorded by</dt><dd>${esc(record.recordedBy)}</dd></div></dl><button class="button secondary full" data-action="case-details" data-id="${esc(record.id)}">View Case ${icon('chevron-right', 17)}</button></div></details>`;
-  }).join('')}</div>`;
-  return `<form id="violation-filters" class="filters">
-      <div class="field"><label for="violation-query">Employee or case number</label><input id="violation-query" name="query" value="${esc(f.query || '')}" placeholder="Search name or case number"></div>
-      <div class="field"><label for="violation-department">Department</label><select id="violation-department" name="department">${options(unique(ctx.visibleEmployees().map(employee => employee.department)), f.department, 'All departments', esc)}</select></div>
-      <div class="field"><label for="violation-type-filter">Violation type</label><select id="violation-type-filter" name="type"><option value="">All violation types</option>${store.types.map(type => `<option value="${esc(type.id)}" ${f.type === type.id ? 'selected' : ''}>${esc(type.name)}</option>`).join('')}</select></div>
-      <div class="field"><label for="violation-from">From date</label><input id="violation-from" type="date" name="from" value="${esc(f.from || '')}"></div><div class="field"><label for="violation-to">To date</label><input id="violation-to" type="date" name="to" value="${esc(f.to || '')}"></div>
-      <div class="check-field"><input id="strike-only" type="checkbox" name="strike" ${f.strike ? 'checked' : ''}><label for="strike-only">Strike violations only</label></div>
-      <div class="filter-actions" style="grid-column:auto"><button class="button ghost" type="button" data-action="clear-filters" data-page="violations">Clear Filters</button><button class="button primary" type="submit">${icon('search', 17)} Search</button></div><p id="filter-error" class="form-error span-full" role="alert"></p>
-    </form><section class="panel violation-directory"><div class="panel-header"><h2>Violation records <span class="count-label">${total} records</span></h2><span class="muted">Most recent first</span></div>${records.length ? desktop + phone : empty(icon)}${pagination(total, page, 8, 'violations')}</section>`;
+return {recordChoice,recordDateFilter,recordToolbar,handleRecordFilterToggle,closeRecordFilters};})();
+const {employeeCreationTime,isNewEmployee,employeeDateErrors,retryEmployeeDates,ensureEmployeeDates}=(()=>{
+
+const creationDates=new Map();
+let newLabelTimer;
+function employeeCreationTime(value){
+ if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}T/.test(value))return NaN;
+ // app1 stores UTC; SQLite may return its timestamp without an offset.
+ return Date.parse(/(?:Z|[+-]\d\d:\d\d)$/i.test(value)?value:value+'Z');
+}
+function isNewEmployee(employee,now=Date.now()){
+ const value=employee.createdAt||creationDates.get(employee.apiId)?.value;
+ const age=now-employeeCreationTime(value);return age>=0&&age<86400000;
+}
+function employeeDateErrors(employees){return employees.some(e=>creationDates.get(e.apiId)?.status==='error');}
+function retryEmployeeDates(){for(const [key,value] of creationDates)if(value.status==='error')creationDates.delete(key);}
+function ensureEmployeeDates(employees,onChange){
+ clearTimeout(newLabelTimer);
+ const now=Date.now(),expires=employees.filter(e=>isNewEmployee(e,now)).map(e=>employeeCreationTime(e.createdAt||creationDates.get(e.apiId)?.value)+86400000);
+ if(expires.length){newLabelTimer=setTimeout(onChange,Math.min(...expires)-now+5);newLabelTimer.unref?.();}
+ const pending=employees.filter(e=>e.apiId&&!e.createdAt&&!creationDates.has(e.apiId)).map(async employee=>{
+  creationDates.set(employee.apiId,{status:'loading'});
+  try{
+   const raw=await apiRequest('/employees/'+encodeURIComponent(employee.apiId));
+   if(String(raw?.id)!==employee.apiId||raw.created_at!=null&&!Number.isFinite(employeeCreationTime(raw.created_at)))throw Error('Invalid employee creation date');
+   creationDates.set(employee.apiId,{status:'ready',value:raw.created_at||null});
+  }catch{creationDates.set(employee.apiId,{status:'error'});}
+ });
+ if(pending.length)void Promise.all(pending).then(onChange);
 }
 
-return {renderEmployees,renderViolations,employeeLoadState};})();
+return {employeeCreationTime,isNewEmployee,employeeDateErrors,retryEmployeeDates,ensureEmployeeDates};})();
+const {renderEmployees,renderViolations,renderTypesList,employeeLoadState}=(()=>{
+
+
+
+
+const unique=values=>[...new Set(values.filter(Boolean))].sort();
+function empty(icon){return `<div class="empty-state">${icon('search',28)}<h3>No records found</h3><p>Try another search or clear the filters.</p></div>`;}
+const newLabel=employee=>isNewEmployee(employee)?'<span class="employee-new-label">[New!]</span>':'';
+function recordPerson(employee,esc,{code=true,fresh=false}={}){
+ return `<button class="record-person" data-action="profile" data-id="${esc(employee.profileId||employee.id)}" title="${esc(employee.name)}"><span class="record-person-name"><span class="record-name-text">${esc(employee.name)}</span>${fresh?newLabel(employee):''}</span>${code?`<span class="record-person-code">${esc(employee.id)}</span>`:''}</button>`;
+}
+function demerits(record){return `<span class="record-points">${record.points}${record.strike?' <span class="record-inline-strike">[Strike]</span>':''}</span>`;}
+function employeeLoadState(directory,icon,esc){
+ if(directory.status==='error')return `<div class="empty-state" role="alert">${icon('alert',28)}<h3>Couldn’t load employees</h3><p>${esc(directory.error)}</p><button class="button secondary" data-action="retry-employees">Try again</button></div>`;
+ return loadingSkeleton('rows','employees');
+}
+function renderEmployees(ctx){
+ const {esc,icon,badge,employeeSummary,visibleEmployees,pagination}=ctx,f=ctx.getFilters('employees'),directory=ctx.employeeDirectory,pending=directory&&directory.status!=='ready',all=visibleEmployees();
+ let employees=all.filter(employee=>{const summary=employeeSummary(employee.id);return (!f.query||`${employee.name} ${employee.id}`.toLowerCase().includes(f.query.toLowerCase()))&&(!f.department||employee.department===f.department)&&(!f.status||employee.status===f.status)&&(!f.strikes||(f.strikes==='watchlist'?summary.strikes>=2:f.strikes==='any'?summary.total>0:summary.total===0));});
+ employees=sortEmployeeRecords(employees,employeeSummary,f.order);
+ const total=employees.length,page=Math.min(ctx.page,Math.max(1,Math.ceil(total/8)));ctx.setPage(page);employees=employees.slice((page-1)*8,page*8);
+ if(!pending)ctx.ensureCreationDates?.(employees);
+ const choices=(name,label,values,current)=>recordChoice(name,label,values,current||'',esc,icon);
+ const controls=choices('department','Department',[['','All departments'],...unique(all.map(e=>e.department)).map(d=>[d,d])],f.department)+choices('status','Employment status',[['','All statuses'],['Active','Active'],['Inactive','Inactive']],f.status)+choices('strikes','Violation history',[['','All employees'],['watchlist','2 or more strikes'],['any','With violations',!ctx.store.recordsReady],['clean','No violations',!ctx.store.recordsReady]],f.strikes)+choices('order','Order by',[['newest','Most recent first'],['oldest','Least recent first'],['points','Demerit: high to low'],['points-low','Demerit: low to high'],['strikes','Most strikes first'],['name','Name: A to Z'],['name-desc','Name: Z to A']],f.order||'newest');
+ const table=`<p class="record-scroll-hint">Swipe left or right to see all columns</p><div class="table-wrap compact-record-scroll" role="region" aria-label="Employee directory, scroll horizontally" tabindex="0"><table data-phone-layout="table"><thead><tr><th>Employee</th><th>Department / Position</th><th>Total Demerit Points</th><th>Status</th><th>Strikes</th><th>Actions</th></tr></thead><tbody>${employees.map(employee=>{const summary=employeeSummary(employee.id);return `<tr><td>${recordPerson(employee,esc,{fresh:true})}</td><td><span class="record-department" title="${esc(employee.department||'Unassigned')}">${esc(employee.department||'Unassigned')}</span><span class="record-secondary">${esc(employee.position||'Not provided')}</span></td><td>${summary.points}</td><td>${badge(employee.status)}</td><td>${summary.strikes}</td><td><button class="record-action" data-action="profile" data-id="${esc(employee.profileId||employee.id)}">View Profile ${icon('chevron-right',13)}</button></td></tr>`;}).join('')}</tbody></table></div>`;
+ return `${ctx.store.settings.role==='Supervisor'?`<div class="callout"><p>Employees in <strong>${esc(ctx.store.settings.department)}</strong></p></div>`:''}${recordToolbar('employee-filters','employees',f.query,'Search name or employee ID',controls,esc,icon)}<section class="panel compact-records employee-directory" aria-busy="${pending&&directory.status!=='error'}"><div class="panel-header"><h2>Employee directory <span class="count-label">${pending?directory.status==='error'?'Unavailable':'Loading…':total+' employees'}</span></h2></div>${pending?employeeLoadState(directory,icon,esc):employees.length?table:directory&&!all.length?'<div class="empty-state"><h3>No employees returned</h3><p>The employee API returned an empty list.</p></div>':empty(icon)}${employeeDateErrors(employees)?'<p class="record-label-error" role="status">Some new employee labels could not be checked. <button class="text-button" data-action="retry-employee-labels">Retry</button></p>':''}${pending?'':pagination(total,page,8,'employees')}</section>`;
+}
+function renderViolations(ctx){
+ const {store,esc,icon,badge,formatDate,pagination}=ctx,f=ctx.getFilters('violations');
+ let records=ctx.visibleViolations().filter(record=>{const employee=store.employees.find(e=>e.id===record.employeeId);return (!f.query||`${employee?.name} ${record.id} ${record.employeeId} ${record.typeName}`.toLowerCase().includes(f.query.toLowerCase()))&&(!f.department||employee?.department===f.department)&&(!f.type||record.typeId===f.type)&&(!f.from||record.date>=f.from)&&(!f.to||record.date<=f.to)&&(!f.strike||record.strike);}).sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id));
+ const total=records.length,page=Math.min(ctx.page,Math.max(1,Math.ceil(total/8)));ctx.setPage(page);records=records.slice((page-1)*8,page*8);
+ const choices=(name,label,values,current)=>recordChoice(name,label,values,current||'',esc,icon);
+ const controls=choices('department','Department',[['','All departments'],...unique(ctx.visibleEmployees().map(e=>e.department)).map(d=>[d,d])],f.department)+choices('type','Violation type',[['','All violation types'],...store.types.map(t=>[t.id,t.name])],f.type)+recordDateFilter(f,esc,icon)+choices('strike','Strike filter',[['','All violations'],['on','Strike violations only']],f.strike?'on':'');
+ const table=`<p class="record-scroll-hint">Swipe left or right to see all columns</p><div class="table-wrap compact-record-scroll" role="region" aria-label="Violation records, scroll horizontally" tabindex="0"><table data-phone-layout="table"><thead><tr><th>Employee</th><th>Violation</th><th>Demerit Points</th><th>Incident date</th><th>Recorded by</th><th>Action</th></tr></thead><tbody>${records.map(record=>`<tr><td>${recordPerson(store.employees.find(e=>e.id===record.employeeId),esc,{code:false})}</td><td>${esc(record.typeName)}</td><td>${demerits(record)}</td><td>${formatDate(record.date)}</td><td>${esc(record.recordedBy)}</td><td><button class="record-action" data-action="case-details" data-id="${esc(record.id)}">View Case ${icon('chevron-right',13)}</button></td></tr>`).join('')}</tbody></table></div>`;
+ return recordToolbar('violation-filters','violations',f.query,'Search employee, violation, or case',controls,esc,icon)+`<section class="panel compact-records violation-directory"><div class="panel-header"><h2>Violation records <span class="count-label">${total} records</span></h2><span class="muted">Most recent first</span></div>${records.length?table:empty(icon)}${pagination(total,page,8,'violations')}</section>`;
+}
+function renderTypesList(ctx){
+ const {store,esc,icon,badge}=ctx,f=ctx.getFilters('types'),types=store.types.filter(t=>(!f.query||`${t.name} ${t.description}`.toLowerCase().includes(f.query.toLowerCase()))&&(!f.status||(f.status==='active'?t.active:!t.active)));
+ const controls=recordChoice('status','Status',[['','All statuses'],['active','Active'],['inactive','Inactive']],f.status||'',esc,icon);
+ return recordToolbar('type-filters','types',f.query,'Search violation name or description',controls,esc,icon)+`<section class="panel compact-records type-directory"><div class="panel-header"><h2>Violation categories <span class="count-label">${types.length} categories</span></h2></div>${types.length?`<p class="record-scroll-hint">Swipe left or right to see all columns</p><div class="table-wrap compact-record-scroll" role="region" aria-label="Violation types, scroll horizontally" tabindex="0"><table data-phone-layout="table"><thead><tr><th>Violation Name / Description</th><th>Demerit Points</th><th>Strike Violation</th><th>Status</th><th>Manage</th></tr></thead><tbody>${types.map(t=>`<tr><td><button class="record-person" data-action="edit-type" data-id="${esc(t.id)}"><span class="record-person-name">${esc(t.name)}</span></button><span class="record-secondary type-description">${esc(t.description)}</span></td><td>${t.points}</td><td>${t.strike?'Yes':'No'}</td><td>${badge(t.active?'Active':'Inactive')}</td><td><div class="row-actions"><button class="record-action" data-action="edit-type" data-id="${esc(t.id)}">Edit</button><button class="record-action" data-action="toggle-type" data-id="${esc(t.id)}">${t.active?'Deactivate':'Reactivate'}</button>${!store.violations.some(v=>v.typeId===t.id)?`<button class="icon-button" data-action="delete-type" data-id="${esc(t.id)}" aria-label="Delete ${esc(t.name)}">${icon('trash',15)}</button>`:''}</div></td></tr>`).join('')}</tbody></table></div>`:empty(icon)}</section>`;
+}
+
+return {renderEmployees,renderViolations,renderTypesList,employeeLoadState};})();
 const {renderReports,renderHistory}=(()=>{
 
 
@@ -1360,10 +1415,6 @@ function renderDashboard(ctx) {
         return `<button class="dashboard-activity-item" data-action="case-details" data-id="${esc(violation.id)}"><span class="avatar" aria-hidden="true">${esc(initials)}</span><span class="dashboard-activity-content"><span class="dashboard-activity-title"><strong>${esc(employee.name)}</strong>${violation.strike ? '<span class="pill danger">Strike</span>' : ''}</span><span class="dashboard-activity-detail">${esc(violation.typeName)} · +${violation.points} pts</span></span><span class="dashboard-activity-time">${daysAgo(violation.date)}</span></button>`;
       }).join('')}</div>` : `<div class="empty-state">${icon('clock', 28)}<h3>No recent violations</h3><p>Violations issued in the last 14 days will appear here.</p></div>`)}<div class="panel-link-footer"><button class="button ghost" data-action="navigate" data-page="history">View History ${icon('arrow', 17)}</button></div></section>
     </div>
-    <div class="dashboard-detail-row">
-      <section class="panel top-offenders-panel"><div class="panel-header"><div><h2 id="top-offenders-title">Top Offenders</h2><p>Top 5 employees by total demerit points</p><span class="table-scroll-hint" id="top-offenders-scroll-hint">Swipe left or right to see all columns</span></div></div>${summary.topOffenders.length ? `<div class="table-wrap top-offenders-scroll" role="region" tabindex="0" aria-labelledby="top-offenders-title" aria-describedby="top-offenders-scroll-hint"><table data-phone-layout="table"><thead><tr><th>Employee</th><th>Total Points</th><th>Strikes</th></tr></thead><tbody>${summary.topOffenders.map(employee => `<tr><td><button class="person-button" data-action="profile" data-id="${esc(employee.id)}"><span><span class="person-name">${esc(employee.name)}</span><span class="person-id" style="display:block">${esc(employee.id)}</span></span></button></td><td><strong>${employee.points}</strong></td><td>${employee.strikes ? badge(`${employee.strikes} ${employee.strikes === 1 ? 'Strike' : 'Strikes'}`) : '<span class="muted">0 Strikes</span>'}</td></tr>`).join('')}</tbody></table></div>` : `<div class="empty-state"><h3>No violations recorded</h3><p>Employees with recorded points will appear here.</p></div>`}</section>
-      <section class="panel department-rollup-panel"><div class="panel-header"><div><h2 id="dashboard-departments">Department Rollup</h2><p>Employee and violation totals by department</p><span class="horizontal-scroll-hint">Swipe left or right to see all columns</span></div></div>${summary.departments.length ? `<div class="table-wrap department-scroll" role="region" tabindex="0" aria-labelledby="dashboard-departments"><table data-phone-layout="table"><thead><tr><th>Department</th><th>Employees</th><th>Violations</th><th>Points</th><th>Strikes</th></tr></thead><tbody>${summary.departments.map(department => `<tr><td><strong>${esc(department.name)}</strong></td><td>${department.employees}</td><td>${department.violations}</td><td><strong>${department.points}</strong></td><td>${department.strikes}</td></tr>`).join('')}</tbody></table></div>` : `<div class="empty-state"><h3>No departments to display</h3><p>Add employees to begin.</p></div>`}</section>
-    </div>
     <p class="dashboard-totals-note">Totals cover the returned employee directory and its retained violations. Removed records are excluded.</p>
   </div>`;
 }
@@ -1406,7 +1457,7 @@ function enhancePhoneLayout({icon}) {
     });
   });
   document.querySelectorAll('#employee-filters,#violation-filters,#type-filters,#secondary-filter').forEach(form=>{
-    if(form.closest('.phone-filters'))return;
+    if(form.classList.contains('record-toolbar')||form.closest('.phone-filters'))return;
     const count=[...form.elements].filter(field=>field.name&&!['button','submit','reset'].includes(field.type)&&!(field.name==='order'&&['desc','newest'].includes(field.value))&&(field.type==='checkbox'?field.checked:Boolean(field.value))).length;
     const disclosure=document.createElement('details');
     disclosure.className='phone-filters';
@@ -1945,6 +1996,8 @@ return {renderPhotoLibrary,handlePhotoAction,handlePhotoSubmit,handlePhotoChange
 
 
 
+
+
 const app = document.querySelector('#app');
 const dialog = document.querySelector('#modal');
 let displayedWeek = startOfWeek(localDate());
@@ -2074,7 +2127,7 @@ function isLiveEmployeeProfile(){return page==='profile'&&profileId.startsWith('
 function liveEmployeeRecords(){return visibleEmployees();}
   function liveEmployeeSummary(id){return employeeSummary(id);}
   async function refreshApiEmployees(){await refreshEmployees();ensurePageData(page);}
-  function employeeList(){return renderEmployees({...ctx(),employeeDirectory,visibleEmployees,employeeSummary,page:employeePage,setPage:value=>employeePage=value})+(employeeDirectory.status==='ready'&&resources.records.status==='error'?`<div class="callout warning" role="alert">${icon('alert')}<p>${esc(resources.records.error)} Violation history filters are unavailable. <button class="text-button" data-action="refresh-data">Try again</button></p></div>`:'');}
+  function employeeList(){return renderEmployees({...ctx(),employeeDirectory,visibleEmployees,employeeSummary,ensureCreationDates:shown=>ensureEmployeeDates(shown,()=>{if(page==='employees')render();}),page:employeePage,setPage:value=>employeePage=value})+(employeeDirectory.status==='ready'&&resources.records.status==='error'?`<div class="callout warning" role="alert">${icon('alert')}<p>${esc(resources.records.error)} Violation history filters are unavailable. <button class="text-button" data-action="refresh-data">Try again</button></p></div>`:'');}
 
 function pagination(total, current, size, target) {
   const pages = Math.max(1, Math.ceil(total / size));
@@ -2082,7 +2135,7 @@ function pagination(total, current, size, target) {
   return `<div class="table-footer"><span>${total ? `${(current - 1) * size + 1}–${Math.min(total, current * size)}` : '0'} of ${total} ${target === 'employees' ? 'employees' : 'records'}</span><nav class="pagination" aria-label="${target === 'employees' ? 'Employee' : target === 'history' ? 'History' : 'Violation'} pages"><button data-action="paginate" data-page="${target}" data-number="${current - 1}" ${current === 1 ? 'disabled' : ''} aria-label="Previous page">${icon('chevron-left', 15)}</button><span class="pagination-pages">${shown.map((number, index) => `${index && number > shown[index - 1] + 1 ? '<span aria-hidden="true">…</span>' : ''}<button data-action="paginate" data-page="${target}" data-number="${number}" class="${number === current ? 'active' : ''}" aria-label="Page ${number}" ${number === current ? 'aria-current="page"' : ''}>${number}</button>`).join('')}</span><span class="pagination-summary" aria-live="polite">Page ${current} of ${pages}</span><button data-action="paginate" data-page="${target}" data-number="${current + 1}" ${current >= pages ? 'disabled' : ''} aria-label="Next page">${icon('chevron-right', 15)}</button></nav></div>`;
 }
 function violationsList(){return dataGate(['employees','records','types'])||renderViolations({...ctx(),page:violationPage,setPage:value=>violationPage=value});}
-function typesList(){const gate=dataGate(['types']);if(gate)return gate;const f=filters.types||{};const ts=store.types.filter(t=>(!f.query||`${t.name} ${t.description}`.toLowerCase().includes(f.query.toLowerCase()))&&(!f.status||(f.status==='active'?t.active:!t.active)));return `<form id="type-filters" class="filters" style="grid-template-columns:2fr 1fr auto"><div class="field"><label for="type-query">Find a violation type</label><input id="type-query" name="query" value="${esc(f.query||'')}" placeholder="Search by name or description"></div><div class="field"><label for="type-status">Status</label><select id="type-status" name="status"><option value="">All statuses</option><option value="active" ${f.status==='active'?'selected':''}>Active</option><option value="inactive" ${f.status==='inactive'?'selected':''}>Inactive</option></select></div><div class="filter-actions" style="grid-column:auto"><button class="button ghost" type="button" data-action="clear-filters" data-page="types">Clear Filters</button><button type="submit" class="button primary">${icon('search',17)} Search</button></div></form><section class="panel"><div class="panel-header"><h2>Violation categories <span class="count-label">${ts.length} categories</span></h2></div>${ts.length?`<div class="table-wrap"><table><thead><tr><th>Violation Name / Description</th><th>Demerit Points</th><th>Strike Violation</th><th>Status</th><th>Manage</th></tr></thead><tbody>${ts.map(t=>`<tr><td style="max-width:350px"><strong>${esc(t.name)}</strong><div class="muted" style="font-size:13px;margin-top:5px">${esc(t.description)}</div></td><td>${t.points} points</td><td>${t.strike?badge('Strike Violation'):'No'}</td><td>${badge(t.active?'Active':'Inactive')}</td><td><div class="row-actions"><button class="button secondary small" data-action="edit-type" data-id="${esc(t.id)}">${icon('edit',14)} Edit</button><button class="button ghost small" data-action="toggle-type" data-id="${esc(t.id)}">${t.active?'Deactivate':'Reactivate'}</button>${!store.violations.some(v=>v.typeId===t.id)?`<button class="icon-button" data-action="delete-type" data-id="${esc(t.id)}" aria-label="Delete ${esc(t.name)}">${icon('trash',16)}</button>`:''}</div></td></tr>`).join('')}</tbody></table></div>`:empty()}</section>`;}
+function typesList(){return dataGate(['types'])||renderTypesList(ctx());}
 function profileApiId(){
   if(profileId.startsWith('api/')){try{return apiId(profileId.slice(4));}catch{return '';}}
   return store.employees.find(employee=>employee.id===profileId)?.apiId||'';
@@ -2216,7 +2269,7 @@ async function caseDetails(id){
 function removeViolation(id){if(!canManage())return;const v=visibleViolations().find(v=>v.id===id)||employeeProfile.violations.find(v=>v.id===id)||(store.settings.role!=='Supervisor'?resources.recent.items.find(v=>v.id===id):null);if(!v)return;const e=store.employees.find(e=>e.apiId===v.employeeApiId)||v.employee;openModal('Remove Violation Record',`<div class="callout warning">${icon('alert')}<p>This will remove <strong>${esc(v.typeName)}</strong> from ${esc(e.name)}’s active history and adjust their points and strikes. The reason and original record will remain in the removal history.</p></div><form id="remove-form" data-id="${esc(id)}"><p class="form-error" role="alert"></p><div class="field"><label for="remove-reason">Reason for removal (required)</label><textarea id="remove-reason" name="reason" required minlength="10" maxlength="1000" placeholder="Explain why this record should be removed."></textarea><small>Minimum 10 characters. This explanation will appear in the audit trail.</small></div><label class="confirm-check" style="margin-top:20px"><input type="checkbox" required name="confirmed">I understand this record will be removed from the employee’s active history.</label></form>`,`<button class="button secondary" data-action="case-details" data-id="${esc(id)}">Keep record</button><button class="button danger" type="submit" form="remove-form">Remove Violation</button>`);}
 function confirmType(id,mode){if(!canManage())return;const t=store.types.find(t=>t.id===id);if(!t)return;const deleting=mode==='delete';openModal(deleting?'Delete Violation Type':`${t.active?'Deactivate':'Reactivate'} Violation Type`, `<p style="margin-bottom:18px">${deleting?'Delete':t.active?'Deactivate':'Reactivate'} <strong>${esc(t.name)}</strong>?</p><p class="muted" style="font-size:14px">${deleting?'This category will be deleted from the backend. Types referenced by records cannot be deleted.':t.active?'Staff will no longer be able to select this category for new violations. Existing records will keep their details.':'Staff will be able to select this category for new violations again.'}</p>`,`<button class="button secondary" data-action="close-modal">Cancel</button><button class="button ${deleting?'danger':'primary'}" data-action="confirm-type" data-id="${esc(id)}" data-mode="${mode}">${deleting?'Delete Type':t.active?'Deactivate':'Reactivate'}</button>`);}
 
-document.addEventListener('click',async event=>{const el=event.target.closest('[data-action]');if(!el)return;const action=el.dataset.action;const id=el.dataset.id;try{if(action.startsWith('camera-')){await handleCameraAction(action,ctx());return;}if(action.startsWith('photo-')){await handlePhotoAction(action,el,ctx());return;}if(action.startsWith('sec-')){await handleSecondary(action,el,ctx());return;}switch(action){
+document.addEventListener('click',async event=>{closeRecordFilters(event.target);const el=event.target.closest('[data-action]');if(!el)return;const action=el.dataset.action;const id=el.dataset.id;try{if(action.startsWith('camera-')){await handleCameraAction(action,ctx());return;}if(action.startsWith('photo-')){await handlePhotoAction(action,el,ctx());return;}if(action.startsWith('sec-')){await handleSecondary(action,el,ctx());return;}switch(action){
 case 'session-retry':await loadSession();savedSnapshot=JSON.stringify(store.settings);render();break;
 case 'sign-out':if(photoUpload.busy||employeeCreateInFlight()||mutationInFlight()||checkingDraft){toast('Please wait for the current save to finish before signing out.','info');return;}signOut();break;
 case 'navigate':if(dialog.open)closeModal();navigate(el.dataset.page);break;
@@ -2249,6 +2302,8 @@ case 'confirm-record':{
 
 case 'case-details':await caseDetails(id);break;
 case 'remove-violation':removeViolation(id);break;
+case 'retry-employee-labels':retryEmployeeDates();render();break;
+case 'close-record-filter':el.closest('.record-filter').open=false;el.closest('.record-filter').querySelector('summary').focus();break;
 case 'clear-filters':filters[el.dataset.page]={};employeePage=1;violationPage=1;render();break;
 case 'paginate':if(el.dataset.page==='employees')employeePage=Number(el.dataset.number);else if(el.dataset.page==='profile')filters.profile={page:Number(el.dataset.number)};else if(el.dataset.page==='history')filters.history={...filters.history,page:Number(el.dataset.number)};else violationPage=Number(el.dataset.number);render();(document.querySelector('.mobile-record-list')?.getClientRects().length?document.querySelector('.mobile-record-list'):document.querySelector('.history-panel')||document.querySelector('.table-wrap'))?.scrollIntoView({block:'start',behavior:'smooth'});break;
 
@@ -2310,8 +2365,9 @@ case 'secondary-settings-form':await handleSecondary('sec-settings-save',{datase
 case 'secondary-user-form':await handleSecondary('sec-user-save',{dataset:{}},ctx());break;
 default:if(form.id.startsWith('sec-')){const button=form.querySelector('[data-action]')||dialog.querySelector('.modal-footer [data-action^="sec-"]');if(button)await handleSecondary(button.dataset.action,button,ctx());}
 }}catch(error){formError(form,error.message||'Unable to save changes. Please review the fields.');toast(error.message||'Unable to save changes.','alert');}});
-document.addEventListener('change',event=>{if(handleCameraChange(event,ctx())||handlePhotoChange(event,ctx()))return;const el=event.target;if(el.id==='emp-department'&&document.querySelector('#employee-new-department-field')){const other=el.value==='__other_department__';const field=document.querySelector('#employee-new-department-field');const input=document.querySelector('#emp-new-department');field.hidden=!other;input.disabled=!other;input.required=other;if(other)input.focus();}if(el.id==='employee-order'){filters.employees={...filters.employees,order:el.value};employeePage=1;render();document.querySelector('#employee-order')?.focus({preventScroll:true});}if(el.id==='report-period'){filters.reports={...filters.reports,days:Number(el.value)};render();document.querySelector('#report-period')?.focus({preventScroll:true});}if(el.id==='confirm-record')dialog.querySelector('[data-action="confirm-record"]').disabled=!el.checked;});
-document.addEventListener('keydown',event=>{if(handleCalendarKeydown(event,ctx()))return;const reportTab=event.target.closest?.('[data-action="sec-report-tab"],[data-action="sec-history-tab"]');if(reportTab&&['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){event.preventDefault();const action=reportTab.dataset.action;const tabs=[...document.querySelectorAll('[data-action="'+action+'"]')];const index=tabs.indexOf(reportTab);const next=event.key==='Home'?0:event.key==='End'?tabs.length-1:(index+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;handleSecondary(action,tabs[next],ctx());return;}if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){event.preventDefault();document.querySelector('#global-query')?.focus();}if(event.key==='Escape'){document.body.classList.remove('nav-open');syncNavigation();}});
+document.addEventListener('change',event=>{if(event.target.type==='radio'&&event.target.closest?.('.record-toolbar')){const form=event.target.closest('form'),name=event.target.name;form.requestSubmit();document.querySelector('#'+form.id+' input[name="'+name+'"]:checked')?.closest('.record-filter')?.querySelector('summary')?.focus();return;}if(handleCameraChange(event,ctx())||handlePhotoChange(event,ctx()))return;const el=event.target;if(el.id==='emp-department'&&document.querySelector('#employee-new-department-field')){const other=el.value==='__other_department__';const field=document.querySelector('#employee-new-department-field');const input=document.querySelector('#emp-new-department');field.hidden=!other;input.disabled=!other;input.required=other;if(other)input.focus();}if(el.id==='employee-order'){filters.employees={...filters.employees,order:el.value};employeePage=1;render();document.querySelector('#employee-order')?.focus({preventScroll:true});}if(el.id==='report-period'){filters.reports={...filters.reports,days:Number(el.value)};render();document.querySelector('#report-period')?.focus({preventScroll:true});}if(el.id==='confirm-record')dialog.querySelector('[data-action="confirm-record"]').disabled=!el.checked;});
+document.addEventListener('toggle',handleRecordFilterToggle,true);
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&event.target.closest?.('.record-filter[open]')){const details=event.target.closest('.record-filter');details.open=false;details.querySelector('summary').focus();event.preventDefault();return;}if(handleCalendarKeydown(event,ctx()))return;const reportTab=event.target.closest?.('[data-action="sec-report-tab"],[data-action="sec-history-tab"]');if(reportTab&&['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){event.preventDefault();const action=reportTab.dataset.action;const tabs=[...document.querySelectorAll('[data-action="'+action+'"]')];const index=tabs.indexOf(reportTab);const next=event.key==='Home'?0:event.key==='End'?tabs.length-1:(index+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;handleSecondary(action,tabs[next],ctx());return;}if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){event.preventDefault();document.querySelector('#global-query')?.focus();}if(event.key==='Escape'){document.body.classList.remove('nav-open');syncNavigation();}});
 dialog.addEventListener('close',clearPhotoDraft);
 dialog.addEventListener('cancel',event=>{if(photoUpload.busy||employeeCreateInFlight()||mutationInFlight()||checkingDraft)event.preventDefault();});
 dialog.addEventListener('click',event=>{if(event.target===dialog){const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)closeModal();}});

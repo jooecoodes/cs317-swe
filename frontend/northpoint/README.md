@@ -1,5 +1,13 @@
 # Northpoint frontend
 
+## Compact lists
+
+Dashboard keeps the totals, quick actions, trends and recent activity; Top Offenders and Department Rollup remain available in Reports & Analytics. Employees, Violations and Violation Types use compact rows and search with adjacent dropdown filters. Choosing a single-choice filter applies it immediately; date ranges use Apply dates. Use Enter or the magnifying-glass button to search, and Clear to reset the page's filters. On mobile, all three lists retain their table columns and scroll horizontally within the list, with a swipe hint above each table.
+
+Employees display Total Demerit Points before Status. Violation rows omit employee codes and the case-code subline; case details remain accessible through View Case. A strike appears beside its points as `[Strike]`, without a separate strike column.
+
+`[New!]` appears only in the employee directory for the first 24 elapsed hours after the backend's creation timestamp. app1's offset-less SQLite timestamps are interpreted as UTC. Because the summary API omits this timestamp, the frontend checks the existing employee-detail endpoint only for visible records that need it and keeps date metadata in memory. Failed checks do not invent a New label and offer Retry. Labels expire automatically on the visible page. No backend or server-configuration changes are required.
+
 ## Photos, camera and sign-in
 
 Photo Library is part of the main sidebar at `/#photos`, with Photos and Activity Log tabs. The activity tab contains the month calendar and newest-first logs. Camera is in the same sidebar at `/#camera`; `/camera.html` redirects there. Upload Photo sends multipart form data to the existing `/app2/upload` endpoint. Lists, statistics, files and activity use the existing Photo API. No photo records are cached locally or fabricated on errors.
@@ -63,39 +71,18 @@ Node 24+ is needed only for development; it is not required to open the Docker-s
 ```powershell
 node build.mjs
 node verify.mjs
-node --test
 ```
 
-The generated page bundles its styles, fonts and logo and loads config.js separately. Uploaded photo files are served by the photo API. Tests verify configuration changes without rebuilding, request paths, session-cookie mode, existing adapters, UI handlers and error behavior. Write tests use controlled responses or an isolated HTTP test server, never company records.
+The generated page bundles its styles, fonts and logo and loads config.js separately. Uploaded photo files are served by the photo API.
 
-`node serve.mjs` is an optional static preview server. It serves index.html and config.js; use the Docker URL for authenticated API access. `node tooling/check-live.mjs` is an optional GET-only backend check; if run outside the browser it has no sign-in cookie and will report authentication failures on the protected local stack.
+`node serve.mjs` is an optional static preview server. It serves index.html and config.js; use the Docker URL for authenticated API access.
 
-## Additional checks
-
-Run `node --test` for frontend regression, photo API and yesterday-comparison tests. Run `uv run python frontend/northpoint/tests/auth-session.py` from the repository root to test anonymous, invalid, valid and expired sessions using a temporary database. Tests do not upload photos or modify company records.
-
-## Photo Activity and generated API contracts
+## Photo Activity and API routes
 
 Photo Activity now fetches eight events per page from `/app2/activity`. Search, team member, action, and selected-date filters are sent to the server. “All dates” removes the feed's date restriction; the adjacent calendar always summarizes the displayed month using `/app2/activity/digest?include_items=false`. Calendar shading uses the returned daily totals and the text below it uses the server's summary. No full activity-history download occurs when opening the photo library.
 
 The “Changed by” options come from `/app2/activity/actors`. Clicking a photo name in Activity or “View History” in Photo Details opens its paginated `/app2/photos/{id}/history`, including retained history for deleted photos. “Photos on this page” uses the read-only `POST /app2/photos/batch` with `{ "ids": [...] }`; it shows only photos linked to that event page and explicitly reports missing/deleted photos. It does not upload or modify records.
 
 Activity requests cancel and ignore superseded reads. Errors clear the results and show a retry button. Page navigation reuses the latest successful monthly summary and actor options in memory; reopening Activity, retrying, or saving a photo from Activity refreshes them. Nothing is persisted in browser storage.
-
-Generated schemas from the merged backend are saved in `tests/contracts/app1-openapi.json` and `tests/contracts/app2-openapi.json`. Run this from the Northpoint directory:
-
-```powershell
-node tooling/check-openapi.mjs
-```
-
-It checks 38 supported adapter operations, photo-filter parameter names, the batch request body, and required response fields. The same audit runs with `node --test`. These snapshots describe API contracts, not database contents. Refresh them after backend changes by running the following from the repository root after restarting any changed service:
-
-```powershell
-foreach ($service in 'app1','app2') {
-  $schema = docker compose -f docker-compose.yaml -f docker-compose.local.yaml exec -T nginx wget -qO- "http://${service}:8000/openapi.json"
-  if ($LASTEXITCODE -ne 0) { throw "Could not export $service schema" }
-  $schema | Set-Content -Encoding utf8 "frontend/northpoint/tests/contracts/$service-openapi.json"
-}
-```
 
 The public URL adds the service prefix: schema `/activity/actors` in app2 becomes `/app2/activity/actors`. The existing `config.js` remains the server configuration. The browser must use the same server as the signed-in session.
