@@ -18,4 +18,4 @@ export function apiRoute(path,method,service='hr'){
  if(service!=='hr')throw new Error('Unknown API service.');
  const row=routes.find(([verb,pattern])=>verb===method&&pattern.test(path));if(!row)throw new Error('This action is not defined in the API contract.');return {actor:row[2]===true};
 }
-export function validateActor(value){const actor=typeof value==='string'?value.trim():'';if(!actor)throw new Error('Sign in before saving changes.');if(/[^\x20-\x7e\u00a0-\u00ff]/.test(actor))throw new Error('Your username cannot be sent as an actor header. Contact your administrator.');return actor;}
+export function validateActor(value){const actor=typeof value==='string'?value.trim():'';if(!actor)throw new Error('Sign in before saving changes.');if(/[\r\n\x00]/.test(actor))throw new Error('Your signed-in name contains invalid header characters. Contact your administrator.');return actor.normalize('NFKD').replace(/[^\x20-\x7e]/g,'').trim()||'unknown';}

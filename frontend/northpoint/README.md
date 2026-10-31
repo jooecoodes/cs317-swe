@@ -14,7 +14,7 @@ Photo Library is part of the main sidebar at `/#photos`, with Photos and Activit
 
 Camera uses the phone’s native capture/image picker. When the timestamp is enabled, it is burned into a JPEG before upload. A desktop opens an image picker rather than a live webcam stream. The original photo stays on the device. Unknown upload outcomes are not automatically retried; refresh and review recent photos/activity before explicitly allowing another upload.
 
-The signed-in username comes from the existing read-only `/auth/me` endpoint. It uses the HTTP-only session cookie and returns the user ID, username and profile names; Northpoint displays its `username` field. Successful responses are marked no-store, and missing/expired sessions return 401. Settings shows the username as read-only. Existing Nginx `/auth/` routing supports both session checks and logout; no backend change is needed for the frontend Sign Out button.
+The signed-in account comes from the existing read-only `/auth/me` endpoint. It uses the HTTP-only session cookie and returns the user ID, username and profile names; Northpoint displays `full_name`, using available first/last names or the username when profile names are missing. Successful responses are marked no-store, and missing/expired sessions return 401. Settings shows the signed-in name as read-only. Existing Nginx `/auth/` routing supports both session checks and logout; no backend change is needed for the frontend Sign Out button.
 
 To sign out, open the profile button at the top right and choose **Sign Out**. Northpoint navigates to the existing `/auth/logout` endpoint, which deletes the current session, clears its cookie, and redirects to sign-in. The action waits for any active save to finish. Pages restored through Back are reloaded through Nginx so a logged-out session cannot keep using a restored dashboard.
 
@@ -62,7 +62,7 @@ docker compose -f docker-compose.yaml -f docker-compose.local.yaml up -d --no-de
 
 The temporary change is in **docker-compose.local.yaml**: `./frontend/northpoint:/usr/share/nginx/html:ro`. It replaces the base file's frontend mount only for local runs. The main docker-compose.yaml and nginx/nginx.conf remain unchanged; `/app1/`, `/app2/`, `/app3/` and `/auth/` keep their existing routes and authentication. Remove that local volume override and recreate Nginx to restore the original frontend. A deployment serving these routes on the same origin needs no config.js URL change.
 
-Your signed-in username is used automatically for changes. Existing documented X-Actor and removal payload behavior is retained; Nginx also forwards the authenticated username. Workspace role choices are view filters, not account permissions. Users & Roles remains Coming Soon. Loading, success, conflict, access and lost-response handling remain in place; unconfirmed saves are checked by GET before another write is allowed.
+Your signed-in full name is used automatically for changes. Existing documented X-Actor and removal payload behavior is retained; Nginx also forwards the authenticated name. Workspace role choices are view filters, not account permissions. Users & Roles remains Coming Soon. Loading, success, conflict, access and lost-response handling remain in place; unconfirmed saves are checked by GET before another write is allowed.
 
 ## Development checks
 
@@ -86,3 +86,7 @@ The “Changed by” options come from `/app2/activity/actors`. Clicking a photo
 Activity requests cancel and ignore superseded reads. Errors clear the results and show a retry button. Page navigation reuses the latest successful monthly summary and actor options in memory; reopening Activity, retrying, or saving a photo from Activity refreshes them. Nothing is persisted in browser storage.
 
 The public URL adds the service prefix: schema `/activity/actors` in app2 becomes `/app2/activity/actors`. The existing `config.js` remains the server configuration. The browser must use the same server as the signed-in session.
+
+Photo Activity → Photos on this page: select a thumbnail or photo name to open the enlarged viewer. Back to photos restores the same gallery. Image loading failures show a retry option. The viewer adapts to desktop and phone screens.
+
+The account name comes from `/auth/me`: `full_name`, then available first/last names, then username for older accounts without profile names. New issued-by and removal payloads use this name. Historical names for other accounts stay as returned by the backend; `/auth/me` only identifies the current account.

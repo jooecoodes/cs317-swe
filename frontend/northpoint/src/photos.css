@@ -9,3 +9,9 @@
 .np-photo-activity-layout .np-photo-pagination>div{flex-wrap:wrap;justify-content:flex-end}
 .np-photo-activity-layout .callout{margin:16px;overflow-wrap:anywhere}
 @media(max-width:680px){.np-photo-activity-layout .np-photo-pagination>div{width:100%}.np-photo-activity-layout .np-photo-pagination .button:first-child{flex-basis:100%}}
+
+/* Activity gallery uses the same photo controls on touch and desktop. */
+.photo-viewer-dialog{width:1000px;max-width:calc(100vw - 28px)}
+.photo-viewer-dialog .modal-content{padding:16px;max-height:75vh;max-height:75dvh;overflow:auto}
+.np-photo-viewer{min-height:180px;text-align:center}.np-photo-viewer img{display:block;max-width:100%;width:auto;height:auto;max-height:68vh;max-height:68dvh;object-fit:contain;margin:auto;border-radius:6px}.np-photo-viewer [hidden]{display:none}.np-photo-viewer-error{padding:24px 12px}.np-photo-image:focus-visible{outline:3px solid var(--blue);outline-offset:-3px}
+@media(max-width:680px){.photo-viewer-dialog .modal-footer{flex-wrap:wrap}.photo-viewer-dialog .modal-footer .button{flex:1;min-height:44px}}

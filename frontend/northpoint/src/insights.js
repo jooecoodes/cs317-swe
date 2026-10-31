@@ -1,3 +1,4 @@
+import {displayActor} from './session.js';
 import { analyticsData, historyEvents } from './insight-data.js';
 import { renderHistoryCalendar } from './calendar.js';
 
@@ -83,8 +84,8 @@ export function renderHistory(ctx) {
   };
   const headers=isRemoval?['Removed at','Employee','Violation / Case','Points','Strike','Removed by','Reason for removal']:['Date & Time','Action','Employee / Record','Changed by','Details'];
   const tableRows=rows.map(event=>isRemoval?[
-    timestamp(event.date),employeeCell(event),`<strong>${esc(event.typeName)}</strong><span class="history-cell-secondary">Case #${esc(event.violationId)}</span>`,event.points,event.strike?'Yes':'No',esc(event.actor||'Not provided'),esc(event.notes||'Not provided')
-  ]:[timestamp(event.date),`<strong>${esc(event.title)}</strong>`,employeeCell(event),esc(event.actor||'Not provided'),esc(event.detail||'No summary provided')+changeDetails(event)+(event.notes&&!event.detail?.includes(event.notes)?`<span class="history-cell-secondary">Reason: ${esc(event.notes)}</span>`:'')]);
+    timestamp(event.date),employeeCell(event),`<strong>${esc(event.typeName)}</strong><span class="history-cell-secondary">Case #${esc(event.violationId)}</span>`,event.points,event.strike?'Yes':'No',esc(displayActor(event.actor)||'Not provided'),esc(event.notes||'Not provided')
+  ]:[timestamp(event.date),`<strong>${esc(event.title)}</strong>`,employeeCell(event),esc(displayActor(event.actor)||'Not provided'),esc(event.detail||'No summary provided')+changeDetails(event)+(event.notes&&!event.detail?.includes(event.notes)?`<span class="history-cell-secondary">Reason: ${esc(event.notes)}</span>`:'')]);
   const title=isRemoval?'Removal Logs':'Activity Logs';
   const content=resource.status!=='ready'?ctx.resourceState(resource,isRemoval?'removal logs':'activity logs'):rows.length?`<div class="table-wrap history-table-scroll" role="region" tabindex="0" aria-labelledby="history-table-title" aria-describedby="history-scroll-hint"><table class="history-table ${isRemoval?'history-removal-table':'history-activity-table'}" data-phone-layout="table"><caption class="sr-only">${title} · Newest first</caption><thead><tr>${headers.map(header=>`<th scope="col">${header}</th>`).join('')}</tr></thead><tbody>${tableRows.map(cells=>`<tr>${cells.map(cell=>`<td>${cell}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`:empty(isRemoval?'No violation removals found':'No activity found','Try another category or a wider date range.');
   return `${tabs}
