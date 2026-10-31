@@ -62,7 +62,7 @@ docker compose -f docker-compose.yaml -f docker-compose.local.yaml up -d --no-de
 
 The temporary change is in **docker-compose.local.yaml**: `./frontend/northpoint:/usr/share/nginx/html:ro`. It replaces the base file's frontend mount only for local runs. The main docker-compose.yaml and nginx/nginx.conf remain unchanged; `/app1/`, `/app2/`, `/app3/` and `/auth/` keep their existing routes and authentication. Remove that local volume override and recreate Nginx to restore the original frontend. A deployment serving these routes on the same origin needs no config.js URL change.
 
-Your signed-in full name is used automatically for changes. Existing documented X-Actor and removal payload behavior is retained; Nginx also forwards the authenticated name. Workspace role choices are view filters, not account permissions. Users & Roles remains Coming Soon. Loading, success, conflict, access and lost-response handling remain in place; unconfirmed saves are checked by GET before another write is allowed.
+Your signed-in full name is used automatically for changes. Existing documented X-Actor and removal payload behavior is retained; Nginx also forwards the authenticated name. Loading, success, conflict, access and lost-response handling remain in place; unconfirmed saves are checked by GET before another write is allowed.
 
 ## Development checks
 
@@ -112,3 +112,9 @@ Edit source files in `src/`, then run `node build.mjs` to refresh the root `inde
 - `preview/`: retained preview helpers, excluded from the live website build.
 
 File imports and `build.mjs` use these folder paths; moving a file again requires updating its imports and build entry.
+
+Account controls: the top-right account name opens a Sign out dropdown. Settings also offers Sign out and the text-size preference. Users & Roles and local role/department workspace views have been removed; backend authentication remains unchanged.
+
+Photo Library, Photo Activity, History and report periods use the same compact dropdown filter components as the record lists.
+
+Violation removal reasons are optional in the form. The backend currently requires a non-empty reason, so a blank field sends the explicit text `No reason provided.`. Existing removal confirmation and error handling remain in place.

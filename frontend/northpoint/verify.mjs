@@ -17,6 +17,6 @@ if(!config.includes("connect-src 'self' ${url.href} " ))throw new Error('The con
 if(html.includes('cs317.duckdns.org')||html.includes('http://localhost:8081/app1'))throw new Error('The generated page must not hard-code an API server. Edit config.js instead.');
 if(html.includes('const previewFixtures')||html.includes('createPreviewProvider()'))throw new Error('The hosted employee build must not contain mock records or a fallback provider.');
 if(/(?:src|href)=["']https?:\/\//i.test(html))throw new Error('The preview must bundle its assets.');
-if(!html.includes("sourceLabel='v.FE-1.0'"))throw new Error('The frontend version label is missing.');
+if(!html.includes("sourceLabel='v.FE-0.2a'"))throw new Error('The frontend version label is missing.');
 if(html.includes('UI preview · Fictional records · Record changes are disabled.')||html.includes('People. Clarity. Accountability.'))throw new Error('Removed branding text remains in the build.');
 console.log(`Checked ${code.length} JavaScript files; runtime API configuration (${globalThis.NORTHPOINT_CONFIG.BASE_URL}), no mock records/browser persistence, bundled assets and version label verified.`);

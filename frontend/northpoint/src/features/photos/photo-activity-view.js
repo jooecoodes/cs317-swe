@@ -1,3 +1,4 @@
+import {recordChoice,recordToolbar} from '../../shared/record-ui.js';
 import {displayActor} from '../../auth/session.js';
 import {photoActivityService,fetchPhotoHistory,fetchPhotoBatch} from './photo-activity.js';
 import {photoFileUrl} from './photo-service.js';
@@ -13,7 +14,8 @@ export function renderPhotoActivity({icon,esc,formatDate}){
  }
  const pages=Math.max(1,Math.ceil(a.total/8)),selected=days.find(d=>d.date===a.day);
  const options=[...new Set([a.actor,...a.actors.map(x=>x.actor)].filter(Boolean))];
- const filters=`<section class="panel np-photo-filters"><form id="photo-activity-filters"><div class="np-photo-filter-fields"><div class="field"><label for="photo-activity-search">Search activity</label><input type="search" id="photo-activity-search" name="q" value="${esc(a.q)}" placeholder="Photo name or details"></div><div class="field"><label for="photo-activity-actor">Changed by</label><select id="photo-activity-actor" name="actor"><option value="">All team members</option>${options.map(name=>`<option value="${esc(name)}" ${name===a.actor?'selected':''}>${esc(displayActor(name))}</option>`).join('')}</select></div><div class="field"><label for="photo-activity-action">Action</label><select id="photo-activity-action" name="action">${[['','All actions'],['upload','Uploads'],['edit','Edits'],['rename','Renames'],['delete','Deletions']].map(([value,label])=>`<option value="${value}" ${value===a.action?'selected':''}>${label}</option>`).join('')}</select></div></div><div class="np-photo-filter-bottom"><span></span><div><button type="button" class="button ghost" data-action="photo-activity-clear">Clear Filters</button><button type="submit" class="button secondary">${icon('search',16)} Search</button></div></div></form></section>`;
+ const controls=recordChoice('actor','Changed by',[['','All team members'],...options.map(name=>[name,displayActor(name)])],a.actor,esc,icon)+recordChoice('action','Action',[['','All actions'],['upload','Uploads'],['edit','Edits'],['rename','Renames'],['delete','Deletions']],a.action,esc,icon);
+ const filters=recordToolbar('photo-activity-filters','photo-activity',a.q,'Search photo name or details',controls,esc,icon,{queryName:'q',clearAction:'photo-activity-clear',label:'Photo activity'});
  let content;
  if(a.status==='error')content=`<div class="empty-state" role="alert"><h3>Couldn’t load photo activity</h3><p>${esc(a.error)}</p><button class="button primary" data-action="photo-activity-retry">Try Again</button></div>`;
  else if(a.status!=='ready')content=loadingSkeleton('employees','photo activity');

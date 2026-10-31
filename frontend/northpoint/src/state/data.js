@@ -1,9 +1,9 @@
 // View state only. Nothing is saved to browser storage or a database.
-const defaults={organization:'Northpoint',textSize:'standard',role:'HR',name:'',department:''};
-export const store={employees:[],violations:[],types:[],removals:[],activities:[],users:[],settings:{...defaults}};
+const defaults={organization:'Northpoint',textSize:'standard',name:''};
+export const store={employees:[],violations:[],types:[],removals:[],activities:[],settings:{...defaults}};
 export function saveStore() { /* Preferences apply to this open tab only. */ }
 export function visibleEmployees() {
-  return store.settings.role === 'Supervisor' ? store.employees.filter(employee => employee.department === store.settings.department) : store.employees.slice();
+  return store.employees.slice();
 }
 export function visibleViolations() {
   const ids = new Set(visibleEmployees().map(employee => employee.id));

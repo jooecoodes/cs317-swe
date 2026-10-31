@@ -16,7 +16,7 @@ export async function saveType(id, values, actor) { return apiRequest(`/violatio
 export async function changeType(id, mode, actor) { return apiRequest(`/violation-types/${apiId(id)}${mode === 'delete' ? '' : '/' + mode}`, { method: mode === 'delete' ? 'DELETE' : 'POST', actor }); }
 export async function issueViolation(employeeApiId, values, actor) {
   const issuer = String(values.recordedBy || '').trim();
-  if (!issuer) throw new Error('Choose who issued this violation. Set your display name in Settings if needed.');
+  if (!issuer) throw new Error('Choose who issued this violation. Your signed-in name is used automatically.');
   return apiRequest(`/employees/${apiId(employeeApiId)}/violations`, { method: 'POST', actor, body: { violation_type_id: Number(apiId(values.typeId)), notes: String(values.description || '').trim(), issued_by: issuer } });
 }
 export async function updateViolation(id, values, actor) {
@@ -26,8 +26,9 @@ export async function updateViolation(id, values, actor) {
 }
 export async function deleteViolation(id, reason, removedBy) {
   reason = String(reason || '').trim(); removedBy = String(removedBy || '').trim();
-  if (reason.length < 10) throw new Error('Please provide at least 10 characters explaining the removal.');
-  if (!removedBy) throw new Error('Set your display name in Settings before removing a record.');
+  reason = reason || 'No reason provided.';
+  if (reason.length > 1000) throw new Error('Keep the removal reason within 1,000 characters.');
+  if (!removedBy) throw new Error('Sign in before removing a record.');
   // Removal attribution is in the body. The reference explicitly excludes X-Actor.
   return apiRequest(`/violations/${apiId(id)}/remove`, { method: 'POST', body: { removed_by: removedBy, reason } });
 }

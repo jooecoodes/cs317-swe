@@ -29,7 +29,7 @@ export function renderDashboard(ctx) {
   const violations = visibleViolations();
   const summary = dashboardSummary(employees, violations, store.removals);
   const weeks = weeklyTotals(violations, localDate());
-  const recentActivity = (ctx.recentActivity || recentViolationActivity(violations)).filter(record => store.settings.role !== 'Supervisor' || employees.some(employee => employee.apiId === record.employeeApiId));
+  const recentActivity = (ctx.recentActivity || recentViolationActivity(violations));
   const daysAgo = date => {
     const days = Math.round((Date.parse(localDate()) - Date.parse(String(date).slice(0, 10))) / 86400000);
     return days === 0 ? 'Today' : days === 1 ? 'Yesterday' : `${days} days ago`;
@@ -42,8 +42,8 @@ export function renderDashboard(ctx) {
   ];
   const directoryReady=ctx.employeeDirectory?.status==='ready';
   const quickActions=[
-    {label:'Issue Violation',icon:'shield',action:'record',disabled:!['HR','Supervisor'].includes(store.settings.role)||!directoryReady,hint:'Load employees before issuing a violation.'},
-    {label:'Add Employee',icon:'users',action:'add-employee',disabled:store.settings.role!=='HR'||!directoryReady,hint:store.settings.role!=='HR'?'Available in the HR workspace view.':'Load employees before adding an employee.'},
+    {label:'Issue Violation',icon:'shield',action:'record',disabled:!directoryReady,hint:'Load employees before issuing a violation.'},
+    {label:'Add Employee',icon:'users',action:'add-employee',disabled:!directoryReady,hint:'Load employees before adding an employee.'},
     {label:'Timestamp Camera',icon:'camera',action:'navigate',page:'camera',disabled:false}
   ];
   return `<div class="dashboard-simple">
