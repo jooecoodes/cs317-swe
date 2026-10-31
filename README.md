@@ -1,3 +1,5 @@
+![tests](https://github.com/jooecoodes/cs317-swe/actions/workflows/tests.yml/badge.svg)
+
 ## Services
 
 | Service | Role | Path |
