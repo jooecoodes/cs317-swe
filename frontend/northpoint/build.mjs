@@ -47,7 +47,7 @@ script += `const {enhancePhoneLayout,syncPhoneFilters}=(()=>{\n${withoutExports(
 script += `const {bindEmployeePicker}=(()=>{\n${withoutExports(read('employee-picker.js'))}\nreturn {bindEmployeePicker};})();\n`;
 script += `const {createCalendarService,calendarService}=(()=>{\n${withoutExports(read('calendar-api.js'))}\nreturn {createCalendarService,calendarService};})();\n`;
 script += `const {invalidateHistoryCalendar,createCalendarLoader,renderHistoryCalendar,renderCalendarDigest,handleCalendarAction,handleCalendarKeydown}=(()=>{\n${withoutExports(read('calendar.js'))}\nreturn {invalidateHistoryCalendar,createCalendarLoader,renderHistoryCalendar,renderCalendarDigest,handleCalendarAction,handleCalendarKeydown};})();\n`;
-script += `const {sessionState,loadSession}=(()=>{\n${withoutExports(read('session.js'))}\nreturn {sessionState,loadSession};})();\n`;
+script += `const {sessionState,loadSession,signOut}=(()=>{\n${withoutExports(read('session.js'))}\nreturn {sessionState,loadSession,signOut};})();\n`;
 script += `const {businessDate,yesterdayComparison,renderYesterdayChange}=(()=>{\n${withoutExports(read('yesterday.js'))}\nreturn {businessDate,yesterdayComparison,renderYesterdayChange};})();\n`;
 script += `const {photoData,photoUpload,watchPhotos,notifyPhotos,photoFileUrl,photoRequest,loadPhotos,uploadPhoto,allowPhotoRetry}=(()=>{\n${withoutExports(read('photo-service.js'))}\nreturn {photoData,photoUpload,watchPhotos,notifyPhotos,photoFileUrl,photoRequest,loadPhotos,uploadPhoto,allowPhotoRetry};})();\n`;
 script += `const {createPhotoActivity,photoActivityService,fetchPhotoHistory,fetchPhotoBatch}=(()=>{\n${withoutExports(read('photo-activity.js'))}\nreturn {createPhotoActivity,photoActivityService,fetchPhotoHistory,fetchPhotoBatch};})();\n`;

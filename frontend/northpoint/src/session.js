@@ -3,6 +3,11 @@ import {store} from './data.js';
 import {API_BASE_URL} from './hosted-api.js';
 export const sessionState={status:'idle',username:'',error:''};
 let sessionPromise;
+export function signOut(){
+ // This endpoint returns a redirect and clears an HttpOnly cookie, so use
+ // browser navigation instead of the JSON API transport.
+ globalThis.location.replace(new URL('/auth/logout',API_BASE_URL).href);
+}
 export function loadSession(){
  if(sessionPromise)return sessionPromise;
  sessionState.status='loading';sessionState.error='';

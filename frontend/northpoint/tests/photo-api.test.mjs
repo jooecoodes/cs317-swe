@@ -4,11 +4,16 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import {createHostedApiProvider,API_BASE_URL} from '../src/hosted-api.js';
 import {dataSource} from '../src/data-source.js';
-import {loadSession,sessionState} from '../src/session.js';
+import {loadSession,sessionState,signOut} from '../src/session.js';
 import {store} from '../src/data.js';
 import {loadPhotos,photoData,uploadPhoto,photoUpload,allowPhotoRetry} from '../src/photo-service.js';
 const json=(value,status=200)=>new Response(JSON.stringify(value),{status,headers:{'Content-Type':'application/json'}});
 const photo={id:5,owner:'Account Tester',display_name:'Test Image',tags:['site'],size_bytes:10,timestamp:'2026-10-30T10:00:00',url:'/photos/5/file'};
+test('sign-out navigates to the backend endpoint that clears the session cookie',()=>{
+ const original=globalThis.location,redirects=[];globalThis.location={replace:url=>redirects.push(url)};
+ try{signOut();assert.deepEqual(redirects,[new URL('/auth/logout',API_BASE_URL).href]);}
+ finally{if(original===undefined)delete globalThis.location;else globalThis.location=original;}
+});
 test('session and photo requests share the configured server and browser sign-in cookie',async()=>{
  const calls=[],source=createHostedApiProvider({fetchImpl:async(url,options)=>{calls.push({url,options});return json({username:'Account Tester'});}});
  await source.request({service:'session',path:'/me'});assert.equal(calls[0].url,new URL('/auth/me',API_BASE_URL).href);assert.equal(calls[0].options.credentials,'same-origin');

@@ -95,6 +95,13 @@ test('built frontend uses the real transport to render supplied API responses wi
     await click({action:'navigate',page:'camera'});ui.route();assert.ok(body().includes('Timestamp Camera'));
     context.location.hash='#dashboard';ui.route();
   });
+  await t.test('profile Sign Out uses the backend logout page',async()=>{
+    await events.click({target:{closest:()=>({dataset:{action:'account'}})}});
+    assert.ok(element('#modal').innerHTML.includes('data-action="sign-out"'));assert.ok(element('#modal').innerHTML.includes('Sign Out'));
+    const original=context.location.replace,redirects=[];context.location.replace=url=>redirects.push(url);
+    try{await events.click({target:{closest:()=>({dataset:{action:'sign-out'}})}});assert.equal(redirects[0],new URL('/auth/logout',API_BASE_URL).href);}
+    finally{context.location.replace=original;}
+  });
   await t.test('every main navigation view renders without a backend',async()=>{
     for(const [hash,title] of [['employees','Employee directory'],['violations','Violation records'],['types','Violation categories'],['photos','Employee photos'],['camera','Your photo will appear here'],['history','Activity Logs'],['reports','Daily Activity'],['users','Coming Soon'],['settings','Your Preferences'],['help','How Can We Help?']]){context.location.hash='#'+hash;ui.route();await wait();assert.ok(body().includes(title),hash);if(hash==='settings'){assert.ok(body().includes('Signed In Tester'));assert.ok(!body().includes('Your display name'));}}
   });

@@ -6,7 +6,9 @@ Photo Library is part of the main sidebar at `/#photos`, with Photos and Activit
 
 Camera uses the phone’s native capture/image picker. When the timestamp is enabled, it is burned into a JPEG before upload. A desktop opens an image picker rather than a live webcam stream. The original photo stays on the device. Unknown upload outcomes are not automatically retried; refresh and review recent photos/activity before explicitly allowing another upload.
 
-The signed-in username comes from the new read-only `/auth/me` endpoint. It uses the existing HTTP-only session cookie, returns only `{username}`, is never cached, and returns 401 for missing/expired sessions. Settings shows this username as read-only. Existing Nginx `/auth/` routing already supports it. Restart `auth` after updating that backend file.
+The signed-in username comes from the existing read-only `/auth/me` endpoint. It uses the HTTP-only session cookie and returns the user ID, username and profile names; Northpoint displays its `username` field. Successful responses are marked no-store, and missing/expired sessions return 401. Settings shows the username as read-only. Existing Nginx `/auth/` routing supports both session checks and logout; no backend change is needed for the frontend Sign Out button.
+
+To sign out, open the profile button at the top right and choose **Sign Out**. Northpoint navigates to the existing `/auth/logout` endpoint, which deletes the current session, clears its cookie, and redirects to sign-in. The action waits for any active save to finish. Pages restored through Back are reloaded through Nginx so a logged-out session cannot keep using a restored dashboard.
 
 ## Yesterday comparisons
 

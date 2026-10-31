@@ -1,4 +1,4 @@
-import {sessionState,loadSession} from './session.js';
+import {sessionState,loadSession,signOut} from './session.js';
 import {photoData,photoUpload,loadPhotos,watchPhotos} from './photo-service.js';
 import {renderPhotoCamera,handleCameraAction,handleCameraChange} from './photo-camera.js';
 import {yesterdayComparison,renderYesterdayChange} from './yesterday.js';
@@ -293,6 +293,7 @@ function confirmType(id,mode){if(!canManage())return;const t=store.types.find(t=
 
 document.addEventListener('click',async event=>{const el=event.target.closest('[data-action]');if(!el)return;const action=el.dataset.action;const id=el.dataset.id;try{if(action.startsWith('camera-')){await handleCameraAction(action,ctx());return;}if(action.startsWith('photo-')){await handlePhotoAction(action,el,ctx());return;}if(action.startsWith('sec-')){await handleSecondary(action,el,ctx());return;}switch(action){
 case 'session-retry':await loadSession();savedSnapshot=JSON.stringify(store.settings);render();break;
+case 'sign-out':if(photoUpload.busy||employeeCreateInFlight()||mutationInFlight()||checkingDraft){toast('Please wait for the current save to finish before signing out.','info');return;}signOut();break;
 case 'navigate':if(dialog.open)closeModal();navigate(el.dataset.page);break;
 case 'profile':if(dialog.open)closeModal();navigate('profile',id);break;
 case 'toggle-nav':document.body.classList.toggle('nav-open');syncNavigation();if(document.body.classList.contains('nav-open'))document.querySelector('.nav-item.active')?.focus();else document.querySelector('.mobile-toggle')?.focus();break;
@@ -328,7 +329,7 @@ case 'paginate':if(el.dataset.page==='employees')employeePage=Number(el.dataset.
 
 case 'watchlist':filters.employees={strikes:'watchlist'};employeePage=1;navigate('employees');break;
 case 'dashboard-card':{const target=el.dataset.target;if(target==='watchlist'){filters.employees={strikes:'watchlist'};employeePage=1;navigate('employees');}else if(target==='points'){filters.reports={};navigate('reports');}else if(target==='employees'){filters.employees={};employeePage=1;navigate('employees');}else{filters.violations={};violationPage=1;navigate('violations');}break;}
-case 'account':openModal('Your Profile',`<div class="callout">${icon('info')}<p>Your signed-in username is used to record changes. Workspace views are filters and do not change account permissions.</p></div><div class="profile-top" style="padding:0 0 24px">${avatar({name:store.settings.name,id:'EMP-000'})}<div><h2>${esc(store.settings.name || 'Sign in required')}</h2><p class="muted">${esc(store.settings.role)} · Northpoint</p></div></div><form id="role-form"><div class="field"><label for="demo-role">View workspace as</label><select id="demo-role" name="role">${['HR','Supervisor'].map(r=>`<option ${store.settings.role===r?'selected':''}>${r}</option>`).join('')}</select></div><div class="field" style="margin-top:18px"><label for="demo-dept">Supervisor’s assigned department</label><select id="demo-dept" name="department">${unique(store.employees.map(e=>e.department)).map(d=>`<option ${store.settings.department===d?'selected':''}>${esc(d)}</option>`).join('')}</select></div></form>`,`<button class="button secondary" data-action="close-modal">Cancel</button><button class="button primary" type="submit" form="role-form">Switch View</button>`);break;
+case 'account':openModal('Your Profile',`<div class="callout">${icon('info')}<p>Your signed-in username is used to record changes. Workspace views are filters and do not change account permissions.</p></div><div class="profile-top" style="padding:0 0 24px">${avatar({name:store.settings.name,id:'EMP-000'})}<div><h2>${esc(store.settings.name || 'Sign in required')}</h2><p class="muted">${esc(store.settings.role)} · Northpoint</p></div></div><form id="role-form"><div class="field"><label for="demo-role">View workspace as</label><select id="demo-role" name="role">${['HR','Supervisor'].map(r=>`<option ${store.settings.role===r?'selected':''}>${r}</option>`).join('')}</select></div><div class="field" style="margin-top:18px"><label for="demo-dept">Supervisor’s assigned department</label><select id="demo-dept" name="department">${unique(store.employees.map(e=>e.department)).map(d=>`<option ${store.settings.department===d?'selected':''}>${esc(d)}</option>`).join('')}</select></div></form>`,`<button class="button danger" data-action="sign-out">Sign Out</button><button class="button secondary" data-action="close-modal">Cancel</button><button class="button primary" type="submit" form="role-form">Switch View</button>`);break;
 case 'export-employees':downloadCSV('NorthPoint-Employees', [['Employee ID','Name','Department','Position','Employment Status','Demerit Points','Strikes'],...visibleEmployees().map(e=>{const s=employeeSummary(e.id);return [e.id,e.name,e.department,e.position,e.status,s.points,s.strikes];})]);break;
 case 'export-violations':downloadCSV('NorthPoint-Violations',[['Case number','Employee ID','Employee','Violation','Incident date','Demerit Points','Strike','Recorded by','Status'],...visibleViolations().map(v=>[v.id,v.employeeId,store.employees.find(e=>e.id===v.employeeId)?.name,v.typeName,v.date,v.points,v.strike?'Yes':'No',v.recordedBy,v.status])]);break;
 
@@ -406,3 +407,6 @@ watchBackend(()=>{if(updateQueued)return;updateQueued=true;queueMicrotask(()=>{u
 watchPhotos(()=>{if(['photos','camera'].includes(page))render();});
 route();
 void loadSession().then(()=>{savedSnapshot=JSON.stringify(store.settings);render();});
+
+// Revalidate with Nginx if Back restores a page from the browser memory cache.
+window.addEventListener('pageshow',event=>{if(event.persisted)location.reload();});

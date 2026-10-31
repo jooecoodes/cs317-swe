@@ -50,4 +50,15 @@ with tempfile.TemporaryDirectory() as temporary:
         database.execute('UPDATE sessions SET expires_at=0')
         database.commit()
     assert endpoint(request('test-only-token')).status_code == 401
-    print('Session endpoint: unique route, anonymous, invalid, valid, unnamed account, no-store and expired session checks passed; isolated DB only.')
+    with auth.db() as database:
+        database.execute('UPDATE sessions SET expires_at=?', (int(time.time()) + 3600,))
+        database.commit()
+    assert endpoint(request('test-only-token')).status_code == 200
+    logout = auth.logout(request('test-only-token'))
+    assert logout.status_code == 303
+    assert logout.headers['location'] == '/auth/login'
+    assert 'Max-Age=0' in logout.headers['set-cookie']
+    assert endpoint(request('test-only-token')).status_code == 401
+    with auth.db() as database:
+        assert database.execute('SELECT COUNT(*) FROM sessions').fetchone()[0] == 0
+    print('Session endpoint: unique route, anonymous, invalid, valid, unnamed account, no-store, expired and logout checks passed; isolated DB only.')
