@@ -105,3 +105,11 @@ public URL = /<appN> + path in appN_openapi.json
 | `app2_openapi.json` | `/photos/5/file` | `/app2/photos/5/file` |
 | `app3_openapi.json` | `/live/{dev}` | `/app3/live/{dev}` |
 | `app3_openapi.json` | `/` (the upload) | `/app3/` (keep the trailing slash) |
+
+## CI
+
+```bash
+uv run pytest tests/unit/ -v                    # unit
+uv run pytest tests/ -m "not integration" -v    # integration
+uv run pytest tests/ -m integration -v          # system
+```
