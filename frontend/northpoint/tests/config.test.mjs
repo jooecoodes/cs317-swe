@@ -7,15 +7,14 @@ import {once} from 'node:events';
 
 const read=name=>fs.readFileSync(new URL('../'+name,import.meta.url),'utf8');
 const config=read('config.js'),html=read('index.html');
-const configuredBase=config.match(/const BASE_URL = '([^']+)'/)[1];
-const withBase=url=>config.replace(configuredBase,url);
+const withBase=url=>config.replace("const BASE_URL = '';",`const BASE_URL = '${url}';`);
 // Run the API transport from the actual build, without starting the UI.
 const bundled=html.match(/<script>\n([\s\S]*?)\n<\/script>/)[1];
 const transport=bundled.slice(0,bundled.indexOf('const {dataSource,sourceLabel,sourceNotice}='));
 
-function setup(source=config,fetchImpl=async()=>new Response('{"items":[]}',{headers:{'Content-Type':'application/json'}})){
+function setup(source=config,fetchImpl=async()=>new Response('{"items":[]}',{headers:{'Content-Type':'application/json'}}),origin='http://localhost:8081'){
  const policies=[];
- const context={URL,AbortController,setTimeout,clearTimeout,fetch:fetchImpl,document:{createElement:()=>({}),head:{appendChild:meta=>policies.push(meta)}}};
+ const context={URL,AbortController,setTimeout,clearTimeout,fetch:fetchImpl,location:{origin},document:{createElement:()=>({}),head:{appendChild:meta=>policies.push(meta)}}};
  vm.runInNewContext(source,context);
  vm.runInNewContext(transport+'\nglobalThis.client=createHostedApiProvider();',context);
  return {context,policies};
@@ -24,12 +23,21 @@ function setup(source=config,fetchImpl=async()=>new Response('{"items":[]}',{hea
 test('runtime config targets the selected server and sets its connection policy',async()=>{
  const calls=[],{context,policies}=setup(config,async(url,options)=>{calls.push({url,options});return new Response('{"items":[]}',{headers:{'Content-Type':'application/json'}});});
  await context.client.request({path:'/employees',query:{limit:50,offset:0}});
- assert.equal(context.NORTHPOINT_CONFIG.BASE_URL,new URL(configuredBase).href.replace(/\/+$/,'')+'/');
+ assert.equal(context.NORTHPOINT_CONFIG.BASE_URL,'http://localhost:8081/app1/');
  assert.equal(calls[0].url,context.NORTHPOINT_CONFIG.BASE_URL+'employees?limit=50&offset=0');
  assert.equal(calls[0].options.credentials,'same-origin');
  assert.equal(policies[0].httpEquiv,'Content-Security-Policy');
  assert.ok(policies[0].content.includes("connect-src 'self' "+context.NORTHPOINT_CONFIG.BASE_URL+' '));
  assert.ok(!html.includes('cs317.duckdns.org'));assert.ok(!html.includes('http://localhost:8081/app1'));
+});
+
+test('local, tunnel, and deployed pages use their own origin automatically',async()=>{
+ for(const origin of ['http://localhost:8081','https://example.ngrok-free.dev','https://company.example']){
+  const calls=[],{context}=setup(config,async(url)=>{calls.push(url);return new Response('{}',{headers:{'Content-Type':'application/json'}});},origin);
+  await context.client.request({service:'session',path:'/me'});await context.client.request({path:'/employees'});
+  assert.equal(calls[0],origin+'/auth/me');assert.equal(calls[1],origin+'/app1/employees');
+ }
+ assert.throws(()=>setup(config,undefined,'null'),/signed-in HTTP server/);
 });
 
 test('editing config alone changes existing bundled requests and CSP without rebuilding',async()=>{

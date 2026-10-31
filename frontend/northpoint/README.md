@@ -18,15 +18,15 @@ Northpoint uses the backend API for employees, violations, rulebook, dashboard, 
 
 ## One API configuration
 
-Edit **frontend/northpoint/config.js**, beside the generated index.html:
+By default **frontend/northpoint/config.js** uses the same server address as the page:
 
 ```javascript
-const BASE_URL = 'http://localhost:8081/app1/';
+const BASE_URL = '';
 ```
 
-This is the only server URL setting for Northpoint. It is loaded before the application, and the browser connection policy follows the same value. Save the file and reload the page; **no rebuild or npm command is needed for a URL change**. Keep config.js beside index.html when copying or deploying the frontend. The older frontend/js/script.js configuration does not control Northpoint.
+This makes both `http://localhost:8081/` and a tunnel address use their own `/app1/`, `/app2/`, and `/auth/` endpoints. Keep config.js beside index.html when copying or deploying the frontend. You may set an absolute API URL for a special deployment, but the browser needs an appropriate same-origin authentication and CORS setup. Save and reload after any configuration edit; no rebuild is needed. The older frontend/js/script.js configuration does not control Northpoint.
 
-For a phone, localhost refers to the phone. Change BASE_URL to `http://YOUR-PC-LAN-IP:8081/app1/`, then open `http://YOUR-PC-LAN-IP:8081/` on both devices. Use the same hostname and port for the page and API so the sign-in cookie is sent.
+For a phone, localhost refers to the phone. Open the tunnel address or `http://YOUR-PC-LAN-IP:8081/` from the phone and sign in there; the API follows that address automatically. Use HTTPS when camera access requires a secure connection.
 
 ## Run with the local backend
 
@@ -36,7 +36,7 @@ Start Docker Desktop. In the **repository root**, run:
 docker compose -f docker-compose.yaml -f docker-compose.local.yaml up -d --build
 ```
 
-Open **http://localhost:8081/**. The existing backend sign-in page appears first; after signing in, Northpoint opens at `/`. API requests use the same-origin session cookie. If the session expires, requests show an authentication error without inventing data. Opening index.html directly or using a separate preview port does not provide this same-origin login session.
+Open **http://localhost:8081/**. The existing backend sign-in page appears when there is no valid local session; after signing in, Northpoint opens at `/`. A valid existing session goes straight to the dashboard. API requests use the same-origin session cookie; an expired session redirects to sign-in, while connection errors stay visible for retry. Opening index.html directly or using a separate preview port does not provide this same-origin login session.
 
 If you need an account, the backend's existing account command is:
 
@@ -50,7 +50,7 @@ If the stack is already running, apply the frontend mount by recreating only Ngi
 docker compose -f docker-compose.yaml -f docker-compose.local.yaml up -d --no-deps --force-recreate nginx
 ```
 
-The temporary change is in **docker-compose.local.yaml**: `./frontend/northpoint:/usr/share/nginx/html:ro`. It replaces the base file's frontend mount only for local runs. The main docker-compose.yaml and nginx/nginx.conf remain unchanged; `/app1/`, `/app2/`, `/app3/` and `/auth/` keep their existing routes and authentication. Remove that local volume override and recreate Nginx to restore the original frontend. Before deploying Northpoint elsewhere, set config.js to that deployment's API address.
+The temporary change is in **docker-compose.local.yaml**: `./frontend/northpoint:/usr/share/nginx/html:ro`. It replaces the base file's frontend mount only for local runs. The main docker-compose.yaml and nginx/nginx.conf remain unchanged; `/app1/`, `/app2/`, `/app3/` and `/auth/` keep their existing routes and authentication. Remove that local volume override and recreate Nginx to restore the original frontend. A deployment serving these routes on the same origin needs no config.js URL change.
 
 Your signed-in username is used automatically for changes. Existing documented X-Actor and removal payload behavior is retained; Nginx also forwards the authenticated username. Workspace role choices are view filters, not account permissions. Users & Roles remains Coming Soon. Loading, success, conflict, access and lost-response handling remain in place; unconfirmed saves are checked by GET before another write is allowed.
 

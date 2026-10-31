@@ -20,6 +20,17 @@ test('the account username is loaded automatically and removed on expired sessio
  Object.assign(dataSource,createHostedApiProvider({fetchImpl:async()=>json({username:'Account Tester'})}));await loadSession();assert.equal(store.settings.name,'Account Tester');assert.equal(sessionState.status,'ready');
  Object.assign(dataSource,createHostedApiProvider({fetchImpl:async()=>json({detail:'Session expired'},401)}));await loadSession();assert.equal(store.settings.name,'');assert.equal(sessionState.status,'error');
 });
+test('an expired same-origin session opens sign-in; network failures do not redirect',async()=>{
+ const original=globalThis.location,redirects=[];
+ const origin=new URL(API_BASE_URL).origin;
+ globalThis.location={origin,protocol:new URL(origin).protocol,pathname:'/',search:'',hash:'#employees',replace:url=>redirects.push(url)};
+ try{
+  Object.assign(dataSource,createHostedApiProvider({fetchImpl:async()=>json({detail:'Not signed in'},401)}));await loadSession();
+  assert.equal(redirects.length,1);const login=new URL(redirects[0]);assert.equal(login.origin,origin);assert.equal(login.pathname,'/auth/login');assert.equal(login.searchParams.get('next'),'/#employees');
+  redirects.length=0;Object.assign(dataSource,createHostedApiProvider({fetchImpl:async()=>{throw Error('offline');}}));await loadSession();assert.equal(redirects.length,0);assert.equal(sessionState.status,'error');
+  globalThis.location.origin='https://other.example';Object.assign(dataSource,createHostedApiProvider({fetchImpl:async()=>json({detail:'Not signed in'},401)}));await loadSession();assert.equal(redirects.length,0);
+ }finally{if(original===undefined)delete globalThis.location;else globalThis.location=original;}
+});
 test('photo list/stats/activity errors clear data and uploads never silently retry',async()=>{
  const calls=[];Object.assign(dataSource,createHostedApiProvider({fetchImpl:async(url,options)=>{const path=new URL(url).pathname;calls.push({path,options});if(path==='/app2/stats')return json({total_photos:1,total_bytes:10});if(path==='/app2/photos')return json({items:[photo],total:1,offset:0,limit:200});if(path==='/app2/activity')return json({items:[],total:0,offset:0,limit:500});if(path==='/app2/upload')throw new TypeError('lost reply');throw Error('Unexpected endpoint');}}));
  await loadPhotos(true);assert.equal(photoData.status,'ready');assert.equal(photoData.items[0].id,'5');assert.equal(photoData.items[0].url,new URL('/app2/photos/5/file',API_BASE_URL).href);
