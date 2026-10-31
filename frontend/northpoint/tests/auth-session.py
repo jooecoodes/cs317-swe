@@ -18,18 +18,36 @@ with tempfile.TemporaryDirectory() as temporary:
     spec.loader.exec_module(auth)
     def request(token=''):
         return Request({'type': 'http', 'headers': [(b'cookie', ('auth_session=' + token).encode())]})
-    assert auth.current_user(request()).status_code == 401
-    assert auth.current_user(request('invalid')).status_code == 401
+    routes = [route for route in auth.auth_app.routes
+              if getattr(route, 'path', None) == '/me' and 'GET' in route.methods]
+    assert len(routes) == 1, 'GET /me must have exactly one registered handler'
+    endpoint = routes[0].endpoint
+    assert endpoint is auth.me
+    assert endpoint(request()).status_code == 401
+    assert endpoint(request('invalid')).status_code == 401
     with auth.db() as database:
-        database.execute('INSERT INTO users VALUES (1,?,?,?)', ('Session Tester', 'unused-test-hash', int(time.time())))
-        database.execute('INSERT INTO sessions VALUES (?,?,?)', (auth.hash_token('test-only-token'), 1, int(time.time()) + 60))
+        database.execute(
+            'INSERT INTO users (id,username,password_hash,created_at,first_name,last_name) VALUES (1,?,?,?,?,?)',
+            ('session-tester', 'unused-test-hash', int(time.time()), 'Session', 'Tester'))
+        database.execute(
+            'INSERT INTO sessions (token_hash,user_id,expires_at) VALUES (?,?,?)',
+            (auth.hash_token('test-only-token'), 1, int(time.time()) + 3600))
         database.commit()
-    response = auth.current_user(request('test-only-token'))
+    response = endpoint(request('test-only-token'))
     assert response.status_code == 200
-    assert json.loads(response.body) == {'username': 'Session Tester'}
+    assert json.loads(response.body) == {
+        'id': 1, 'username': 'session-tester', 'first_name': 'Session',
+        'last_name': 'Tester', 'full_name': 'Session Tester'}
     assert response.headers['cache-control'] == 'no-store'
+    # Existing accounts without profile names still expose their username.
+    with auth.db() as database:
+        database.execute('UPDATE users SET first_name=NULL,last_name=NULL WHERE id=1')
+        database.commit()
+    profile = json.loads(endpoint(request('test-only-token')).body)
+    assert profile['full_name'] == profile['username'] == 'session-tester'
+    assert profile['first_name'] is None and profile['last_name'] is None
     with auth.db() as database:
         database.execute('UPDATE sessions SET expires_at=0')
         database.commit()
-    assert auth.current_user(request('test-only-token')).status_code == 401
-    print('Session endpoint: anonymous, invalid, valid and expired session checks passed; isolated DB only.')
+    assert endpoint(request('test-only-token')).status_code == 401
+    print('Session endpoint: unique route, anonymous, invalid, valid, unnamed account, no-store and expired session checks passed; isolated DB only.')

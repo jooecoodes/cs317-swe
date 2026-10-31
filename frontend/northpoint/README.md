@@ -71,3 +71,29 @@ The generated page bundles its styles, fonts and logo and loads config.js separa
 ## Additional checks
 
 Run `node --test` for frontend regression, photo API and yesterday-comparison tests. Run `uv run python frontend/northpoint/tests/auth-session.py` from the repository root to test anonymous, invalid, valid and expired sessions using a temporary database. Tests do not upload photos or modify company records.
+
+## Photo Activity and generated API contracts
+
+Photo Activity now fetches eight events per page from `/app2/activity`. Search, team member, action, and selected-date filters are sent to the server. “All dates” removes the feed's date restriction; the adjacent calendar always summarizes the displayed month using `/app2/activity/digest?include_items=false`. Calendar shading uses the returned daily totals and the text below it uses the server's summary. No full activity-history download occurs when opening the photo library.
+
+The “Changed by” options come from `/app2/activity/actors`. Clicking a photo name in Activity or “View History” in Photo Details opens its paginated `/app2/photos/{id}/history`, including retained history for deleted photos. “Photos on this page” uses the read-only `POST /app2/photos/batch` with `{ "ids": [...] }`; it shows only photos linked to that event page and explicitly reports missing/deleted photos. It does not upload or modify records.
+
+Activity requests cancel and ignore superseded reads. Errors clear the results and show a retry button. Page navigation reuses the latest successful monthly summary and actor options in memory; reopening Activity, retrying, or saving a photo from Activity refreshes them. Nothing is persisted in browser storage.
+
+Generated schemas from the merged backend are saved in `tests/contracts/app1-openapi.json` and `tests/contracts/app2-openapi.json`. Run this from the Northpoint directory:
+
+```powershell
+node tooling/check-openapi.mjs
+```
+
+It checks 38 supported adapter operations, photo-filter parameter names, the batch request body, and required response fields. The same audit runs with `node --test`. These snapshots describe API contracts, not database contents. Refresh them after backend changes by running the following from the repository root after restarting any changed service:
+
+```powershell
+foreach ($service in 'app1','app2') {
+  $schema = docker compose -f docker-compose.yaml -f docker-compose.local.yaml exec -T nginx wget -qO- "http://${service}:8000/openapi.json"
+  if ($LASTEXITCODE -ne 0) { throw "Could not export $service schema" }
+  $schema | Set-Content -Encoding utf8 "frontend/northpoint/tests/contracts/$service-openapi.json"
+}
+```
+
+The public URL adds the service prefix: schema `/activity/actors` in app2 becomes `/app2/activity/actors`. The existing `config.js` remains the server configuration. The browser must use the same server as the signed-in session.

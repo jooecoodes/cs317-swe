@@ -16,15 +16,41 @@ export function bindEmployeePicker(root, employees, selectedId, esc) {
   let selected = employees.find(employee => employee.id === selectedId);
   let matches = [];
   let active = -1;
+  const floating = typeof list.showPopover === 'function';
+  if (floating) list.setAttribute('popover', 'manual');
+
+  // A native popover escapes the dialog's scrolling/clipping area. Older
+  // browsers keep the absolutely positioned list below the input instead.
+  function position() {
+    if (!floating || list.hidden) return;
+    const rect = input.getBoundingClientRect(), viewport = globalThis.visualViewport;
+    const top = viewport?.offsetTop || 0, left = viewport?.offsetLeft || 0;
+    const width = viewport?.width || globalThis.innerWidth;
+    const height = viewport?.height || globalThis.innerHeight;
+    const below = top + height - rect.bottom - 12, above = rect.top - top - 12;
+    const upward = below < 180 && above > below;
+    const maxHeight = Math.min(260, Math.max(56, upward ? above : below));
+    Object.assign(list.style, {
+      width: Math.min(rect.width, width - 16) + 'px',
+      left: Math.max(left + 8, Math.min(rect.left, left + width - rect.width - 8)) + 'px',
+      maxHeight: maxHeight + 'px',
+      top: (upward ? rect.top - 6 - Math.min(list.scrollHeight, maxHeight) : rect.bottom + 6) + 'px'
+    });
+  }
 
   function validate() {
     input.setCustomValidity(value.value ? '' : 'Choose an employee from the suggestions.');
   }
   function close() {
+    if (floating && list.matches(':popover-open')) list.hidePopover();
     list.hidden = true;
     input.setAttribute('aria-expanded', 'false');
     input.removeAttribute('aria-activedescendant');
     active = -1;
+    globalThis.removeEventListener?.('resize', position);
+    globalThis.visualViewport?.removeEventListener('resize', position);
+    globalThis.visualViewport?.removeEventListener('scroll', position);
+    root.removeEventListener('scroll', position, true);
   }
   function choose(employee) {
     selected = employee;
@@ -49,9 +75,18 @@ export function bindEmployeePicker(root, employees, selectedId, esc) {
     matches = all.slice(0, 6);
     active = -1;
     input.removeAttribute('aria-activedescendant');
-    list.innerHTML = matches.map((employee, index) => `<button type="button" role="option" aria-selected="false" tabindex="-1" id="employee-option-${index}" data-employee-option="${index}"><strong>${esc(employee.name)}</strong><span>${esc(employee.id)}${employee.department ? ` · ${esc(employee.department)}` : ''}</span></button>`).join('');
-    list.hidden = !matches.length;
-    input.setAttribute('aria-expanded', String(matches.length > 0));
+    list.innerHTML = matches.length ? matches.map((employee, index) => `<button type="button" role="option" aria-selected="false" tabindex="-1" id="employee-option-${index}" data-employee-option="${index}"><strong>${esc(employee.name)}</strong><span>${esc(employee.id)}${employee.department ? ` · ${esc(employee.department)}` : ''}</span></button>`).join('') : '<p class="employee-picker-empty">No matching employees. Try another name or employee code.</p>';
+    list.hidden = false;
+    list.scrollTop = 0;
+    if (floating) {
+      if (!list.matches(':popover-open')) list.showPopover();
+      position();
+      globalThis.addEventListener?.('resize', position);
+      globalThis.visualViewport?.addEventListener('resize', position);
+      globalThis.visualViewport?.addEventListener('scroll', position);
+      root.addEventListener('scroll', position, true);
+    }
+    input.setAttribute('aria-expanded', 'true');
     status.textContent = matches.length ? `${matches.length} suggestion${matches.length === 1 ? '' : 's'}${all.length > 6 ? ` of ${all.length} matches; keep typing to narrow the list` : ''}. Tap a name to select.` : 'No matching employees. Try another name or employee code.';
   }
   if (selected) choose(selected);
@@ -95,4 +130,5 @@ export function bindEmployeePicker(root, employees, selectedId, esc) {
   picker.addEventListener('focusout', event => {
     if (!picker.contains(event.relatedTarget)) close();
   });
+  root.addEventListener('close', close, { once: true });
 }

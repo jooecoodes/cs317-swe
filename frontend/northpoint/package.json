@@ -8,6 +8,7 @@
     "start": "node serve.mjs",
     "build": "node build.mjs",
     "check": "node verify.mjs",
+    "check:api": "node tooling/check-openapi.mjs",
     "test": "node --test",
     "test:live": "node tooling/check-live.mjs"
   },

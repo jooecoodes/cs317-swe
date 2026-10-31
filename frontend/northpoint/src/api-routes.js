@@ -11,7 +11,7 @@ const routes=[
 export function apiRoute(path,method,service='hr'){
  if(service==='session'&&path==='/me'&&method==='GET')return {actor:false};
  if(service==='photos'){
-  const allowed=method==='GET'&&/^\/(?:photos(?:\/\d+)?|stats|activity(?:\/digest)?)$/.test(path)||method==='POST'&&path==='/upload'||['PATCH','DELETE'].includes(method)&&/^\/photos\/\d+$/.test(path);
+  const allowed=method==='GET'&&/^\/(?:photos(?:\/\d+(?:\/history)?)?|stats|activity(?:\/(?:digest|actors))?)$/.test(path)||method==='POST'&&['/upload','/photos/batch'].includes(path)||['PATCH','DELETE'].includes(method)&&/^\/photos\/\d+$/.test(path);
   if(allowed)return {actor:method!=='GET'};
   throw new Error('This action is not defined in the photo API contract.');
  }

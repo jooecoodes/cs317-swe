@@ -173,24 +173,6 @@ def logout(request: Request):
     return resp
 
 
-@auth_app.get("/me")
-def current_user(request: Request):
-    """Expose only the username belonging to the current browser session."""
-    token = request.cookies.get(COOKIE)
-    if token:
-        with closing(db()) as c:
-            row = c.execute(
-                "SELECT u.username FROM sessions s JOIN users u ON u.id=s.user_id "
-                "WHERE s.token_hash=? AND s.expires_at>?",
-                (hash_token(token), int(time.time())),
-            ).fetchone()
-            if row:
-                from fastapi.responses import JSONResponse
-                return JSONResponse({"username": row["username"]}, headers={"Cache-Control": "no-store"})
-    from fastapi.responses import JSONResponse
-    return JSONResponse({"detail": "Sign in to continue."}, status_code=401, headers={"Cache-Control": "no-store"})
-
-
 @auth_app.get("/verify")
 def verify(request: Request):
     """Called by nginx (auth_request) before every protected request."""

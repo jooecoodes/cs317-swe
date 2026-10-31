@@ -44,9 +44,9 @@
 input[readonly]{background:#f3f6fa;color:#5e7189;cursor:default}
 .pagination-pages{display:flex;align-items:center;gap:5px}.pagination-summary{display:none}
 .dashboard-simple .phone-dashboard-activity{display:none}.table-scroll-hint{display:none}
-.employee-suggestions{border:1px solid #bdcfe3;border-radius:9px;background:#fff;overflow-y:auto;max-height:260px;overscroll-behavior:contain;margin-top:8px;scroll-padding:4px}
+.employee-picker{position:relative;z-index:3}.employee-picker-control{position:relative;width:100%}.employee-picker-control>input:not([type=hidden]){width:100%}.employee-suggestions{position:absolute;inset:calc(100% + 6px) 0 auto;z-index:20;border:1px solid #b7cbe1;border-radius:12px;background:#fff;box-shadow:0 10px 28px #18375424;overflow-y:auto;max-height:min(260px,35dvh);overscroll-behavior:contain;margin:0;padding:4px;scroll-padding:4px;-webkit-overflow-scrolling:touch}.employee-suggestions:popover-open{position:fixed;inset:auto;margin:0;box-sizing:border-box}.employee-picker-empty{margin:0;padding:14px;font-size:15px;line-height:1.6;color:#536b84}
 .employee-suggestions[hidden]{display:none}.employee-suggestions [role=option]{display:block;width:100%;min-height:64px;padding:12px 14px;text-align:left;border:0;border-bottom:1px solid #e5ecf4;background:#fff;color:#294869;white-space:normal;line-height:1.5;touch-action:pan-y}
-.employee-suggestions [role=option]:last-child{border-bottom:0}.employee-suggestions [role=option]:hover,.employee-suggestions [aria-selected=true]{background:#edf4fc}.employee-suggestions strong{display:block;font-size:16px}.employee-suggestions [role=option]>span{display:block;font-size:14px;color:#62788f;margin-top:3px}.employee-picker small{display:block;margin-top:8px;color:#62758b;line-height:1.6}
+.employee-suggestions [role=option]:last-child{border-bottom:0}.employee-suggestions [role=option]:hover,.employee-suggestions [aria-selected=true]{background:#edf4fc}.employee-suggestions strong{display:block;font-size:16px;overflow-wrap:anywhere}.employee-suggestions [role=option]>span{display:block;font-size:14px;color:#62788f;margin-top:3px;overflow-wrap:anywhere}.employee-picker small{display:block;margin-top:2px;color:#62758b;line-height:1.6}
 @media(max-width:900px){
   .dashboard-simple .recent-removals-panel{display:none}.dashboard-simple .phone-dashboard-activity{display:flex}
   .dashboard-activity-item{display:flex;align-items:flex-start;gap:11px;width:100%;text-align:left;background:#fff;border:0;border-bottom:1px solid #e8edf4;padding:18px 16px;color:#294869;min-height:92px}
@@ -102,6 +102,15 @@ input[readonly]{background:#f3f6fa;color:#5e7189;cursor:default}
 .dashboard-simple>.metrics-grid .metric-card{padding:18px 19px 15px}.dashboard-simple>.metrics-grid .metric-top{min-height:0;margin-bottom:8px}.dashboard-simple>.metrics-grid .metric-number{margin-top:0}.dashboard-simple>.metrics-grid .metric-change{margin-top:5px;line-height:1.4}.dashboard-simple>.metrics-grid .metric-bottom{min-height:0;margin-top:6px;font-size:13px;line-height:1.5}.dashboard-quick-actions{margin-bottom:24px}.dashboard-quick-actions h2{font-size:20px;letter-spacing:-.4px;margin:0 0 16px}.dashboard-action-grid{display:grid;grid-template-columns:repeat(3,minmax(0,190px));gap:14px}.dashboard-action-tile{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:13px;min-height:132px;padding:20px 15px;border:1px solid #e0e7ef;border-radius:14px;background:white;color:#355374;font-size:15px;font-weight:600;line-height:1.45;text-align:center;transition:border-color .15s,background .15s,box-shadow .15s}.dashboard-action-tile:hover:not(:disabled){background:#f8fbff;border-color:#9fbad7;box-shadow:0 3px 12px #28558709}.dashboard-action-icon{display:flex;align-items:center;justify-content:center;width:46px;height:46px;border-radius:50%;background:#edf3fa;color:#527ba7}.dashboard-action-tile:nth-child(2) .dashboard-action-icon{background:#edf4f0;color:#5b8774}.dashboard-action-tile:nth-child(3) .dashboard-action-icon{background:#f5f0e7;color:#a08450}.dashboard-action-tile:disabled{opacity:.55}.dashboard-action-tile:focus-visible{outline:3px solid #5684b7;outline-offset:3px}
 @media(max-width:900px){.dashboard-action-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.dashboard-action-tile{min-height:124px;padding:18px 12px;font-size:16px;border-radius:15px;gap:12px}.dashboard-quick-actions{margin-bottom:22px}.dashboard-quick-actions h2{font-size:20px;margin-bottom:15px}.dashboard-simple>.metrics-grid .metric-card{padding:16px 14px 14px}.dashboard-simple>.metrics-grid .metric-top{margin-bottom:7px}.dashboard-simple>.metrics-grid .metric-bottom{margin-top:5px;font-size:13px;line-height:1.5}.dashboard-simple>.metrics-grid .metric-change{margin-top:4px;gap:4px}.dashboard-simple>.metrics-grid .metric-change strong{font-size:14px}.dashboard-simple>.metrics-grid .metric-change>span{font-size:12px}}
 @media(prefers-reduced-motion:reduce){.dashboard-action-tile{transition:none}}
+
+.dashboard-summary-heading{display:none}
+@media(max-width:900px){
+ .dashboard-quick-actions{padding:20px 16px;background:#edf3f9;border:1px solid #d4e1ee;border-radius:17px;margin-bottom:26px}
+ .dashboard-quick-actions h2{line-height:1.5;color:#284b70;margin-bottom:16px}
+ .dashboard-action-tile{border-color:#ccdceb;box-shadow:0 2px 5px #244b7005}
+ .dashboard-simple>.metrics-grid{border-top:2px solid #d3dfec;padding-top:23px}
+ .dashboard-summary-heading{display:block;grid-column:1/-1;font-size:20px;line-height:1.5;letter-spacing:-.3px;margin:0;color:#2b4969}
+}
 .history-calendar{overflow:hidden}.calendar-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:20px 24px;border-bottom:1px solid var(--border)}
 .calendar-month-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.calendar-month-controls h2{font-size:21px;min-width:175px;text-align:center;margin:0}.calendar-month-controls .icon-button{min-width:44px;min-height:44px;background:#f7f9fc;border:1px solid #dce5ef;border-radius:9px;color:#345a81}.calendar-month-controls .button{min-height:44px;margin-left:6px}
 .calendar-toolbar>p{font-size:15px;color:#5d7187;margin:0}.calendar-body{padding:18px 22px 22px}.calendar-weekdays,.calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}.calendar-weekdays{padding:0 0 12px;text-align:center;color:#566c82;font-size:14px;font-weight:600}.calendar-weekdays>span{padding:6px 0}
@@ -126,6 +135,10 @@ dialog.calendar-digest-dialog{max-width:calc(100vw - 24px)}
 @media(max-width:1150px){.np-photo-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.np-photo-metrics>div{padding:18px;gap:12px}}
 @media(max-width:680px){.np-photo-metrics{gap:10px;margin-bottom:20px}.np-photo-metrics>div{display:block;padding:15px 11px}.np-photo-metric-icon{width:33px;height:33px;border-radius:8px;margin-bottom:12px}.np-photo-metric-icon svg{height:17px;width:17px}.np-photo-metrics p{font-size:12px}.np-photo-metrics strong{font-size:23px;white-space:nowrap}.np-photo-filters{padding:19px 17px;margin-bottom:20px}.np-photo-filter-fields{grid-template-columns:1fr 1fr;gap:17px 12px}.np-photo-filter-fields>.field:first-child{grid-column:1/-1}.np-photo-filter-bottom{display:block;margin-top:18px}.np-photo-filter-bottom>div:first-child{justify-content:space-between}.np-photo-filter-bottom select{width:calc(100% - 80px);min-width:0;font-size:15px;min-height:46px}.np-photo-filter-bottom>div:last-child{justify-content:flex-end;margin-top:16px}.np-photo-filter-bottom .button{flex:1;min-height:46px}.np-photo-empty{min-height:320px;padding:34px 22px}.np-photo-empty h3{font-size:20px}.np-photo-empty p{font-size:15px}.np-photo-empty .button{font-size:16px;min-height:48px}.np-photo-panel-title{gap:9px}.np-photo-panel-title h2{font-size:19px}.np-photo-panel-title .count-label{font-size:11px}.np-photo-pagination{padding:16px;gap:10px;font-size:12px;flex-wrap:wrap}.np-photo-pagination>div{margin-left:auto}.np-photo-pagination .button{min-height:44px;font-size:13px;padding:9px}.np-photo-grid{gap:12px;padding:17px}.np-photo-card-body{padding:12px}.np-photo-card-body>.text-button{font-size:15px}.np-photo-card-body p{display:block;font-size:12px}.np-photo-card-body p span{display:block;margin-top:4px}.np-photo-image span{font-size:10px;top:8px;right:8px;padding:3px 5px}.np-photo-upload{grid-template-columns:1fr}.np-photo-dropzone{min-height:190px}.np-photo-dropzone strong{font-size:16px}.np-photo-dropzone small{font-size:13px}.np-photo-note{font-size:13px}.np-photo-detail-meta{grid-template-columns:1fr 1fr}}
 @media(max-width:365px){.np-photo-grid{grid-template-columns:1fr}.np-photo-metrics strong{font-size:20px}.np-photo-metrics p{font-size:11px}.np-photo-panel-title .count-label{display:none}}
+
+.np-photo-activity-layout .np-photo-pagination>div{flex-wrap:wrap;justify-content:flex-end}
+.np-photo-activity-layout .callout{margin:16px;overflow-wrap:anywhere}
+@media(max-width:680px){.np-photo-activity-layout .np-photo-pagination>div{width:100%}.np-photo-activity-layout .np-photo-pagination .button:first-child{flex-basis:100%}}
 
 </style>
 </head>
@@ -239,7 +252,7 @@ const routes=[
 function apiRoute(path,method,service='hr'){
  if(service==='session'&&path==='/me'&&method==='GET')return {actor:false};
  if(service==='photos'){
-  const allowed=method==='GET'&&/^\/(?:photos(?:\/\d+)?|stats|activity(?:\/digest)?)$/.test(path)||method==='POST'&&path==='/upload'||['PATCH','DELETE'].includes(method)&&/^\/photos\/\d+$/.test(path);
+  const allowed=method==='GET'&&/^\/(?:photos(?:\/\d+(?:\/history)?)?|stats|activity(?:\/(?:digest|actors))?)$/.test(path)||method==='POST'&&['/upload','/photos/batch'].includes(path)||['PATCH','DELETE'].includes(method)&&/^\/photos\/\d+$/.test(path);
   if(allowed)return {actor:method!=='GET'};
   throw new Error('This action is not defined in the photo API contract.');
  }
@@ -1337,7 +1350,7 @@ function renderDashboard(ctx) {
     {label:'Timestamp Camera',icon:'camera',action:'navigate',page:'camera',disabled:false}
   ];
   return `<div class="dashboard-simple">
-    <div class="metrics-grid">${cards.map(card => `<article class="metric-card"><div class="metric-top"><span class="metric-title">${card[0]}</span><span class="metric-icon ${card[3]}">${icon(card[2], 20)}</span></div><div class="metric-number">${card[1]}</div>${ctx.renderYesterdayChange?ctx.renderYesterdayChange(ctx.comparison?.[card[5]==='employees'?'employees':card[5]==='violations'?'violations':card[5]],icon,ctx.comparison?.reason):''}<div class="metric-bottom">${card[4]}</div><button class="metric-card-link" data-action="dashboard-card" data-target="${card[5]}" aria-label="View ${card[0].toLowerCase()}"></button></article>`).join('')}</div>
+    <section class="metrics-grid" aria-label="Workplace overview"><h2 class="dashboard-summary-heading">Workplace overview</h2>${cards.map(card => `<article class="metric-card"><div class="metric-top"><span class="metric-title">${card[0]}</span><span class="metric-icon ${card[3]}">${icon(card[2], 20)}</span></div><div class="metric-number">${card[1]}</div>${ctx.renderYesterdayChange?ctx.renderYesterdayChange(ctx.comparison?.[card[5]==='employees'?'employees':card[5]==='violations'?'violations':card[5]],icon,ctx.comparison?.reason):''}<div class="metric-bottom">${card[4]}</div><button class="metric-card-link" data-action="dashboard-card" data-target="${card[5]}" aria-label="View ${card[0].toLowerCase()}"></button></article>`).join('')}</section>
     <section class="dashboard-quick-actions" aria-labelledby="dashboard-quick-title"><h2 id="dashboard-quick-title">What would you like to do?</h2><div class="dashboard-action-grid">${quickActions.map(item=>`<button class="dashboard-action-tile" data-action="${item.action}" ${item.page?'data-page="'+item.page+'"':''} ${item.disabled?'disabled title="'+item.hint+'"':''}><span class="dashboard-action-icon">${icon(item.icon,25)}</span><span>${item.label}</span></button>`).join('')}</div></section>
     <div class="dashboard-main-row">
       <section class="panel weekly-panel"><div class="panel-header"><div><h2>Violation Trends</h2><p>Weekly totals · Monday to Sunday</p></div><span class="period-label">Last 6 weeks</span></div><div class="weekly-chart-body">${weeklyChart(weeks, esc)}</div><div class="weekly-chart-footer"><span><i class="legend-dot light"></i> Weekly violations</span><span><i class="legend-dot"></i> Current week (last bar)</span></div></section>
@@ -1435,15 +1448,41 @@ function bindEmployeePicker(root, employees, selectedId, esc) {
   let selected = employees.find(employee => employee.id === selectedId);
   let matches = [];
   let active = -1;
+  const floating = typeof list.showPopover === 'function';
+  if (floating) list.setAttribute('popover', 'manual');
+
+  // A native popover escapes the dialog's scrolling/clipping area. Older
+  // browsers keep the absolutely positioned list below the input instead.
+  function position() {
+    if (!floating || list.hidden) return;
+    const rect = input.getBoundingClientRect(), viewport = globalThis.visualViewport;
+    const top = viewport?.offsetTop || 0, left = viewport?.offsetLeft || 0;
+    const width = viewport?.width || globalThis.innerWidth;
+    const height = viewport?.height || globalThis.innerHeight;
+    const below = top + height - rect.bottom - 12, above = rect.top - top - 12;
+    const upward = below < 180 && above > below;
+    const maxHeight = Math.min(260, Math.max(56, upward ? above : below));
+    Object.assign(list.style, {
+      width: Math.min(rect.width, width - 16) + 'px',
+      left: Math.max(left + 8, Math.min(rect.left, left + width - rect.width - 8)) + 'px',
+      maxHeight: maxHeight + 'px',
+      top: (upward ? rect.top - 6 - Math.min(list.scrollHeight, maxHeight) : rect.bottom + 6) + 'px'
+    });
+  }
 
   function validate() {
     input.setCustomValidity(value.value ? '' : 'Choose an employee from the suggestions.');
   }
   function close() {
+    if (floating && list.matches(':popover-open')) list.hidePopover();
     list.hidden = true;
     input.setAttribute('aria-expanded', 'false');
     input.removeAttribute('aria-activedescendant');
     active = -1;
+    globalThis.removeEventListener?.('resize', position);
+    globalThis.visualViewport?.removeEventListener('resize', position);
+    globalThis.visualViewport?.removeEventListener('scroll', position);
+    root.removeEventListener('scroll', position, true);
   }
   function choose(employee) {
     selected = employee;
@@ -1468,9 +1507,18 @@ function bindEmployeePicker(root, employees, selectedId, esc) {
     matches = all.slice(0, 6);
     active = -1;
     input.removeAttribute('aria-activedescendant');
-    list.innerHTML = matches.map((employee, index) => `<button type="button" role="option" aria-selected="false" tabindex="-1" id="employee-option-${index}" data-employee-option="${index}"><strong>${esc(employee.name)}</strong><span>${esc(employee.id)}${employee.department ? ` · ${esc(employee.department)}` : ''}</span></button>`).join('');
-    list.hidden = !matches.length;
-    input.setAttribute('aria-expanded', String(matches.length > 0));
+    list.innerHTML = matches.length ? matches.map((employee, index) => `<button type="button" role="option" aria-selected="false" tabindex="-1" id="employee-option-${index}" data-employee-option="${index}"><strong>${esc(employee.name)}</strong><span>${esc(employee.id)}${employee.department ? ` · ${esc(employee.department)}` : ''}</span></button>`).join('') : '<p class="employee-picker-empty">No matching employees. Try another name or employee code.</p>';
+    list.hidden = false;
+    list.scrollTop = 0;
+    if (floating) {
+      if (!list.matches(':popover-open')) list.showPopover();
+      position();
+      globalThis.addEventListener?.('resize', position);
+      globalThis.visualViewport?.addEventListener('resize', position);
+      globalThis.visualViewport?.addEventListener('scroll', position);
+      root.addEventListener('scroll', position, true);
+    }
+    input.setAttribute('aria-expanded', 'true');
     status.textContent = matches.length ? `${matches.length} suggestion${matches.length === 1 ? '' : 's'}${all.length > 6 ? ` of ${all.length} matches; keep typing to narrow the list` : ''}. Tap a name to select.` : 'No matching employees. Try another name or employee code.';
   }
   if (selected) choose(selected);
@@ -1514,6 +1562,7 @@ function bindEmployeePicker(root, employees, selectedId, esc) {
   picker.addEventListener('focusout', event => {
     if (!picker.contains(event.relatedTarget)) close();
   });
+  root.addEventListener('close', close, { once: true });
 }
 
 return {bindEmployeePicker};})();
@@ -1675,18 +1724,19 @@ function renderYesterdayChange(value,icon,reason='',decimals=0){
 }
 
 return {businessDate,yesterdayComparison,renderYesterdayChange};})();
-const {photoData,photoUpload,watchPhotos,photoFileUrl,photoRequest,loadPhotos,uploadPhoto,allowPhotoRetry}=(()=>{
+const {photoData,photoUpload,watchPhotos,notifyPhotos,photoFileUrl,photoRequest,loadPhotos,uploadPhoto,allowPhotoRetry}=(()=>{
 
 
 const photoData={status:'idle',items:[],activity:[],stats:null,error:''};
 const photoUpload={busy:false,uncertain:false,error:'',reviewed:false};
 let photoListener=()=>{},photoLoad;
 function watchPhotos(fn){photoListener=fn;}
+function notifyPhotos(){photoListener();}
 function photoFileUrl(id){if(!/^\d+$/.test(String(id)))throw Error('Invalid photo ID.');return new URL(`/app2/photos/${id}/file`,API_BASE_URL).href;}
 function photoRequest(path,options={}){return dataSource.request({service:'photos',path,...options});}
 function normalizePhoto(raw){if(!Number.isSafeInteger(raw?.id)||raw.id<1||typeof raw.owner!=='string'||typeof raw.timestamp!=='string'||Number.isNaN(Date.parse(raw.timestamp))||!Array.isArray(raw.tags))throw Error('The photo service returned an invalid photo.');return {id:String(raw.id),name:raw.display_name||raw.original_filename||'Untitled photo',description:raw.description||'',tags:raw.tags.map(String),owner:raw.owner,size:raw.size_bytes||0,created:Date.parse(/(?:Z|[+-]\d\d:\d\d)$/.test(raw.timestamp)?raw.timestamp:raw.timestamp+'+08:00'),url:photoFileUrl(raw.id)};}
 async function pages(path,limit=200){const items=[],ids=new Set();let offset=0,expected=null;for(let page=0;page<2000;page++){const raw=await photoRequest(path,{query:{limit,offset}});if(!Array.isArray(raw?.items)||!Number.isSafeInteger(raw.total)||raw.total<0||raw.offset!==offset||expected!==null&&raw.total!==expected)throw Error('The photo list changed or returned incomplete data. Refresh to retry.');expected=raw.total;for(const item of raw.items){if(!Number.isSafeInteger(item.id)||ids.has(item.id))throw Error('The photo service returned repeated records.');ids.add(item.id);items.push(item);}if(items.length===expected)return items;if(!raw.items.length||items.length>expected)throw Error('The photo service returned an incomplete list.');offset+=raw.items.length;}throw Error('The photo list is too large to load.');}
-function loadPhotos(force=false){if(photoLoad)return photoLoad;if(!force&&photoData.status==='ready')return Promise.resolve();photoData.status='loading';photoData.error='';photoListener();photoLoad=(async()=>{try{const [items,activity,stats]=await Promise.all([pages('/photos'),pages('/activity',500),photoRequest('/stats')]);if(!Number.isSafeInteger(stats.total_photos)||typeof stats.total_bytes!=='number')throw Error('Photo summary is invalid.');if(activity.some(e=>typeof e.actor!=='string'||typeof e.action!=='string'||typeof e.created_at!=='string'||Number.isNaN(Date.parse(e.created_at))))throw Error('The photo service returned invalid activity.');Object.assign(photoData,{status:'ready',items:items.map(normalizePhoto),activity,stats,error:''});if(photoUpload.uncertain)photoUpload.reviewed=true;}catch(error){Object.assign(photoData,{status:'error',items:[],activity:[],stats:null,error:error.message});}finally{photoLoad=null;photoListener();}})();return photoLoad;}
+function loadPhotos(force=false){if(photoLoad)return photoLoad;if(!force&&photoData.status==='ready')return Promise.resolve();photoData.status='loading';photoData.error='';photoListener();photoLoad=(async()=>{try{const [items,stats]=await Promise.all([pages('/photos'),photoRequest('/stats')]);if(!Number.isSafeInteger(stats.total_photos)||typeof stats.total_bytes!=='number')throw Error('Photo summary is invalid.');Object.assign(photoData,{status:'ready',items:items.map(normalizePhoto),activity:[],stats,error:''});if(photoUpload.uncertain)photoUpload.reviewed=true;}catch(error){Object.assign(photoData,{status:'error',items:[],activity:[],stats:null,error:error.message});}finally{photoLoad=null;photoListener();}})();return photoLoad;}
 async function uploadPhoto(file,values,actor){
  if(photoUpload.busy)throw Error('An upload is already in progress.');if(photoUpload.uncertain)throw Error('The last upload has not been confirmed. Review the library before sending another upload.');
  if(!file||!file.type.startsWith('image/'))throw Error('Choose an image first.');if(file.size>15*1024*1024)throw Error('Choose an image smaller than 15 MB.');
@@ -1698,7 +1748,107 @@ async function uploadPhoto(file,values,actor){
 }
 function allowPhotoRetry(){if(!photoUpload.reviewed||photoData.status!=='ready')throw Error('Refresh the library and check the recent uploads first.');photoUpload.uncertain=false;photoUpload.error='';photoUpload.reviewed=false;}
 
-return {photoData,photoUpload,watchPhotos,photoFileUrl,photoRequest,loadPhotos,uploadPhoto,allowPhotoRetry};})();
+return {photoData,photoUpload,watchPhotos,notifyPhotos,photoFileUrl,photoRequest,loadPhotos,uploadPhoto,allowPhotoRetry};})();
+const {createPhotoActivity,photoActivityService,fetchPhotoHistory,fetchPhotoBatch}=(()=>{
+
+
+function activityRows(rows){
+ if(!Array.isArray(rows)||rows.some(e=>!e||!Number.isSafeInteger(e.id)||e.id<1||e.photo_id!=null&&(!Number.isSafeInteger(e.photo_id)||e.photo_id<1)||e.photo_display_name!=null&&typeof e.photo_display_name!=='string'||typeof e.actor!=='string'||typeof e.action!=='string'||typeof e.created_at!=='string'||Number.isNaN(Date.parse(e.created_at))))throw Error('The photo service returned invalid activity.');
+ return rows;
+}
+function createPhotoActivity(request=photoRequest,notify=()=>{}){
+ const state={status:'idle',error:'',items:[],total:0,digest:null,actors:[],month:businessDate().slice(0,7),day:'',page:1,q:'',actor:'',action:''};
+ let controller,version=0,digestCache=null,actorCache=null;
+ async function load(changes={},force=false){
+  Object.assign(state,changes);controller?.abort();controller=new AbortController();const signal=controller.signal,ticket=++version;
+  Object.assign(state,{status:'loading',error:'',items:[],total:0,digest:null,actors:[]});notify();
+  try{
+   const [year,month]=state.month.split('-').map(Number),from=state.month+'-01',to=state.month+'-'+new Date(year,month,0).getDate();
+   const filters={q:state.q||undefined,actor:state.actor||undefined,action:state.action||undefined};
+   const feed={...filters,limit:8,offset:(state.page-1)*8,from_date:state.day||undefined,to_date:state.day||undefined};
+   const digestQuery={...filters,from_date:from,to_date:to,include_items:false},key=JSON.stringify(digestQuery);
+   const [page,digest,actors]=await Promise.all([
+    request('/activity',{query:feed,signal}),
+    !force&&digestCache?.key===key?digestCache.value:request('/activity/digest',{query:digestQuery,signal}),
+    !force&&actorCache?actorCache:request('/activity/actors',{signal})
+   ]);
+   if(ticket!==version)return;
+   activityRows(page.items);
+   if(!Number.isSafeInteger(page.total)||page.total<0||page.offset!==feed.offset||page.limit!==8||page.items.length>8)throw Error('The photo service returned an invalid activity page.');
+   if(typeof digest?.summary!=='string'||!Number.isSafeInteger(digest.total)||digest.total<0||digest.from_date!==from||digest.to_date!==to||!Array.isArray(digest.days)||digest.days.some(d=>!d||typeof d.date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(d.date)||d.date<from||d.date>to||!Number.isSafeInteger(d.total)||d.total<0||typeof d.summary!=='string'))throw Error('The photo service returned an invalid activity summary.');
+   if(!Array.isArray(actors.actors)||actors.actors.some(a=>typeof a.actor!=='string'||!Number.isSafeInteger(a.total)))throw Error('The photo service returned invalid actor statistics.');
+   digestCache={key,value:digest};actorCache=actors;
+   const last=Math.max(1,Math.ceil(page.total/8));if(state.page>last)return await load({page:last});
+   Object.assign(state,{status:'ready',items:page.items,total:page.total,digest,actors:actors.actors});
+  }catch(error){if(ticket!==version)return;digestCache=null;actorCache=null;Object.assign(state,{status:'error',error:error.message||'Could not load photo activity.',items:[],total:0,digest:null,actors:[]});}
+  finally{if(ticket===version)notify();}
+ }
+ return {state,load};
+}
+const photoActivityService=createPhotoActivity(photoRequest,notifyPhotos);
+async function fetchPhotoHistory(id,page=1){
+ if(!/^\d+$/.test(String(id))||!Number.isInteger(page)||page<1)throw Error('Invalid photo history request.');
+ const result=await photoRequest(`/photos/${id}/history`,{query:{limit:8,offset:(page-1)*8}});
+ activityRows(result.items);if(result.photo_id!==Number(id)||!Number.isSafeInteger(result.total)||result.total<0||typeof result.photo_exists!=='boolean')throw Error('The photo service returned invalid photo history.');return result;
+}
+async function fetchPhotoBatch(ids,actor){
+ if(!Array.isArray(ids)||ids.length<1||ids.length>200||ids.some(id=>!Number.isSafeInteger(id)||id<1))throw Error('Choose between 1 and 200 photo IDs.');
+ const result=await photoRequest('/photos/batch',{method:'POST',body:{ids},actor});
+ if(!Array.isArray(result.found)||!Array.isArray(result.missing))throw Error('The photo service returned an invalid photo batch.');
+ const returned=[...result.found.map(p=>p.id),...result.missing],expected=[...new Set(ids)];
+ if(new Set(returned).size!==returned.length||returned.length!==expected.length||returned.some(id=>!expected.includes(id)))throw Error('The photo batch did not match the requested photos.');return result;
+}
+
+return {createPhotoActivity,photoActivityService,fetchPhotoHistory,fetchPhotoBatch};})();
+const {renderPhotoActivity,handlePhotoActivityAction}=(()=>{
+
+
+
+function renderPhotoActivity({icon,esc,formatDate}){
+ const a=photoActivityService.state,[y,m]=a.month.split('-').map(Number),month=new Date(y,m-1,1),count=new Date(y,m,0).getDate();
+ const days=a.digest?.days||[],peak=Math.max(1,...days.map(d=>d.total));
+ let cells='<span></span>'.repeat(month.getDay());
+ for(let i=1;i<=count;i++){
+  const date=a.month+'-'+String(i).padStart(2,'0'),day=days.find(d=>d.date===date);
+  cells+=`<button class="np-photo-day ${date===a.day?'selected':''} ${day?.total?'has-activity':''}" ${day?.total?`style="background:rgba(82,124,169,${.12+.45*day.total/peak})"`:''} data-action="photo-activity-day" data-date="${date}" aria-label="${date}${a.status==='ready'?', '+(day?.total||0)+' events':''}" aria-pressed="${date===a.day}">${i}</button>`;
+ }
+ const pages=Math.max(1,Math.ceil(a.total/8)),selected=days.find(d=>d.date===a.day);
+ const options=[...new Set([a.actor,...a.actors.map(x=>x.actor)].filter(Boolean))];
+ const filters=`<section class="panel np-photo-filters"><form id="photo-activity-filters"><div class="np-photo-filter-fields"><div class="field"><label for="photo-activity-search">Search activity</label><input type="search" id="photo-activity-search" name="q" value="${esc(a.q)}" placeholder="Photo name or details"></div><div class="field"><label for="photo-activity-actor">Changed by</label><select id="photo-activity-actor" name="actor"><option value="">All team members</option>${options.map(name=>`<option value="${esc(name)}" ${name===a.actor?'selected':''}>${esc(name)}</option>`).join('')}</select></div><div class="field"><label for="photo-activity-action">Action</label><select id="photo-activity-action" name="action">${[['','All actions'],['upload','Uploads'],['edit','Edits'],['rename','Renames'],['delete','Deletions']].map(([value,label])=>`<option value="${value}" ${value===a.action?'selected':''}>${label}</option>`).join('')}</select></div></div><div class="np-photo-filter-bottom"><span></span><div><button type="button" class="button ghost" data-action="photo-activity-clear">Clear Filters</button><button type="submit" class="button secondary">${icon('search',16)} Search</button></div></div></form></section>`;
+ let content;
+ if(a.status==='error')content=`<div class="empty-state" role="alert"><h3>Couldn’t load photo activity</h3><p>${esc(a.error)}</p><button class="button primary" data-action="photo-activity-retry">Try Again</button></div>`;
+ else if(a.status!=='ready')content=loadingSkeleton('employees','photo activity');
+ else content=`${a.day?`<div class="callout"><p>${esc(selected?.summary||'No activity for this date and these filters.')}</p></div>`:''}${a.items.length?`<div class="np-photo-table" tabindex="0" role="region" aria-label="Photo activity, scroll horizontally"><table><thead><tr><th>Date & Time</th><th>Action</th><th>Photo</th><th>Changed by</th></tr></thead><tbody>${a.items.map(e=>`<tr><td>${formatDate(e.created_at)}<span class="history-cell-secondary">${esc(e.created_at.slice(11,16))}</span></td><td>${esc(({upload:'Photo uploaded',edit:'Details edited',rename:'Photo renamed',delete:'Photo deleted'})[e.action]||e.action)}</td><td>${e.photo_id?`<button class="text-button" data-action="photo-history" data-id="${e.photo_id}">${esc(e.photo_display_name||'Photo #'+e.photo_id)}</button>`:esc(e.photo_display_name||'Photo unavailable')}</td><td>${esc(e.actor)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty-state"><h3>No photo activity</h3><p>No events match these filters.</p></div>'}`;
+ return filters+`<div class="np-photo-activity-layout"><section class="panel"><div class="panel-header"><button class="icon-button" data-action="photo-activity-month" data-step="-1" aria-label="Previous month">${icon('chevron-left',16)}</button><h2>${month.toLocaleDateString('en-US',{month:'long',year:'numeric'})}</h2><button class="icon-button" data-action="photo-activity-month" data-step="1" aria-label="Next month">${icon('chevron-right',16)}</button></div><div class="np-photo-calendar"><div class="np-photo-week">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d=>`<span>${d}</span>`).join('')}</div><div class="np-photo-days">${cells}</div></div><div class="panel-footer"><button class="button ghost" data-action="photo-activity-day" data-date="">All dates</button></div>${a.status==='ready'?`<div class="callout"><p>${esc(a.digest.summary)}</p></div>`:''}</section><section class="panel"><div class="panel-header"><div><h2>Photo Activity Log</h2><p>${a.day?formatDate(a.day):'All dates'} · Newest first</p></div>${a.status==='ready'?`<span class="count-label">${a.total} events</span>`:''}</div>${content}<div class="np-photo-pagination"><span>${a.status==='ready'?'Page '+a.page+' of '+pages:''}</span><div><button class="button secondary small" data-action="photo-activity-gallery" ${a.status!=='ready'||!a.items.some(e=>e.photo_id)?'disabled':''}>Photos on this page</button><button class="button secondary small" data-action="photo-activity-page" data-step="-1" ${a.status!=='ready'||a.page===1?'disabled':''}>Previous</button><button class="button secondary small" data-action="photo-activity-page" data-step="1" ${a.status!=='ready'||a.page>=pages?'disabled':''}>Next</button></div></div></section></div>`;
+}
+
+let photoModalVersion=0;
+async function handlePhotoActivityAction(action,el,c){
+ const a=photoActivityService.state;
+ switch(action){
+ case 'photo-activity-day':await photoActivityService.load({day:el.dataset.date||'',page:1});return;
+ case 'photo-activity-month':{const [y,m]=a.month.split('-').map(Number);await photoActivityService.load({month:new Date(Date.UTC(y,m-1+Number(el.dataset.step),1)).toISOString().slice(0,7),day:'',page:1});return;}
+ case 'photo-activity-page':await photoActivityService.load({page:Math.max(1,a.page+Number(el.dataset.step))});return;
+ case 'photo-activity-retry':await photoActivityService.load({},true);return;
+ case 'photo-activity-clear':await photoActivityService.load({q:'',actor:'',action:'',day:'',page:1});return;
+ }
+ const version=++photoModalVersion,history=action==='photo-history',id=el.dataset.id,page=Number(el.dataset.page)||1;
+ c.openModal(history?'Photo History':'Photos on this page','<div id="photo-activity-modal" aria-live="polite">Loading…</div>','<button class="button secondary" data-action="close-modal">Close</button>');
+ const target=()=>version===photoModalVersion&&document.querySelector('#photo-activity-modal');
+ try{
+  let html;
+  if(history){
+   const data=await fetchPhotoHistory(id,page);
+   html=`<h3>${c.esc(data.photo_display_name||'Photo #'+id)}</h3>${data.photo_exists?'':'<p class="muted">This photo has been deleted. Its history is retained.</p>'}<div class="np-photo-table" tabindex="0" role="region" aria-label="Photo history, scroll horizontally"><table><thead><tr><th>Date & Time</th><th>Action</th><th>Changed by</th></tr></thead><tbody>${data.items.map(e=>`<tr><td>${c.esc(e.created_at)}</td><td>${c.esc(e.action)}</td><td>${c.esc(e.actor)}</td></tr>`).join('')}</tbody></table></div>${data.total?'':'<p>No history recorded.</p>'}<div class="np-photo-pagination"><span>Page ${page} of ${Math.max(1,Math.ceil(data.total/8))}</span><div><button class="button secondary" data-action="photo-history" data-id="${id}" data-page="${page-1}" ${page<=1?'disabled':''}>Previous</button><button class="button secondary" data-action="photo-history" data-id="${id}" data-page="${page+1}" ${page*8>=data.total?'disabled':''}>Next</button></div></div>`;
+  }else{
+   const ids=[...new Set(a.items.map(e=>e.photo_id).filter(id=>Number.isSafeInteger(id)&&id>0))],data=await fetchPhotoBatch(ids,c.store.settings.name);
+   html=`<div class="np-photo-grid">${data.found.map(p=>`<article class="np-photo-card"><img class="np-photo-detail" src="${photoFileUrl(p.id)}" alt="${c.esc(p.display_name||'Photo')}"><div class="np-photo-card-body"><strong>${c.esc(p.display_name||p.original_filename||'Photo')}</strong><button class="text-button" data-action="photo-history" data-id="${p.id}">View History</button></div></article>`).join('')}</div>${data.missing.length?`<p>${data.missing.length} photo(s) are no longer available.</p>`:''}`;
+  }
+  const body=target();if(body)body.innerHTML=html;
+ }catch(error){const body=target();if(body)body.innerHTML=`<p role="alert">${c.esc(error.message)}</p><button class="button secondary" data-action="${history?'photo-history':'photo-activity-gallery'}" ${history?`data-id="${id}" data-page="${page}"`:''}>Try Again</button>`;}
+}
+
+return {renderPhotoActivity,handlePhotoActivityAction};})();
 const {renderPhotoCamera,stampedPhoto,handleCameraAction,handleCameraChange}=(()=>{
 
 const cameraState={file:null,url:'',at:null,stamp:true,message:'',busy:false};
@@ -1713,22 +1863,18 @@ const {renderPhotoLibrary,handlePhotoAction,handlePhotoSubmit,handlePhotoChange,
 
 
 
-const photoState={get items(){return photoData.items;},tab:'photos',activityDay:'',activityMonth:businessDate().slice(0,7),activityPage:1,filters:{search:'',owner:'',tag:'',order:'newest'},view:'grid',page:1};
+
+
+const photoState={get items(){return photoData.items;},tab:'photos',filters:{search:'',owner:'',tag:'',order:'newest'},view:'grid',page:1};
 let photoDraft=null,photoDraftUrl=null;
 function clearPhotoDraft(){if(photoDraftUrl)URL.revokeObjectURL(photoDraftUrl);photoDraft=null;photoDraftUrl=null;}
 const photoBytes=value=>value>=1048576?(value/1048576).toFixed(1)+' MB':Math.max(1,Math.round(value/1024))+' KB';
 function photoTabs(){return `<div class="report-tabs-container"><div class="tabs report-tabs" role="tablist" aria-label="Photo Library sections">${[['photos','Photos'],['activity','Activity Log']].map(([id,label])=>`<button class="tab ${photoState.tab===id?'active':''}" role="tab" aria-selected="${photoState.tab===id}" data-action="photo-tab" data-tab="${id}">${label}</button>`).join('')}</div></div>`;}
-function photoActivity({icon,esc,formatDate}){
- const [y,m]=photoState.activityMonth.split('-').map(Number),month=new Date(y,m-1,1),count=new Date(y,m,0).getDate();
- let cells='<span></span>'.repeat(month.getDay());for(let i=1;i<=count;i++){const date=photoState.activityMonth+'-'+String(i).padStart(2,'0'),has=photoData.activity.some(e=>e.created_at.slice(0,10)===date);cells+=`<button class="np-photo-day ${date===photoState.activityDay?'selected':''} ${has?'has-activity':''}" data-action="photo-activity-day" data-date="${date}" aria-label="${date}" aria-pressed="${date===photoState.activityDay}">${i}</button>`;}
- const rows=photoData.activity.filter(e=>!photoState.activityDay||e.created_at.slice(0,10)===photoState.activityDay).sort((a,b)=>b.created_at.localeCompare(a.created_at)||b.id-a.id),pages=Math.max(1,Math.ceil(rows.length/8));photoState.activityPage=Math.max(1,Math.min(photoState.activityPage,pages));
- return `<div class="np-photo-activity-layout"><section class="panel"><div class="panel-header"><button class="icon-button" data-action="photo-activity-month" data-step="-1" aria-label="Previous month">${icon('chevron-left',16)}</button><h2>${month.toLocaleDateString('en-US',{month:'long',year:'numeric'})}</h2><button class="icon-button" data-action="photo-activity-month" data-step="1" aria-label="Next month">${icon('chevron-right',16)}</button></div><div class="np-photo-calendar"><div class="np-photo-week">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d=>`<span>${d}</span>`).join('')}</div><div class="np-photo-days">${cells}</div></div><div class="panel-footer"><button class="button ghost" data-action="photo-activity-day" data-date="">All dates</button></div></section><section class="panel"><div class="panel-header"><div><h2>Photo Activity Log</h2><p>${photoState.activityDay?formatDate(photoState.activityDay):'All dates'} · Newest first</p></div><span class="count-label">${rows.length} events</span></div>${rows.length?`<div class="np-photo-table" tabindex="0" role="region" aria-label="Photo activity, scroll horizontally"><table><thead><tr><th>Date & Time</th><th>Action</th><th>Photo</th><th>Changed by</th></tr></thead><tbody>${rows.slice((photoState.activityPage-1)*8,photoState.activityPage*8).map(e=>`<tr><td>${formatDate(e.created_at)}<span class="history-cell-secondary">${esc(e.created_at.slice(11,16))}</span></td><td>${esc(({upload:'Photo uploaded',edit:'Details edited',rename:'Photo renamed',delete:'Photo deleted'})[e.action]||e.action)}</td><td>${esc(e.photo_display_name||'Photo #'+e.photo_id)}</td><td>${esc(e.actor)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty-state"><h3>No photo activity</h3><p>Uploads and photo changes will appear here.</p></div>'}<div class="np-photo-pagination"><span>Page ${photoState.activityPage} of ${pages}</span><div><button class="button secondary small" data-action="photo-activity-page" data-step="-1" ${photoState.activityPage===1?'disabled':''}>Previous</button><button class="button secondary small" data-action="photo-activity-page" data-step="1" ${photoState.activityPage===pages?'disabled':''}>Next</button></div></div></section></div>`;
-}
 function photoRows(){const f=photoState.filters;return photoState.items.filter(p=>(!f.search||`${p.name} ${p.description} ${p.tags.join(' ')}`.toLowerCase().includes(f.search.toLowerCase()))&&(!f.owner||p.owner.toLowerCase().includes(f.owner.toLowerCase()))&&(!f.tag||p.tags.some(t=>t.toLowerCase().includes(f.tag.toLowerCase())))).sort((a,b)=>f.order==='oldest'?a.created-b.created:f.order==='name'?a.name.localeCompare(b.name):f.order==='size'?b.size-a.size:b.created-a.created);}
 function renderPhotoLibrary({icon,esc,formatDate}){
  const tabs=photoTabs();
+ if(photoState.tab==='activity')return tabs+renderPhotoActivity({icon,esc,formatDate});
  if(photoData.status!=='ready')return tabs+(photoData.status==='error'?`<section class="panel"><div class="empty-state" role="alert"><h3>Couldn’t load photos</h3><p>${esc(photoData.error)}</p><button class="button primary" data-action="photo-retry">Try Again</button></div></section>`:loadingSkeleton('employees','photo library'));
- if(photoState.tab==='activity')return tabs+photoActivity({icon,esc,formatDate});
  const f=photoState.filters,rows=photoRows(),pages=Math.max(1,Math.ceil(rows.length/8));photoState.page=Math.min(photoState.page,pages);const start=(photoState.page-1)*8,shown=rows.slice(start,start+8),size=photoState.items.reduce((total,p)=>total+p.size,0);
  const card=p=>`<article class="np-photo-card"><button class="np-photo-image" data-action="photo-details" data-id="${p.id}" aria-label="View ${esc(p.name)}"><img src="${p.url}" alt="${esc(p.name)}"></button><div class="np-photo-card-body"><button class="text-button" data-action="photo-details" data-id="${p.id}">${esc(p.name)}</button><p>${formatDate(businessDate(p.created))} <span>${photoBytes(p.size)}</span></p><div class="np-photo-tags">${p.tags.slice(0,3).map(t=>`<span>${esc(t)}</span>`).join('')}</div></div></article>`;
  const metrics=[['Total photos',photoData.stats.total_photos,'image'],['Storage used',(photoData.stats.total_bytes/1048576).toFixed(1)+' MB','archive'],['Added today',photoState.items.filter(p=>businessDate(p.created)===businessDate()).length,'calendar']];
@@ -1737,12 +1883,10 @@ function renderPhotoLibrary({icon,esc,formatDate}){
 function photoError(message){const node=document.querySelector('#photo-error');if(node){node.textContent=message;node.hidden=false;}}
 function choosePhoto(file,{esc}){if(!file)return;if(!file.type.startsWith('image/')){photoError('Please choose an image file.');return;}if(file.size>15*1024*1024){photoError('Choose an image smaller than 15 MB.');return;}clearPhotoDraft();photoDraft=file;photoDraftUrl=URL.createObjectURL(file);document.querySelector('#photo-dropzone').innerHTML=`<img src="${photoDraftUrl}" alt="Selected photo preview"><strong>${esc(file.name)}</strong><small>Tap to choose a different photo</small>`;const name=document.querySelector('#photo-name');if(!name.value)name.value=file.name.replace(/\.[^.]+$/,'');document.querySelector('#photo-error').hidden=true;}
 async function handlePhotoAction(action,el,c){const {icon,esc,openModal,closeModal,render,formatDate}=c;
+ if(action.startsWith('photo-activity-')||action==='photo-history'){await handlePhotoActivityAction(action,el,c);return;}
  switch(action){
- case 'photo-tab':photoState.tab=el.dataset.tab;c.render();break;
+ case 'photo-tab':photoState.tab=el.dataset.tab;c.render();if(photoState.tab==='activity')await photoActivityService.load({},true);break;
  case 'photo-retry':await loadPhotos(true);break;
- case 'photo-activity-day':photoState.activityDay=el.dataset.date||'';photoState.activityPage=1;c.render();break;
- case 'photo-activity-month':{const [y,m]=photoState.activityMonth.split('-').map(Number);photoState.activityMonth=new Date(Date.UTC(y,m-1+Number(el.dataset.step),1)).toISOString().slice(0,7);c.render();break;}
- case 'photo-activity-page':photoState.activityPage+=Number(el.dataset.step);c.render();break;
  case 'photo-check-upload':await loadPhotos(true);c.navigate('photos');c.closeModal();c.toast('Review the latest photos and Activity Log before trying another upload.','info');break;
  case 'photo-confirm-retry':allowPhotoRetry();c.render();c.toast('Another upload is enabled. Check for duplicate photos before sending.','info');break;
  case 'photo-add':clearPhotoDraft();openModal('Upload Photo',`<p class="form-intro">Choose a photo and add details before uploading it to the library.</p><form id="photo-upload-form"><p id="photo-error" class="form-error show" role="alert" hidden></p><div class="np-photo-upload"><button id="photo-dropzone" type="button" class="np-photo-dropzone" data-action="photo-browse">${icon('image',35)}<strong>Choose a photo</strong><small>or drag and drop an image here<br>Up to 15 MB</small></button><input id="photo-file" type="file" accept="image/*" hidden><div class="np-photo-fields"><div class="field"><label for="photo-name">Photo name <span class="muted">(optional)</span></label><input id="photo-name" name="name" maxlength="255" placeholder="Give your photo a name"></div><div class="field"><label for="photo-description">Description <span class="muted">(optional)</span></label><textarea id="photo-description" name="description" maxlength="2000" placeholder="Add a little context…"></textarea></div><div class="field"><label for="photo-tags">Tags <span class="muted">(optional)</span></label><input id="photo-tags" name="tags" maxlength="300" placeholder="e.g. site visit, inspection"></div></div></div></form>`,`<button class="button secondary" data-action="close-modal">Cancel</button><button class="button primary" type="submit" form="photo-upload-form">Upload Photo</button>`);break;
@@ -1750,18 +1894,19 @@ async function handlePhotoAction(action,el,c){const {icon,esc,openModal,closeMod
  case 'photo-clear':photoState.filters={search:'',owner:'',tag:'',order:'newest'};photoState.page=1;render();break;
  case 'photo-view':photoState.view=el.dataset.view;render();break;
  case 'photo-page':photoState.page+=Number(el.dataset.step);render();break;
- case 'photo-details':{const p=photoState.items.find(p=>p.id===el.dataset.id);if(!p)return;openModal('Photo Details',`<img class="np-photo-detail" src="${p.url}" alt="${esc(p.name)}"><h3>${esc(p.name)}</h3><p class="muted">${esc(p.description||'No description added.')}</p><dl class="np-photo-detail-meta"><div><dt>Owner</dt><dd>${esc(p.owner)}</dd></div><div><dt>Added</dt><dd>${formatDate(businessDate(p.created))}</dd></div><div><dt>File size</dt><dd>${photoBytes(p.size)}</dd></div><div><dt>Tags</dt><dd>${esc(p.tags.join(', ')||'No tags')}</dd></div></dl>`,`<button class="button ghost" data-action="photo-delete-confirm" data-id="${p.id}">${icon('trash',16)} Delete Photo</button><button class="button secondary" data-action="close-modal">Close</button>`);break;}
+ case 'photo-details':{const p=photoState.items.find(p=>p.id===el.dataset.id);if(!p)return;openModal('Photo Details',`<img class="np-photo-detail" src="${p.url}" alt="${esc(p.name)}"><h3>${esc(p.name)}</h3><p class="muted">${esc(p.description||'No description added.')}</p><dl class="np-photo-detail-meta"><div><dt>Owner</dt><dd>${esc(p.owner)}</dd></div><div><dt>Added</dt><dd>${formatDate(businessDate(p.created))}</dd></div><div><dt>File size</dt><dd>${photoBytes(p.size)}</dd></div><div><dt>Tags</dt><dd>${esc(p.tags.join(', ')||'No tags')}</dd></div></dl>`,`<button class="button secondary" data-action="photo-history" data-id="${p.id}">View History</button><button class="button ghost" data-action="photo-delete-confirm" data-id="${p.id}">${icon('trash',16)} Delete Photo</button><button class="button secondary" data-action="close-modal">Close</button>`);break;}
  case 'photo-delete-confirm':{const p=photoState.items.find(p=>p.id===el.dataset.id);if(!p)return;openModal('Delete Photo?',`<p>Permanently delete <strong>${esc(p.name)}</strong>? This cannot be undone.</p><form id="photo-delete-form" data-id="${p.id}"><label class="confirm-check"><input type="checkbox" name="confirmed" required>I understand that this permanently removes the photo.</label><p id="photo-error" class="form-error show" hidden role="alert"></p></form>`,`<button class="button secondary" data-action="close-modal">Cancel</button><button type="submit" form="photo-delete-form" class="button danger">Delete Photo</button>`);break;}
 
  }
 }
 async function handlePhotoSubmit(form,values,c){
+ if(form.id==='photo-activity-filters'){await photoActivityService.load({q:values.q||'',actor:values.actor||'',action:values.action||'',page:1});return;}
  if(form.id==='photo-filters'){photoState.filters=values;photoState.page=1;c.render();return;}
- if(form.id==='photo-delete-form'){try{await photoRequest('/photos/'+form.dataset.id,{method:'DELETE',actor:c.store.settings.name});await loadPhotos(true);c.closeModal();c.render();c.toast('Photo deleted.');}catch(error){photoError(error.uncertain?'The deletion could not be confirmed. Refresh before trying again.':error.message);}return;}
+ if(form.id==='photo-delete-form'){try{await photoRequest('/photos/'+form.dataset.id,{method:'DELETE',actor:c.store.settings.name});await loadPhotos(true);if(photoState.tab==='activity')await photoActivityService.load({},true);c.closeModal();c.render();c.toast('Photo deleted.');}catch(error){photoError(error.uncertain?'The deletion could not be confirmed. Refresh before trying again.':error.message);}return;}
  if(form.id!=='photo-upload-form')return;
  if(!photoDraft){photoError('Choose a photo first.');return;}
  const controls=[...form.querySelectorAll('input,textarea,button'),...document.querySelectorAll('#modal .modal-footer button')];controls.forEach(control=>control.disabled=true);
- try{await uploadPhoto(photoDraft,{display_name:values.name,description:values.description,tags:values.tags},c.store.settings.name);photoState.page=1;c.closeModal();c.render();c.toast('Photo uploaded successfully.');}
+ try{await uploadPhoto(photoDraft,{display_name:values.name,description:values.description,tags:values.tags},c.store.settings.name);photoState.page=1;if(photoState.tab==='activity')await photoActivityService.load({},true);c.closeModal();c.render();c.toast('Photo uploaded successfully.');}
  catch(error){photoError(error.message);if(photoUpload.uncertain){const footer=document.querySelector('#modal .modal-footer');footer.innerHTML='<button class="button secondary" data-action="photo-check-upload">Review Upload Status</button>';}}
  finally{controls.forEach(control=>control.disabled=false);}
 
@@ -1897,7 +2042,7 @@ function shell(content){const info=pageInfo[page];const activeCount=store.record
 function headingActions(){
     if(page==='photos')return `<button class="button primary" data-action="photo-add">${icon('image',18)} Upload Photo</button>`;
     const recordDisabled=employeeDirectory.status!=='ready'?'disabled title="Load employees before recording a violation"':'';
-    if(page==='dashboard'||page==='violations')return canRecord()?`<button class="button primary" data-action="record" ${recordDisabled}>${icon('plus',18)} ${page==='dashboard'?'Record violation':'Record New Violation'}</button>`:'';
+    if(page==='violations')return canRecord()?`<button class="button primary" data-action="record" ${recordDisabled}>${icon('plus',18)} Record New Violation</button>`:'';
     if(page==='employees'&&canManage())return `<button class="button primary" data-action="add-employee" ${employeeDirectory.status!=='ready'&&!pendingEmployeeCreation()?'disabled':''}>${icon('plus',18)} Add Employee</button>`;
     if(page==='types'&&canManage())return `<button class="button primary" data-action="add-type" ${resources.types.status!=='ready'?'disabled':''}>${icon('plus',18)} Add Violation Type</button>`;
     if(page==='profile')return `<button class="button secondary" data-action="navigate" data-page="employees">${icon('chevron-left',17)} All employees</button>${canRecord()?`<button class="button primary" data-action="record" data-employee="${esc(profileId)}" ${employeeProfile.status!=='ready'||employeeProfile.employee?.status!=='Active'?'disabled title="Only active employees can receive a violation"':recordDisabled}>${icon('plus',17)} Record violation</button>`:''}`;
@@ -2030,7 +2175,7 @@ async function recordForm(employeeId = '', keep = false) {
   const employees = visibleEmployees().filter(employee => employee.status === 'Active');
   const issuers = issuerNames();
   openModal('Record New Violation', `<div class="modal-stepper"><span class="step-circle">1</span><span class="current">Enter details</span><span class="step-line"></span><span class="step-circle">2</span><span>Review & confirm</span></div><form id="record-form"><p class="form-error" role="alert"></p><div class="form-grid">
-    <div class="field span-full employee-picker"><label for="record-employee">Employee (required)</label><input id="record-employee" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="employee-suggestions" aria-describedby="employee-picker-status" autocomplete="off" autocapitalize="words" spellcheck="false" required placeholder="Type an employee name or code"><input id="record-employee-id" type="hidden" name="employeeId"><div id="employee-suggestions" class="employee-suggestions" role="listbox" aria-label="Employee suggestions" hidden></div><small id="employee-picker-status" role="status" aria-live="polite">Type a name or employee code, then tap a suggestion.</small></div>
+    <div class="field span-full employee-picker"><label for="record-employee">Employee (required)</label><div class="employee-picker-control"><input id="record-employee" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="employee-suggestions" aria-describedby="employee-picker-hint employee-picker-status" autocomplete="off" autocapitalize="words" spellcheck="false" required placeholder="Type an employee name or code"><input id="record-employee-id" type="hidden" name="employeeId"><div id="employee-suggestions" class="employee-suggestions" role="listbox" aria-label="Employee suggestions" hidden></div></div><small id="employee-picker-hint">Search by name or employee code, then choose a suggestion.</small><span id="employee-picker-status" class="sr-only" role="status" aria-live="polite"></span></div>
     <div class="field span-full"><label for="record-type">Violation type (required)</label><select id="record-type" name="typeId" required><option value="">Select a violation type</option>${resources.activeTypes.items.map(type => `<option value="${esc(type.id)}" ${type.id === d.typeId ? 'selected' : ''}>${esc(type.name)}</option>`).join('')}</select></div>
     <div class="field"><label for="record-issuer">Issued by</label><select id="record-issuer" name="recordedBy" required>${issuers.map(name => `<option value="${esc(name)}" ${name === d.recordedBy ? 'selected' : ''}>${esc(name)}${name === store.settings.name ? ' (you)' : ''}</option>`).join('')}</select></div>
     <div class="field"><label for="record-date">Issued at</label><input id="record-date" name="date" type="date" required readonly aria-readonly="true" value="${localDate()}"><small>The backend records the current date and time.</small></div>
