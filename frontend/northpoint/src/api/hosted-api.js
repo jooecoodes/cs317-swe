@@ -1,4 +1,4 @@
-import '../config.js';
+import '../../config.js';
 import {apiRoute,validateActor} from './api-routes.js';
 export const API_BASE_URL=globalThis.NORTHPOINT_CONFIG.BASE_URL.replace(/\/+$/,'');
 function failure(message,extra={}){return Object.assign(new Error(message),{handled:true,uncertain:false,...extra});}

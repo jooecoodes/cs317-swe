@@ -1,5 +1,5 @@
 import {photoRequest,notifyPhotos} from './photo-service.js';
-import {businessDate} from './yesterday.js';
+import {businessDate} from '../reports/yesterday.js';
 
 function activityRows(rows){
  if(!Array.isArray(rows)||rows.some(e=>!e||!Number.isSafeInteger(e.id)||e.id<1||e.photo_id!=null&&(!Number.isSafeInteger(e.photo_id)||e.photo_id<1)||e.photo_display_name!=null&&typeof e.photo_display_name!=='string'||typeof e.actor!=='string'||typeof e.action!=='string'||typeof e.created_at!=='string'||Number.isNaN(Date.parse(e.created_at))))throw Error('The photo service returned invalid activity.');

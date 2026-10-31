@@ -1,8 +1,8 @@
-import {displayActor} from './session.js';
-import {apiRequest} from './api-client.js';
+import {displayActor} from '../../auth/session.js';
+import {apiRequest} from '../../api/api-client.js';
 import {createCalendarService,calendarService} from './calendar-api.js';
 import {calendarSummary} from './calendar-contract.js';
-import {loadingSkeleton} from './loading.js';
+import {loadingSkeleton} from '../../shared/loading.js';
 import {calendarMonthBounds,shiftCalendarMonth,calendarCells,calendarActionLabel,validCalendarDate} from './calendar-data.js';
 
 export function createCalendarLoader(request=apiRequest) {

@@ -1,5 +1,5 @@
-import { renderReports, renderHistory } from './insights.js';
-import { handleCalendarAction } from './calendar.js';
+import { renderReports, renderHistory } from '../reports/insights.js';
+import { handleCalendarAction } from '../history/calendar.js';
 /* Connected views. Preferences apply only to the current tab. */
 
 const statuses = ['Active', 'Inactive'];

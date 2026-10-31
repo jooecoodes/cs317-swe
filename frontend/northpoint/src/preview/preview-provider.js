@@ -1,5 +1,5 @@
 import {previewFixtures} from './preview-fixtures.js';
-import {previewCalendarRows,previewDailyDigest} from './calendar-data.js';
+import {previewCalendarRows,previewDailyDigest} from '../features/history/calendar-data.js';
 const previewWriteMessage='This is a UI-only preview. Record changes are disabled. Connect the backend adapter to enable saving; your form entries have been kept.';
 function failure(message,status=400,code='preview-request') {return Object.assign(new Error(message),{status,code,uncertain:false});}
 function cancelled(){return new DOMException('Request cancelled.','AbortError');}

@@ -1,6 +1,6 @@
-import { apiRequest, apiId } from './api-client.js';
+import { apiRequest, apiId } from '../../api/api-client.js';
 import { normalizeApiEmployee } from './employee-api.js';
-import { normalizeViolation } from './backend.js';
+import { normalizeViolation } from '../../state/backend.js';
 
 export const employeeProfile = { status:'idle', apiId:'', employee:null, violations:[], error:'' };
 let profileSequence=0, profileController=null;

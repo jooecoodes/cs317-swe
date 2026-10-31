@@ -1,5 +1,5 @@
 import {businessDate} from './yesterday.js';
-import { dashboardSummary, localDate } from './domain.js';
+import { dashboardSummary, localDate } from '../../shared/domain.js';
 
 export function sortEmployeeRecords(employees, summary, order = 'newest') {
   const created = employee => Date.parse(employee.createdAt || '') || Number(employee.apiId ?? String(employee.id).match(/(\d+)$/)?.[1] ?? 0);

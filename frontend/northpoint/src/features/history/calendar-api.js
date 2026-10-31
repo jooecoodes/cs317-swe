@@ -1,4 +1,4 @@
-import {apiRequest} from './api-client.js';
+import {apiRequest} from '../../api/api-client.js';
 import {calendarDate,calendarRange,calendarRows,calendarSummary} from './calendar-contract.js';
 
 // Inject a parsed-JSON request function to use another transport in tests or integration.

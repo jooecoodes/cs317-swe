@@ -1,4 +1,4 @@
-import { apiRequest, apiId, apiActor } from './api-client.js';
+import { apiRequest, apiId, apiActor } from '../api/api-client.js';
 let busy = false;
 let pending = null;
 export function mutationInFlight() { return busy; }

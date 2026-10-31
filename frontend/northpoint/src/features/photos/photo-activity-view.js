@@ -1,7 +1,7 @@
-import {displayActor} from './session.js';
+import {displayActor} from '../../auth/session.js';
 import {photoActivityService,fetchPhotoHistory,fetchPhotoBatch} from './photo-activity.js';
 import {photoFileUrl} from './photo-service.js';
-import {loadingSkeleton} from './loading.js';
+import {loadingSkeleton} from '../../shared/loading.js';
 
 export function renderPhotoActivity({icon,esc,formatDate}){
  const a=photoActivityService.state,[y,m]=a.month.split('-').map(Number),month=new Date(y,m-1,1),count=new Date(y,m,0).getDate();

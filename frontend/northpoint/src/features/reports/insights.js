@@ -1,6 +1,6 @@
-import {displayActor} from './session.js';
+import {displayActor} from '../../auth/session.js';
 import { analyticsData, historyEvents } from './insight-data.js';
-import { renderHistoryCalendar } from './calendar.js';
+import { renderHistoryCalendar } from '../history/calendar.js';
 
 const reportTabs = [['activity', 'Activity'], ['offenders', 'Top Offenders'], ['watchlist', 'Watchlist'], ['departments', 'Departments'], ['rulebook', 'Rulebook Usage'], ['clean', 'Clean Employees']];
 const colors = ['#527ca9', '#5b9788', '#c19549', '#8a7baa', '#b86d78', '#528f9f', '#777c85'];

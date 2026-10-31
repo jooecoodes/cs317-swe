@@ -1,8 +1,8 @@
-import {displayActor} from './session.js';
-import {sortEmployeeRecords} from './insight-data.js';
-import {loadingSkeleton} from './loading.js';
-import {recordChoice,recordDateFilter,recordToolbar} from './record-ui.js';
-import {isNewEmployee,employeeDateErrors} from './employee-new.js';
+import {displayActor} from '../../auth/session.js';
+import {sortEmployeeRecords} from '../reports/insight-data.js';
+import {loadingSkeleton} from '../../shared/loading.js';
+import {recordChoice,recordDateFilter,recordToolbar} from '../../shared/record-ui.js';
+import {isNewEmployee,employeeDateErrors} from '../employees/employee-new.js';
 const unique=values=>[...new Set(values.filter(Boolean))].sort();
 function empty(icon){return `<div class="empty-state">${icon('search',28)}<h3>No records found</h3><p>Try another search or clear the filters.</p></div>`;}
 const newLabel=employee=>isNewEmployee(employee)?'<span class="employee-new-label">[New!]</span>':'';

@@ -1,4 +1,4 @@
-import { dashboardSummary, weeklyTotals, localDate, recentViolationActivity } from './domain.js';
+import { dashboardSummary, weeklyTotals, localDate, recentViolationActivity } from '../../shared/domain.js';
 
 function shortDate(date) {
   return new Date(`${date}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });

@@ -1,4 +1,4 @@
-import {apiRequest} from './api-client.js';
+import {apiRequest} from '../../api/api-client.js';
 
 const creationDates=new Map();
 let newLabelTimer;

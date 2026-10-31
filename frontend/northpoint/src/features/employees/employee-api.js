@@ -1,4 +1,4 @@
-import {apiRequest,paginatedApi} from './api-client.js';
+import {apiRequest,paginatedApi} from '../../api/api-client.js';
 // Backend totals and API IDs are kept separate from display employee codes.
 export const employeeDirectory={status:'idle',items:[],total:0,error:''};
 let requestSequence=0,currentController=null;

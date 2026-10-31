@@ -90,3 +90,25 @@ The public URL adds the service prefix: schema `/activity/actors` in app2 become
 Photo Activity → Photos on this page: select a thumbnail or photo name to open the enlarged viewer. Back to photos restores the same gallery. Image loading failures show a retry option. The viewer adapts to desktop and phone screens.
 
 The account name comes from `/auth/me`: `full_name`, then available first/last names, then username for older accounts without profile names. New issued-by and removal payloads use this name. Historical names for other accounts stay as returned by the backend; `/auth/me` only identifies the current account.
+
+## Source folders
+
+Edit source files in `src/`, then run `node build.mjs` to refresh the root `index.html`. Keep server configuration in the existing root `config.js`.
+
+- `app.js` and `index.html`: application entry point and page template.
+- `api/`: shared API transport, allowed routes and request helpers.
+- `auth/`: signed-in account and session handling.
+- `state/`: shared application data, backend loading and mutations.
+- `features/dashboard/`: dashboard view.
+- `features/employees/`: employee requests, forms, picker and New labels.
+- `features/records/`: employee, violation and violation-type list views.
+- `features/history/`: calendar, daily summaries and history API contracts.
+- `features/reports/`: reports, analytics and yesterday comparisons.
+- `features/photos/`: photo library, activity, viewer, camera and API handling.
+- `features/settings/`: settings, help and secondary page routing.
+- `shared/`: reusable domain helpers, loading states, filters and mobile behavior.
+- `styles/`: shared, photo and compact-table styles.
+- `assets/`: company logo and bundled fonts.
+- `preview/`: retained preview helpers, excluded from the live website build.
+
+File imports and `build.mjs` use these folder paths; moving a file again requires updating its imports and build entry.

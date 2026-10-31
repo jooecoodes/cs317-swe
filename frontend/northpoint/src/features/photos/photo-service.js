@@ -1,5 +1,5 @@
-import {dataSource} from './data-source.js';
-import {API_BASE_URL} from './hosted-api.js';
+import {dataSource} from '../../state/data-source.js';
+import {API_BASE_URL} from '../../api/hosted-api.js';
 export const photoData={status:'idle',items:[],activity:[],stats:null,error:''};
 export const photoUpload={busy:false,uncertain:false,error:'',reviewed:false};
 let photoListener=()=>{},photoLoad;

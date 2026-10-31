@@ -1,9 +1,9 @@
-import {displayActor} from './session.js';
+import {displayActor} from '../../auth/session.js';
 import {photoActivityService} from './photo-activity.js';
 import {renderPhotoActivity,handlePhotoActivityAction} from './photo-activity-view.js';
-import {businessDate} from './yesterday.js';
+import {businessDate} from '../reports/yesterday.js';
 import {photoData,photoUpload,loadPhotos,uploadPhoto,photoRequest,allowPhotoRetry} from './photo-service.js';
-import {loadingSkeleton} from './loading.js';
+import {loadingSkeleton} from '../../shared/loading.js';
 const photoState={get items(){return photoData.items;},tab:'photos',filters:{search:'',owner:'',tag:'',order:'newest'},view:'grid',page:1};
 let photoDraft=null,photoDraftUrl=null;
 export function clearPhotoDraft(){if(photoDraftUrl)URL.revokeObjectURL(photoDraftUrl);photoDraft=null;photoDraftUrl=null;}

@@ -1,6 +1,6 @@
-import {businessDate} from './yesterday.js';
-import { apiRequest, paginatedApi, apiId } from './api-client.js';
-import { employeeDirectory, loadEmployeeDirectory, suspendEmployeeDirectory } from './employee-api.js';
+import {businessDate} from '../features/reports/yesterday.js';
+import { apiRequest, paginatedApi, apiId } from '../api/api-client.js';
+import { employeeDirectory, loadEmployeeDirectory, suspendEmployeeDirectory } from '../features/employees/employee-api.js';
 import { store } from './data.js';
 
 export const resources = Object.fromEntries(['records', 'types', 'activeTypes', 'removals', 'timeline', 'recent'].map(name => [name, { status: 'idle', items: [], error: '' }]));

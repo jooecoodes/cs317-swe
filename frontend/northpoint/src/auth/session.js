@@ -1,6 +1,6 @@
-import {dataSource} from './data-source.js';
-import {store} from './data.js';
-import {API_BASE_URL} from './hosted-api.js';
+import {dataSource} from '../state/data-source.js';
+import {store} from '../state/data.js';
+import {API_BASE_URL} from '../api/hosted-api.js';
 export const sessionState={status:'idle',username:'',fullName:'',firstName:'',lastName:'',error:''};
 let sessionPromise;
 export function signOut(){

@@ -1,4 +1,4 @@
-import {dashboardSummary} from './domain.js';
+import {dashboardSummary} from '../../shared/domain.js';
 export function businessDate(value=new Date()){const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Manila',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(value));return ['year','month','day'].map(type=>parts.find(p=>p.type===type).value).join('-');}
 const shift=(date,days)=>{const d=new Date(date+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+days);return d.toISOString().slice(0,10);};
 const issuedDay=value=>businessDate(/(?:Z|[+-]\d{2}:?\d{2})$/i.test(value)?value:value+'Z');
