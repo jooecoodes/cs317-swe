@@ -3,23 +3,32 @@ from fastapi.responses import JSONResponse
 
 from queries import (
     DuplicateEmployeeCode,
+    DuplicateSubsection,
     DuplicateViolationType,
     EmployeeNotFound,
+    NoPenaltyDefined,
+    SubsectionInUse,
+    SubsectionInactive,
+    SubsectionNotFound,
     ViolationRecordNotFound,
     ViolationTypeInactive,
     ViolationTypeInUse,
     ViolationTypeNotFound,
 )
 
-
 ERROR_STATUS: dict[type[Exception], int] = {
     EmployeeNotFound: 404,
     ViolationTypeNotFound: 404,
+    SubsectionNotFound: 404,
     ViolationRecordNotFound: 404,
     DuplicateEmployeeCode: 409,
     DuplicateViolationType: 409,
+    DuplicateSubsection: 409,
     ViolationTypeInUse: 409,
+    SubsectionInUse: 409,
     ViolationTypeInactive: 400,
+    SubsectionInactive: 400,
+    NoPenaltyDefined: 400,
 }
 
 
