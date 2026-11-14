@@ -5,22 +5,13 @@ from fastapi import APIRouter, Query
 
 from app.deps import DbSession
 from app.schemas.analytics import (
-    ActivityBucketRow,
-    CleanEmployeeRow,
-    DepartmentSummaryRow,
-    OffenderMetric,
-    OffenderRow,
-    TimeBucket,
-    ViolationTypeFrequencyRow,
-    WatchlistRow,
+    ActivityBucketRow, CleanEmployeeRow, DepartmentSummaryRow,
+    OffenderMetric, OffenderRow, SubsectionFrequencyRow,
+    TimeBucket, WatchlistRow,
 )
 from queries import (
-    activity_over_time,
-    department_summary,
-    employees_with_repeat_strikes,
-    top_offenders,
-    violation_free_employees,
-    violation_type_frequency,
+    activity_over_time, department_summary, employees_with_repeat_offenses,
+    subsection_frequency, top_offenders, violation_free_employees,
 )
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
@@ -29,7 +20,7 @@ router = APIRouter(prefix="/analytics", tags=["analytics"])
 @router.get("/top-offenders", response_model=list[OffenderRow])
 def offenders(
     db: DbSession,
-    by: Annotated[OffenderMetric, Query()] = OffenderMetric.points,
+    by: Annotated[OffenderMetric, Query()] = OffenderMetric.active,
     limit: Annotated[int, Query(ge=1, le=100)] = 10,
 ):
     return top_offenders(db, by=by.value, limit=limit)
@@ -40,9 +31,9 @@ def departments(db: DbSession):
     return department_summary(db)
 
 
-@router.get("/violation-types", response_model=list[ViolationTypeFrequencyRow])
-def type_frequency(db: DbSession, limit: Annotated[int, Query(ge=1, le=100)] = 20):
-    return violation_type_frequency(db, limit=limit)
+@router.get("/subsections", response_model=list[SubsectionFrequencyRow])
+def subsections(db: DbSession, limit: Annotated[int, Query(ge=1, le=100)] = 20):
+    return subsection_frequency(db, limit=limit)
 
 
 @router.get("/activity", response_model=list[ActivityBucketRow])
@@ -55,8 +46,8 @@ def activity(
 
 
 @router.get("/watchlist", response_model=list[WatchlistRow])
-def watchlist(db: DbSession, min_strikes: Annotated[int, Query(ge=1)] = 2):
-    return employees_with_repeat_strikes(db, min_strikes=min_strikes)
+def watchlist(db: DbSession, min_offense_number: Annotated[int, Query(ge=2)] = 2):
+    return employees_with_repeat_offenses(db, min_offense_number=min_offense_number)
 
 
 @router.get("/clean-employees", response_model=list[CleanEmployeeRow])

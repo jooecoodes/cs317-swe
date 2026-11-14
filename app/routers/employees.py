@@ -30,32 +30,28 @@ from queries import (
 router = APIRouter(prefix="/employees", tags=["employees"])
 
 
-@router.get("", response_model=Page[EmployeeSummary], summary="Search employees")
+# in imports: swap min_points/min_strikes to min_active_violations/min_total_offenses
+
+@router.get("", response_model=Page[EmployeeSummary])
 def list_employees(
     db: DbSession,
     page: PaginationDep,
     search: Annotated[str | None, Query(max_length=100)] = None,
     department: Annotated[str | None, Query(max_length=100)] = None,
     position: Annotated[str | None, Query(max_length=100)] = None,
-    min_points: Annotated[int | None, Query(ge=0)] = None,
-    min_strikes: Annotated[int | None, Query(ge=0)] = None,
+    min_active_violations: Annotated[int | None, Query(ge=0)] = None,
+    min_total_offenses: Annotated[int | None, Query(ge=0)] = None,
     include_inactive: Annotated[bool, Query()] = False,
 ):
     items = search_employees(
-        db,
-        search=search,
-        include_inactive=include_inactive,
-        department=department,
-        position=position,
-        min_points=min_points,
-        min_strikes=min_strikes,
-        limit=page.limit,
-        offset=page.offset,
+        db, search=search, include_inactive=include_inactive,
+        department=department, position=position,
+        min_active_violations=min_active_violations,
+        min_total_offenses=min_total_offenses,
+        limit=page.limit, offset=page.offset,
     )
-    # count_employees only accepts department + include_inactive (DB dev's code).
     total = count_employees(db, include_inactive=include_inactive, department=department)
     return Page(items=items, total=total, limit=page.limit, offset=page.offset)
-
 
 @router.get("/by-code/{code}", response_model=EmployeeRead, summary="Look up by employee code")
 def get_by_code(db: DbSession, code: Annotated[str, Path(min_length=1, max_length=50)]):
