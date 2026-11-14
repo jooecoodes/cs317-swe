@@ -4,9 +4,8 @@ from pydantic import BaseModel, ConfigDict
 
 
 class OffenderMetric(str, Enum):
-    points = "points"
-    strikes = "strikes"
-    records = "records"
+    active = "active"
+    total = "total"
 
 
 class TimeBucket(str, Enum):
@@ -17,62 +16,48 @@ class TimeBucket(str, Enum):
 
 class OffenderRow(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-
     id: int
     employee_code: str
     full_name: str
     department: str | None = None
-    total_points: int
-    total_strikes: int
+    active_violation_count: int
+    total_offenses: int
 
 
 class DepartmentSummaryRow(BaseModel):
-    """Plain dicts from department_summary()."""
-
     model_config = ConfigDict(from_attributes=True)
-
     department: str | None
     employees: int
-    total_points: int
-    total_records: int
-    total_strikes: int
+    active_violations: int
 
 
-class ViolationTypeFrequencyRow(BaseModel):
+class SubsectionFrequencyRow(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-
     id: int
-    name: str
-    default_points: int
-    is_strike: bool
+    subsection_name: str
+    violation_type_name: str
     times_issued: int
-    total_points: int
+    max_offense_number: int | None = None
 
 
 class ActivityBucketRow(BaseModel):
-    """bucket is a string like '2026-09-11'. Gaps are not filled."""
-
     model_config = ConfigDict(from_attributes=True)
-
     bucket: str
     count: int
-    points: int
 
 
 class WatchlistRow(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-
     id: int
     employee_code: str
     full_name: str
     department: str | None = None
-    total_strikes: int
-    total_points: int
+    max_offense: int
+    total_offenses: int
 
 
 class CleanEmployeeRow(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-
     id: int
     employee_code: str
     full_name: str
