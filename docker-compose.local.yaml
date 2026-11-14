@@ -30,5 +30,5 @@ services:
     image: nginx:alpine
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./frontend/northpoint:/usr/share/nginx/html:ro
+      - ./frontend:/usr/share/nginx/html:ro
     ports: ["8081:80"]
