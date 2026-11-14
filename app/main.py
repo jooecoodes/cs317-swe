@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.errors import register_error_handlers
-from app.routers import activity, analytics, employees, removals, violation_types, violations
+from app.routers import activity, analytics, employees, removals, subsections, violation_types, violations
 
 
 def create_app() -> FastAPI:
@@ -21,6 +21,7 @@ def create_app() -> FastAPI:
 
     app.include_router(employees.router)
     app.include_router(violation_types.router)
+    app.include_router(subsections.router)
     app.include_router(violations.router)
     app.include_router(removals.router)
     app.include_router(activity.router)
