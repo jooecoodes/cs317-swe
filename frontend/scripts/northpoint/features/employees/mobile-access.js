@@ -1,3 +1,4 @@
+import {canUseMobileAccess} from '../../../shared/permissions.js';
 import {dataSource} from '../../state/data-source.js';
 
 export function mobileAccessPanel(employee, esc) {
@@ -24,11 +25,12 @@ async function run(section, action) {
  finally {delete section.dataset.busy;section.querySelectorAll('button').forEach(b=>b.disabled=false);}
 }
 document.addEventListener('change', event=>{
- if(event.target.matches('[data-mobile-show]'))event.target.closest('form').querySelector('[name=password]').type=event.target.checked?'text':'password';
+ if(canUseMobileAccess()&&event.target.matches('.mobile-access [data-mobile-show]'))event.target.closest('form').querySelector('[name=password]').type=event.target.checked?'text':'password';
 });
 document.addEventListener('click', event=>{
  const button=event.target.closest('[data-mobile-action]');if(!button)return;
  const section=button.closest('.mobile-access'), action=button.dataset.mobileAction;
+ if(!canUseMobileAccess()||!section||!['load','disable','enable'].includes(action))return;
  void run(section,async message=>{
   if(action==='load'){await load(section);message.textContent='Mobile access information is up to date.';return;}
   if(action==='disable'&&!confirm('Disable this employee’s mobile access and sign out their phones?')){message.textContent='No changes made.';return;}
@@ -39,7 +41,8 @@ document.addEventListener('click', event=>{
 document.addEventListener('submit', event=>{
  const form=event.target.closest('form[data-mobile-form]');if(!form)return;
  event.preventDefault();event.stopImmediatePropagation();
- const section=form.closest('.mobile-access'), values=new FormData(form), linking=event.submitter?.name==='link';
+ const section=form.closest('.mobile-access');if(!canUseMobileAccess()||!section)return;
+ const values=new FormData(form), linking=event.submitter?.name==='link';
  void run(section,async message=>{
   const create=form.dataset.mobileForm==='create';
   const result=await request(section.dataset.employeeId,create?'POST':'PATCH',create?{username:values.get('username').trim(),password:values.get('password')}:{password:values.get('password')},linking?'/link':'');

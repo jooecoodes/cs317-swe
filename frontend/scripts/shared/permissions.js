@@ -40,16 +40,35 @@ export function landingPage(role = currentRole()) { return role === 'employee' ?
 export function mayRecord() { return ['hr', 'supervisor'].includes(currentRole()); }
 export function mayManage() { return currentRole() === 'hr'; }
 
+export function canUseMobileAccess() {
+  return mayManage() || (Boolean(currentRole()) && globalThis.NORTHPOINT_CONFIG?.MOBILE_ACCESS_TESTING === true);
+}
+
+export function isMobileAccessRequest({service, method = 'GET', path}) {
+  return service === 'session' && (
+    (/^\/employees\/\d+\/mobile-access$/.test(path) && ['GET','POST','PATCH'].includes(method)) ||
+    (/^\/employees\/\d+\/mobile-access\/link$/.test(path) && method === 'POST')
+  );
+}
+
 // Companion to the existing method/path contract. The server must enforce its own policy.
 export function allowsRequest({service = 'hr', method = 'GET', path}) {
-  if (service === 'session') return method === 'GET' && path === '/me';
+  if (service === 'session') {
+    if (path === '/me') return method === 'GET';
+    return canUseMobileAccess() && isMobileAccessRequest({service, method, path});
+  }
   if (!currentRole()) return false;
   if (service === 'tracking') return canOpen('tracking') && method === 'GET';
   if (service === 'photos') {
     if (!canOpen('photos')) return false;
     if (path.endsWith('/download')) return method === 'GET' && canOpen('tracking');
     if (method === 'GET' && (path.startsWith('/activity') || path.endsWith('/history'))) return canOpen('history');
-    return method === 'GET' || (method === 'POST' && path === '/photos/batch' && canOpen('history'));
+    if (method === 'GET') return true;
+    if (method === 'POST' && path === '/photos/batch') return canOpen('history');
+    return mayManage() && (
+      (['PATCH','DELETE'].includes(method) && /^\/photos\/\d+$/.test(path)) ||
+      (method === 'POST' && (path === '/photos/bulk-delete' || /^\/photos\/\d+\/rename$/.test(path)))
+    );
   }
   if (service !== 'hr') return false;
   if (currentRole() === 'employee') {
@@ -68,7 +87,8 @@ export function allowsRequest({service = 'hr', method = 'GET', path}) {
   return (method === 'POST' && (path === '/employees' ||
     /^\/employees\/\d+\/(?:deactivate|reactivate)$/.test(path) ||
     /^\/violations\/\d+\/remove$/.test(path))) ||
-    (method === 'PATCH' && /^\/employees\/\d+$/.test(path));
+    (method === 'PATCH' && /^\/(?:employees|violations)\/\d+$/.test(path)) ||
+    (method === 'DELETE' && /^\/employees\/\d+$/.test(path));
 }
 
 const commonActions = new Set(['sign-out','toggle-nav','close-modal','dismiss-toast','close-record-filter']);
@@ -76,6 +96,9 @@ const staffActions = new Set(['profile','case-details','retry-profile','profile-
 const recordActions = new Set(['record','record-back','confirm-record','check-mutation']);
 const managementActions = new Set(['add-employee','edit-employee','add-type','edit-type','toggle-type','delete-type','confirm-type','remove-violation','restore-company-rules']);
 const photoActions = new Set(['photo-author','photo-clear','photo-details','photo-page','photo-refresh','photo-retry','photo-view']);
+
+const photoManagementActions = new Set(['photo-edit','photo-rename','photo-delete-confirm','photo-bulk-delete','photo-selection-clear','photo-check-change','photo-review-change']);
+const photoManagementForms = new Set(['photo-edit-form','photo-rename-form','photo-delete-form','photo-bulk-delete-form']);
 
 export function allowsAction(action, data, page) {
   if (!canOpen(page)) return false;
@@ -87,9 +110,10 @@ export function allowsAction(action, data, page) {
   if (staffActions.has(action)) return canOpen('profile');
   if (recordActions.has(action)) return mayRecord();
   if (managementActions.has(action)) return mayManage();
-  if (action === 'employee-state') return mayManage() && ['deactivate','reactivate'].includes(data.mode);
+  if (action === 'employee-state') return mayManage() && ['deactivate','reactivate','delete'].includes(data.mode);
   if (action.startsWith('rulebook-')) return canOpen('types');
   if (action.startsWith('tracking-')) return page === 'tracking';
+  if (photoManagementActions.has(action)) return page === 'photos' && mayManage();
   if (photoActions.has(action)) return page === 'photos';
   if (action === 'photo-tab') return page === 'photos' && (data.tab === 'photos' || data.tab === 'activity' && canOpen('history'));
   if (action === 'photo-history' || action.startsWith('photo-activity-')) return page === 'photos' && canOpen('history');
@@ -112,9 +136,10 @@ export function allowsForm(form, page) {
   if (form.id === 'report-filters') return page === 'reports';
   if (form.id === 'secondary-filter') return ['history','reports'].includes(page) && form.dataset.filterPage === page;
   if (form.id === 'secondary-settings-form' || form.id === 'restore-company-rules-form') return page === 'settings';
+  if (photoManagementForms.has(form.id)) return page === 'photos' && mayManage();
   if (form.id === 'photo-filters') return page === 'photos';
   if (form.id === 'photo-activity-filters') return page === 'photos' && canOpen('history');
   if (form.id === 'record-form') return mayRecord();
-  if (form.id === 'employee-state-form') return mayManage() && ['deactivate','reactivate'].includes(form.dataset.mode);
-  return mayManage() && ['employee-form','type-form','rule-editor-form','remove-form'].includes(form.id);
+  if (form.id === 'employee-state-form') return mayManage() && ['deactivate','reactivate','delete'].includes(form.dataset.mode);
+  return mayManage() && ['employee-form','type-form','rule-editor-form','remove-form','case-form'].includes(form.id);
 }

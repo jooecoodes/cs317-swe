@@ -16,6 +16,10 @@ node serve.mjs --rbac-preview
 
 Open [http://127.0.0.1:4175/](http://127.0.0.1:4175/) and select HR, Supervisor, Chief Manager, or Concerned Employee. Use **Switch role** to return to the selector. The preview runs on loopback and uses fictional records from the preview process. Changes are disabled, including uploads. Map pins and paths use sample positions, with street tiles disabled. This mode requires Node.js and does not use Docker, live APIs, or backend sign-in. The normal Docker-served site continues to require an authenticated backend role.
 
+### Test Mobile App Access across roles
+
+Run `node serve.mjs --mobile-access-testing` from `frontend/northpoint` and open [the local role selector](http://127.0.0.1:4175/). For HR, Supervisor, or Chief Manager, open the **Alex Sample** employee profile. For Employee, use the panel on **My Violations**. Use a test username and password, or use `legacy-tracker` to test linking. This mode records sample account changes in memory and discards passwords. Restart it to reset the sample accounts.
+
 ### Backend requirements for rollout
 
 - Return an authoritative `role` from `GET /auth/me` with one of `hr`, `supervisor`, `c_manager`, or `employee`. For a Concerned Employee, include `employee_id` linked server-side to the session. The current backend returns name fields but omits role and employee linkage. An unrecognized or missing role blocks the workspace. An employee with no linkage sees a dedicated message and the frontend requests no records.

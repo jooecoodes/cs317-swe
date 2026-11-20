@@ -2,7 +2,7 @@
 import http from 'node:http';
 import {readFile} from 'node:fs/promises';
 
-const preview = process.argv.includes('--rbac-preview') ? await import('./dev/rbac-preview.mjs') : null;
+const preview = (process.argv.includes('--rbac-preview') || process.argv.includes('--mobile-access-testing')) ? await import('./dev/rbac-preview.mjs') : null;
 const port = Number(process.env.PORT ?? (preview ? 4175 : 4173));
 const host = preview ? '127.0.0.1' : process.env.HOST || '127.0.0.1';
 const root = new URL('../', import.meta.url);
@@ -21,7 +21,7 @@ const server = http.createServer(async (request, response) => {
   }
   const url = new URL(request.url, 'http://localhost');
   const current = preview?.previewRole(request);
-  if (preview?.handlePreviewRequest(request, response, url, current)) return;
+  if (await preview?.handlePreviewRequest(request, response, url, current)) return;
 
   let file = url.pathname.slice(1) || 'index.html';
   const workspace = file.match(role)?.[1];

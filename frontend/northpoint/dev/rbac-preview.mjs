@@ -1,6 +1,8 @@
 import {roleLabels} from '../../scripts/shared/permissions.js';
 import {previewCalendarRows, previewCalendarSummary} from '../../scripts/northpoint/features/history/calendar-contract.js';
 
+const mobileAccessTesting = process.argv.includes('--mobile-access-testing');
+const mobileAccounts = new Map();
 const cookie = 'northpoint_rbac_preview';
 const roles = Object.keys(roleLabels);
 const now = new Date();
@@ -33,7 +35,7 @@ const photo = {id:501, title:'Sample proof photo', owner:issuer, timestamp:issue
   location_name:'Sample location', mobile_metadata:{source:'camera',selected_at:issuedAt,latitude:point[0],longitude:point[1]}};
 const photoImage = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-label="Fictional preview photo"><rect width="640" height="400" fill="#e5edf7"/><path fill="#90aac4" d="M0 350 180 170 285 270 435 90 640 350Z"/><text x="320" y="380" text-anchor="middle" font-family="sans-serif" font-size="24" fill="#26445f">Sample proof photo</text></svg>';
 
-const settings = `globalThis.NORTHPOINT_CONFIG = Object.freeze({BASE_URL:new URL('/app1/', location.origin).href, READ_ONLY_PREVIEW:true});`;
+const settings = `globalThis.NORTHPOINT_CONFIG = Object.freeze({BASE_URL:new URL('/app1/', location.origin).href, READ_ONLY_PREVIEW:true, MOBILE_ACCESS_TESTING:${mobileAccessTesting}});`;
 const previewHeaders = {
   'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'",
   'Cache-Control':'no-store', 'X-Content-Type-Options':'nosniff'
@@ -45,7 +47,7 @@ function page() {
   return `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Northpoint role preview</title><link rel="stylesheet" href="/css/northpoint.css"><link rel="stylesheet" href="/_preview/style.css">
     <main class="session-gate"><section class="panel panel-body"><h1>Northpoint role preview</h1>
-    <p>Development only. Choose a role to explore with fictional records. Changes are disabled.</p>
+    <p>Development only. Choose a role to explore with fictional records. ${mobileAccessTesting?'Only sample mobile account changes are enabled.':'Changes are disabled.'}</p>
     <nav class="preview-roles" aria-label="Preview roles">${links}</nav></section></main></html>`;
 }
 
@@ -54,7 +56,7 @@ export function previewPage(path, html, role) {
   const label = role ? ' · ' + roleLabels[role] : '';
   return html.replace('</head>', '<link rel="stylesheet" href="/_preview/style.css"></head>')
     .replace('<body>', `<body><aside class="preview-banner" aria-label="Development preview">
-      <p><strong>Development preview${label}</strong><span> · Sample data · Read-only</span></p>
+      <p><strong>Development preview${label}</strong><span> · Sample data · ${mobileAccessTesting?'Mobile access testing':'Read-only'}</span></p>
       <a href="/_preview/">Switch role</a></aside>`);
 }
 
@@ -63,7 +65,7 @@ export function previewRole(request) {
   return roles.includes(role) ? role : '';
 }
 
-export function handlePreviewRequest(request, response, url, role) {
+export async function handlePreviewRequest(request, response, url, role) {
   const path = url.pathname;
   const send = (status, type, content, extra = {}) => {
     response.writeHead(status, {...previewHeaders,'Content-Type':type,...extra})
@@ -73,6 +75,15 @@ export function handlePreviewRequest(request, response, url, role) {
   const json = (data, status = 200) => send(status, 'application/json', JSON.stringify(data));
   const text = (data, type) => send(200, type + '; charset=utf-8', data);
   const redirect = (location, session = '') => send(303, 'text/plain', '', {Location:location,...(session ? {'Set-Cookie':session} : {})});
+  const mobile = path.match(/^\/auth\/employees\/(\d+)\/mobile-access(\/link)?$/);
+  if (mobile && (mobileAccessTesting || request.method === 'GET')) {
+    if (!role) return json({detail:'Choose a preview role.'},401);
+    if (!mobileAccessTesting && role !== 'hr') return json({detail:'HR access required.'},403);
+    const person = employees.find(item => String(item.id) === mobile[1]);
+    if (!person) return json({detail:'Unknown sample employee.'},404);
+    const result = await sampleMobileAccess(request, person, Boolean(mobile[2]));
+    return json(result.body,result.status);
+  }
   if (!['GET','HEAD'].includes(request.method)) return json({detail:previewMessage}, 403);
   for (const [name,value] of Object.entries(previewHeaders)) response.setHeader(name, value);
 
@@ -105,6 +116,47 @@ export function handlePreviewRequest(request, response, url, role) {
   }
   if (data === photoImage) return text(data, 'image/svg+xml');
   return data === undefined ? json({detail:'This record is unavailable in the preview.'},404) : json(data);
+}
+
+async function sampleMobileAccess(request, person, linking) {
+  const result = (status, detail) => ({status,body:{detail}});
+  if (request.method === 'GET' && !linking) {
+    return {status:200,body:{full_name:person.full_name,account:mobileAccounts.get(person.id) ?? null}};
+  }
+  if (request.headers['x-requested-with'] !== 'Northpoint') return result(403,'Open the test panel to make changes.');
+  if (!(request.method === 'POST' || (request.method === 'PATCH' && !linking))) return result(405,'Method unavailable.');
+  let body;
+  try {
+    const chunks = [];
+    let size = 0;
+    for await (const chunk of request.iterator({destroyOnReturn:false})) {
+      size += chunk.length;
+      if (size > 2048) {
+        request.resume();
+        return result(413,'Test request is too large.');
+      }
+      chunks.push(chunk);
+    }
+    body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    if (!body || typeof body !== 'object' || Array.isArray(body)) throw Error();
+  } catch {
+    return result(422,'Enter valid test account details.');
+  }
+  const account = mobileAccounts.get(person.id);
+  const validPassword = typeof body.password === 'string' && body.password.length >= 10 && body.password.length <= 128;
+  if (request.method === 'POST') {
+    if (person.status !== 'active') return result(403,'This sample employee is inactive.');
+    if (account || [...mobileAccounts.values()].some(item => item.username === body.username)) return result(409,'Sample account already exists.');
+    if (!/^[A-Za-z0-9][A-Za-z0-9._-]{2,49}$/.test(body.username ?? '') || !validPassword) return result(422,'Enter a test username and password.');
+    if (linking && body.username !== 'legacy-tracker') return result(404,'Use legacy-tracker to test account linking.');
+    mobileAccounts.set(person.id,{username:body.username,disabled:false});
+    return {status:linking ? 200 : 201,body:{message:linking?'Sample account linked.':'Sample account created.'}};
+  }
+  if (!account) return result(404,'Create a sample account first.');
+  if (body.disabled === false && person.status !== 'active') return result(403,'This sample employee is inactive.');
+  if (typeof body.disabled === 'boolean') account.disabled = body.disabled;
+  else if (!validPassword) return result(422,'Enter a valid test password.');
+  return {status:200,body:{message:'Sample mobile access updated.'}};
 }
 
 function readSample(path, role, query, list) {

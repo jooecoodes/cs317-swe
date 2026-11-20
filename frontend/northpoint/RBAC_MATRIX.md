@@ -27,6 +27,10 @@ Each role has specific permissions that determine which features they can access
 | Submit a proof photo | No | Yes | No | No |
 | View proof photos | Yes | Yes | No | No |
 | View location data and paths | Yes | No | No | No |
+| Manage employee mobile app accounts | Yes | No | No | No |
+| Permanently delete employees | Yes | No | No | No |
+| Edit issued violation details | Yes | No | No | No |
+| Edit, rename, or delete existing proof photos | Yes | No | No | No |
 
 ## Role Permissions
 
@@ -42,6 +46,10 @@ Each role has specific permissions that determine which features they can access
 - View activity and analytics
 - View proof photos
 - View location data and paths
+- Manage employee mobile app accounts
+- Permanently delete employees
+- Edit issued violation details
+- Edit, rename, or delete existing proof photos
 
 ### Supervisor
 - View the dashboard
@@ -70,4 +78,4 @@ Each role has specific permissions that determine which features they can access
 - The backend must enforce authorization for all protected API operations.
 - Concerned Employees must only be able to retrieve their own violation records.
 - Shared functionality should be reused across role-specific interfaces.
-- All unspecified permissions are denied by default
+- HR keeps existing management features unless the matrix explicitly denies them. Unspecified permissions remain denied for other roles. Frontend access uses known actions and API routes, with authorization enforced by the server.
