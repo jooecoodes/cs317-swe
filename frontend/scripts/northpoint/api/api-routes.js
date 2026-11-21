@@ -14,8 +14,16 @@ const routes=[
  ['GET',/^\/violation-removals(?:\/\d+)?$/],['GET',/^\/activity\/(?:timeline|calendar|digest\/\d{4}-\d{2}-\d{2})$/],
  ['GET',/^\/violation-types(?:\/all|\/\d+)?$/],['POST',/^\/violation-types$/,true],['PATCH',/^\/violation-types\/\d+$/,true],['DELETE',/^\/violation-types\/\d+$/,true],['POST',/^\/violation-types\/\d+\/(?:activate|deactivate)$/,true]
 ];
+export function isMobileAccessRoute(path, method) {
+  if (method === 'POST' && /^\/employees\/[1-9]\d*\/mobile-access\/link$/.test(path)) return true;
+  return ['GET', 'POST', 'PATCH'].includes(method) && /^\/employees\/[1-9]\d*\/mobile-access$/.test(path);
+}
+
 export function apiRoute(path,method,service='hr'){
- if(service==='session'){if(path==='/me'&&method==='GET'||/^\/employees\/\d+\/mobile-access(?:\/link)?$/.test(path)&&['GET','POST','PATCH'].includes(method))return {actor:false};throw Error('Unknown session endpoint.');}
+ if (service === 'session') {
+  if ((path === '/me' && method === 'GET') || isMobileAccessRoute(path, method)) return {actor: false};
+  throw new Error('Unknown session endpoint.');
+ }
  if(service==='tracking'){if(method==='GET'&&/^\/(?:devices|(?:live|route)\/[^/?#\s]+)$/.test(path))return {actor:false};throw new Error('This action is not defined in the tracking API contract.');}
  if(service==='photos'){
   const allowed=method==='GET'&&/^\/(?:photos(?:\/\d+(?:\/(?:history|download))?)?|stats|activity(?:\/(?:digest|actors|authors))?)$/.test(path)||method==='POST'&&(['/upload','/photos/batch','/photos/bulk-delete'].includes(path)||/^\/photos\/\d+\/rename$/.test(path))||['PATCH','DELETE'].includes(method)&&/^\/photos\/\d+$/.test(path);
