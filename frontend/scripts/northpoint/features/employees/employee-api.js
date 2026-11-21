@@ -297,8 +297,7 @@ export function employeeMatchesCreation(employee, payload) {
   );
 }
 
-export async function createApiEmployee(values, actor) {
-  const payload = employeeCreatePayload(values);
+export async function createApiEmployee(payload, actor) {
   const raw = await apiRequest("/employees", {
     method: "POST",
     body: payload,

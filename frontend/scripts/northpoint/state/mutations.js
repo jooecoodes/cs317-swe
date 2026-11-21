@@ -1,4 +1,5 @@
 import { apiRequest, apiId, apiActor } from '../api/api-client.js';
+import { sessionState } from '../auth/session.js';
 let busy = false;
 let pending = null;
 export function mutationInFlight() { return busy; }
@@ -12,10 +13,19 @@ export function typePayload(values) {
 }
 export async function saveType(id, values, actor) { return apiRequest(`/violation-types${id ? '/' + apiId(id) : ''}`, { method: id ? 'PATCH' : 'POST', body: typePayload(values), actor }); }
 export async function changeType(id, mode, actor) { return apiRequest(`/violation-types/${apiId(id)}${mode === 'delete' ? '' : '/' + mode}`, { method: mode === 'delete' ? 'DELETE' : 'POST', actor }); }
-export async function issueViolation(employeeApiId, values, actor) {
-  const issuer = String(values.recordedBy || '').trim();
-  if (!issuer) throw new Error('Choose who issued this violation. Your signed-in name is used automatically.');
-  return apiRequest(`/employees/${apiId(employeeApiId)}/violations`, { method: 'POST', actor, body: { subsection_id: Number(apiId(values.subsectionId)), notes: String(values.description || '').trim(), issued_by: issuer } });
+export async function issueViolation(employeeApiId, values) {
+  const issuer = sessionState.status === 'ready' ? sessionState.fullName.trim() : '';
+  if (!issuer) throw new Error('Sign in before recording a violation.');
+  return apiRequest(`/employees/${apiId(employeeApiId)}/violations`, {
+    method: 'POST',
+    actor: issuer,
+    body: {
+      subsection_id: Number(apiId(values.subsectionId)),
+      notes: String(values.description || '').trim(),
+      issued_by: issuer,
+      issued_at: new Date().toISOString(),
+    },
+  });
 }
 export async function updateViolation(id, values, actor) {
   const issuer = String(values.recordedBy || '').trim();

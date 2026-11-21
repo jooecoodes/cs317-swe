@@ -1,3 +1,5 @@
+import { isMobileAccessRoute } from '../northpoint/api/api-routes.js';
+
 const staff = ['dashboard', 'employees', 'violations', 'profile'];
 const monitoring = ['history', 'reports'];
 const pages = {
@@ -39,10 +41,15 @@ export function workspacePage(hash) {
 export function landingPage(role = currentRole()) { return role === 'employee' ? 'mine' : 'dashboard'; }
 export function mayRecord() { return ['hr', 'supervisor'].includes(currentRole()); }
 export function mayManage() { return currentRole() === 'hr'; }
+export function mayManageMobileAccess(employee) {
+  return mayManage() && employee?.employeeType === 'supervisor';
+}
 
 // Companion to the existing method/path contract. The server must enforce its own policy.
 export function allowsRequest({service = 'hr', method = 'GET', path}) {
-  if (service === 'session') return method === 'GET' && path === '/me';
+  if (service === 'session') {
+    return (method === 'GET' && path === '/me') || (mayManage() && isMobileAccessRoute(path, method));
+  }
   if (!currentRole()) return false;
   if (service === 'tracking') return canOpen('tracking') && method === 'GET';
   if (service === 'photos') {
