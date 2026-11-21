@@ -1094,12 +1094,8 @@ async function recordForm(employeeId = "", keep = false) {
     showPending();
     return;
   }
-  if (!store.settings.name.trim()) {
-    toast(
-      "Your sign-in session is not available yet. Check the signed-in account in Settings.",
-      "info",
-    );
-    navigate("settings");
+  if (sessionState.status !== "ready" || !sessionState.fullName.trim()) {
+    toast("Sign in before recording a violation.", "info");
     return;
   }
   if (employeeDirectory.status !== "ready") {
@@ -1133,22 +1129,17 @@ async function recordForm(employeeId = "", keep = false) {
           employeeId,
           typeId: "",
           subsectionId: "",
-          date: localDate(),
           description: "",
-          recordedBy: store.settings.name,
         };
   const employees = visibleEmployees().filter(
     (employee) => employee.status === "Active",
   );
-  const issuers = issuerNames();
   openModal(
     "Record New Violation",
     `<div class="modal-stepper"><span class="step-circle">1</span><span class="current">Enter details</span><span class="step-line"></span><span class="step-circle">2</span><span>Review & confirm</span></div><form id="record-form"><p class="form-error" role="alert"></p><div class="form-grid">
     <div class="field span-full employee-picker"><label for="record-employee">Employee (required)</label><div class="employee-picker-control"><input id="record-employee" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="employee-suggestions" aria-describedby="employee-picker-hint employee-picker-status" autocomplete="off" autocapitalize="words" spellcheck="false" required placeholder="Type an employee name or code"><input id="record-employee-id" type="hidden" name="employeeId"><div id="employee-suggestions" class="employee-suggestions" role="listbox" aria-label="Employee suggestions" hidden></div></div><small id="employee-picker-hint">Search by name or employee code, then choose a suggestion.</small><span id="employee-picker-status" class="sr-only" role="status" aria-live="polite"></span></div>
     <div class="field span-full"><label for="record-type">Category (required)</label><select id="record-type" name="typeId" required><option value="">Select a category</option>${resources.activeTypes.items.map((type) => `<option value="${esc(type.id)}" ${type.id === d.typeId ? "selected" : ""}>${esc(type.name)}</option>`).join("")}</select></div>
     <div class="field span-full"><label for="record-subsection">Specific violation (required)</label><select id="record-subsection" name="subsectionId" required disabled><option value="">Choose a category first</option></select><small>The offense sequence and penalty belong to this specific violation.</small></div>
-    <div class="field"><label for="record-issuer">Issued by</label><select id="record-issuer" name="recordedBy" required>${issuers.map((name) => `<option value="${esc(name)}" ${name === d.recordedBy ? "selected" : ""}>${esc(displayActor(name))}${name === store.settings.name ? " (you)" : ""}</option>`).join("")}</select></div>
-    <div class="field"><label for="record-date">Issued at</label><input id="record-date" name="date" type="date" required readonly aria-readonly="true" value="${localDate()}"><small>The backend records the current date and time.</small></div>
     <div class="field span-full"><label for="record-description">Notes / Incident details <span class="muted">(optional)</span></label><textarea id="record-description" name="description" maxlength="2000" placeholder="Add any details that may help with the review.">${esc(d.description)}</textarea></div>
     </div></form>`,
     `<button class="button secondary" data-action="close-modal">Cancel</button><button class="button primary" type="submit" form="record-form">Review & Submit ${icon("arrow", 16)}</button>`,
@@ -1169,7 +1160,6 @@ function recordReview() {
     `<div class="modal-stepper"><span class="step-circle">${icon("check", 13)}</span><span>Enter details</span><span class="step-line"></span><span class="step-circle">2</span><span class="current">Review & confirm</span></div><p class="form-error" role="alert"></p><p class="form-intro">Please review the employee, specific violation, offense number and penalty before confirming.</p><div class="review-summary"><dl>
     <dt>Employee</dt><dd>${esc(e.name)}<small class="muted" style="display:block">${esc(e.id)}</small></dd>
     <dt>Category</dt><dd>${esc(t.name)}</dd><dt>Specific violation</dt><dd>${esc(draft.ruleName)}</dd><dt>Offense number</dt><dd>${draft.offenseNumber}</dd><dt>Penalty for this offense</dt><dd>${esc(draft.penalty)}</dd>
-    <dt>Issued by</dt><dd>${esc(displayActor(draft.recordedBy))}</dd><dt>Issued at</dt><dd>${formatDate(draft.date)}</dd>
     <dt>Notes / Incident details</dt><dd class="review-description">${esc(draft.description || "No notes provided.")}</dd>
     </dl></div><label class="confirm-check"><input id="confirm-record" type="checkbox">I have reviewed the details and confirm that this violation should be recorded.</label>`,
     `<button class="button secondary" data-action="record-back">${icon("chevron-left", 16)} Back to details</button><button class="button primary" data-action="confirm-record" disabled>${icon("check", 17)} Confirm & Record</button>`,
@@ -1464,15 +1454,12 @@ document.addEventListener("click", async (event) => {
             { array: true },
           );
           const before = new Set(beforeRows.map((r) => String(r.id)));
+          const issuer = sessionState.fullName.trim();
           checkingDraft = false;
           await mutate({
             message: "Violation recorded successfully.",
             execute: async () => {
-              const raw = await issueViolation(
-                employee.apiId,
-                input,
-                store.settings.name,
-              );
+              const raw = await issueViolation(employee.apiId, input);
               if (
                 raw.offense_number !== input.offenseNumber ||
                 raw.penalty_description !== input.penalty
@@ -1492,7 +1479,7 @@ document.addEventListener("click", async (event) => {
                   !before.has(String(r.id)) &&
                   String(r.subsection_id) === input.subsectionId &&
                   (r.notes || "") === input.description &&
-                  r.issued_by === input.recordedBy,
+                  r.issued_by === issuer,
               )
                 ? true
                 : null;
@@ -1867,25 +1854,12 @@ document.addEventListener("submit", async (event) => {
         const type = resources.activeTypes.items.find(
           (type) => type.id === values.typeId && type.active,
         );
-        const issuers = issuerNames();
         if (!employee) {
           formError(form, "Choose an employee from the suggestions.");
           return;
         }
         if (!type) {
           formError(form, "Choose an active violation type.");
-          return;
-        }
-        if (!issuers.includes(values.recordedBy)) {
-          formError(form, "Choose who issued this violation.");
-          return;
-        }
-        if (
-          !/^\d{4}-\d{2}-\d{2}$/.test(values.date) ||
-          Number.isNaN(Date.parse(values.date)) ||
-          values.date > localDate()
-        ) {
-          formError(form, "Choose a valid issue date on or before today.");
           return;
         }
         const preview = await penaltyPreview(
@@ -1898,9 +1872,7 @@ document.addEventListener("submit", async (event) => {
           employeeId: employee.id,
           typeId: type.id,
           subsectionId: values.subsectionId,
-          date: values.date,
           description: (values.description || "").trim(),
-          recordedBy: values.recordedBy,
           offenseNumber: preview.offenseNumber,
           penalty: preview.penalty,
           ruleName: preview.rule.name,
@@ -2138,15 +2110,6 @@ document.querySelector(".skip-link").addEventListener("click", (event) => {
   event.preventDefault();
   document.querySelector("#main")?.focus();
 });
-function issuerNames() {
-  return unique(
-    [
-      store.settings.name,
-      ...store.violations.map((record) => record.recordedBy),
-      ...store.activities.map((event) => event.actor),
-    ].map(displayActor),
-  );
-}
 function showPending() {
   openModal(
     "Check Save Status",
