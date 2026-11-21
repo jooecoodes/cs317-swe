@@ -45,7 +45,7 @@ services:
 
   app3:
     <<: *app
-    environment: [TZ=Asia/Manila, GPS_DB_PATH=/app/data/app3/tracking.db]
+    environment: [TZ=Asia/Manila, GPS_DB_PATH=/app/data/app3/tracking.db, AUTH_DB_PATH=/app/data/auth/auth.db, APP1_DB_PATH=/app/data/app1/app.db]
     command: uv run --no-sync uvicorn gps_service.main:gps_service --host 0.0.0.0 --port 8000 --proxy-headers
 
 volumes:

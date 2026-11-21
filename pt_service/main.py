@@ -722,6 +722,21 @@ def photo_business_date():
     return datetime.datetime.now(ZoneInfo("Asia/Manila")).date()
 
 
+def _effective_upload_time(metadata_raw, fallback_timestamp):
+    if metadata_raw:
+        try:
+            meta = json.loads(metadata_raw) if isinstance(metadata_raw, str) else metadata_raw
+            raw = meta.get("uploaded_at") if isinstance(meta, dict) else None
+            if isinstance(raw, str) and raw.strip():
+                parsed = datetime.datetime.fromisoformat(raw.strip().replace("Z", "+00:00"))
+                if parsed.tzinfo is not None:
+                    parsed = parsed.astimezone(MANILA_TZ).replace(tzinfo=None)
+                return parsed
+        except (ValueError, TypeError):
+            pass
+    return fallback_timestamp
+
+
 def photo_time_bounds(timeframe, on_date=None):
     day = on_date or photo_business_date()
     if timeframe == "all":
@@ -746,8 +761,6 @@ def list_photos(
 ):
     filters = []
     bounds = photo_time_bounds(timeframe, on_date)
-    if bounds:
-        filters.extend([PhotoRecord.timestamp >= bounds[0], PhotoRecord.timestamp < bounds[1]])
     if owner:
         filters.append(PhotoRecord.owner_name == owner)
     if tag:
@@ -763,19 +776,42 @@ def list_photos(
             )
         )
 
-    total = db.query(func.count(PhotoRecord.id)).filter(*filters).scalar() or 0
+    if bounds or sort_by == "timestamp":
+        matched = db.query(PhotoRecord).filter(*filters).all()
+        if bounds:
+            matched = [
+                p for p in matched
+                if (ts := _effective_upload_time(p.mobile_metadata, p.timestamp)) is not None
+                and bounds[0] <= ts < bounds[1]
+            ]
+        total = len(matched)
+        reverse = order == "desc"
+        if sort_by == "timestamp":
+            matched.sort(
+                key=lambda p: (_effective_upload_time(p.mobile_metadata, p.timestamp) or datetime.datetime.min, p.id),
+                reverse=reverse,
+            )
+        elif sort_by == "display_name":
+            matched.sort(key=lambda p: ((p.display_name or ""), p.id), reverse=reverse)
+        elif sort_by == "size_bytes":
+            matched.sort(key=lambda p: (p.size_bytes or 0, p.id), reverse=reverse)
+        else:
+            matched.sort(key=lambda p: p.id, reverse=reverse)
+        photos = matched[offset : offset + limit]
+    else:
+        total = db.query(func.count(PhotoRecord.id)).filter(*filters).scalar() or 0
 
-    column = getattr(PhotoRecord, sort_by)
-    ordering = column.asc() if order == "asc" else column.desc()
+        column = getattr(PhotoRecord, sort_by)
+        ordering = column.asc() if order == "asc" else column.desc()
 
-    photos = (
-        db.query(PhotoRecord)
-        .filter(*filters)
-        .order_by(ordering, PhotoRecord.id.asc() if order == "asc" else PhotoRecord.id.desc())
-        .offset(offset)
-        .limit(limit)
-        .all()
-    )
+        photos = (
+            db.query(PhotoRecord)
+            .filter(*filters)
+            .order_by(ordering, PhotoRecord.id.asc() if order == "asc" else PhotoRecord.id.desc())
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
 
     return {
         "total": total,
@@ -826,7 +862,8 @@ def get_stats(
         bucket = counts.setdefault(key, {"employee_id": employee_id, "owner": name,
                                          "uploads_today": 0, "total_uploads": 0})
         bucket["total_uploads"] += 1
-        bucket["uploads_today"] += int(timestamp is not None and today_start <= timestamp < tomorrow)
+        uploaded_ts = _effective_upload_time(meta, timestamp)
+        bucket["uploads_today"] += int(uploaded_ts is not None and today_start <= uploaded_ts < tomorrow)
     employee_counts = sorted(counts.values(), key=lambda row: (row["owner"].casefold(), row["employee_id"] or 0))
     return {
         "business_date": day.isoformat(),
@@ -1405,7 +1442,322 @@ def get_photos_batch(
 from auth.mobile_access import tracker_identity
 from pydantic import ConfigDict, AwareDatetime, model_validator
 from sqlalchemy.exc import IntegrityError
+from concurrent.futures import ThreadPoolExecutor
+from urllib.parse import urlencode
+from urllib.request import Request as UrlRequest, urlopen
 from zoneinfo import ZoneInfo
+
+MANILA_TZ = ZoneInfo('Asia/Manila')
+_GEOCODE_CACHE: Dict[tuple[float, float], str] = {}
+_GEOCODE_EXECUTOR = ThreadPoolExecutor(max_workers=2)
+_EXIF_TIME_RE = re.compile(
+    r'^(\d{4})[:-](\d{2})[:-](\d{2})[ T](\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(Z|[+-]\d{2}:?\d{2})?$'
+)
+
+
+def _to_manila_aware(dt: datetime.datetime) -> datetime.datetime:
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=MANILA_TZ)
+    return dt.astimezone(MANILA_TZ)
+
+
+def _parse_exif_datetime_str(raw: object, offset_raw: object = None) -> Optional[datetime.datetime]:
+    if not isinstance(raw, str):
+        return None
+    m = _EXIF_TIME_RE.match(raw.strip())
+    if not m:
+        return None
+    y, mo, d, h, mi, s, inline_tz = m.groups()
+    try:
+        dt = datetime.datetime(int(y), int(mo), int(d), int(h), int(mi), int(s))
+    except ValueError:
+        return None
+    if dt.year < 1970:
+        return None
+    tz_raw = inline_tz or (offset_raw.strip() if isinstance(offset_raw, str) and offset_raw.strip() else None)
+    tzinfo: datetime.tzinfo = MANILA_TZ
+    if tz_raw == 'Z':
+        tzinfo = datetime.timezone.utc
+    elif tz_raw and re.fullmatch(r'[+-]\d{2}:?\d{2}', tz_raw):
+        clean = tz_raw.replace(':', '')
+        sign = 1 if clean[0] == '+' else -1
+        delta = datetime.timedelta(hours=int(clean[1:3]), minutes=int(clean[3:5]))
+        tzinfo = datetime.timezone(sign * delta)
+    return dt.replace(tzinfo=tzinfo).astimezone(MANILA_TZ)
+
+
+def _extract_pillow_exif_taken_at(image_path: Path) -> Optional[datetime.datetime]:
+    try:
+        from PIL import Image
+    except ImportError:
+        return None
+    try:
+        with Image.open(image_path) as img:
+            exif = img.getexif()
+            if not exif:
+                return None
+            sub_ifd = exif.get_ifd(0x8769) or {}
+            for tag_id, offset_tag_id in ((36867, 36881), (36868, 36882)):
+                raw = sub_ifd.get(tag_id) or exif.get(tag_id)
+                if raw:
+                    offset_raw = sub_ifd.get(offset_tag_id) or sub_ifd.get(36880) or exif.get(offset_tag_id)
+                    parsed = _parse_exif_datetime_str(raw, offset_raw)
+                    if parsed is not None:
+                        return parsed
+    except Exception:
+        return None
+    return None
+
+
+def _format_place_label(body: object) -> Optional[str]:
+    if not isinstance(body, dict) or body.get('error'):
+        return None
+    address = body.get('address')
+    if isinstance(address, dict):
+        groups = (
+            ('building', 'amenity', 'tourism', 'leisure'),
+            ('road', 'pedestrian', 'footway', 'path'),
+            ('suburb', 'quarter', 'neighbourhood', 'village'),
+            ('city', 'town', 'municipality'),
+            ('state',),
+        )
+        parts: List[str] = []
+        seen = set()
+        for group in groups:
+            for key in group:
+                value = address.get(key)
+                if isinstance(value, str) and value.strip():
+                    cleaned = ' '.join(value.split())
+                    if cleaned.casefold() not in seen:
+                        seen.add(cleaned.casefold())
+                        parts.append(cleaned)
+                    break
+        if parts:
+            return ', '.join(parts)[:400]
+    display_name = body.get('display_name')
+    if isinstance(display_name, str) and display_name.strip():
+        return ' '.join(display_name.split())[:400]
+    return None
+
+
+def _fetch_nominatim_label(url: str) -> Optional[str]:
+    req = UrlRequest(
+        url,
+        headers={
+            'User-Agent': 'NorthpointPhotoTracker/2.1 (CS317 field verification)',
+            'Accept': 'application/json',
+        },
+    )
+    with urlopen(req, timeout=2.5) as resp:
+        raw = resp.read(65537)
+        if len(raw) <= 65536:
+            return _format_place_label(json.loads(raw))
+    return None
+
+
+def _resolve_location_name(db: Session, latitude: float, longitude: float) -> Optional[str]:
+    cache_key = (round(latitude, 5), round(longitude, 5))
+    if cache_key in _GEOCODE_CACHE:
+        return _GEOCODE_CACHE[cache_key]
+    # Reuse geocoding/worker.py cache if present in photos.db.
+    try:
+        coord_key = json.dumps([latitude, longitude], separators=(',', ':'))
+        cached = db.execute(
+            text('SELECT label FROM photo_geocode_cache WHERE coordinate_key = :k'),
+            {'k': coord_key},
+        ).fetchone()
+        if cached and isinstance(cached[0], str) and cached[0].strip():
+            label = cached[0].strip()[:400]
+            _GEOCODE_CACHE[cache_key] = label
+            return label
+    except Exception:
+        pass
+    if os.getenv('PT_REVERSE_GEOCODE', '1') == '0':
+        return None
+    query = urlencode({
+        'format': 'jsonv2',
+        'lat': latitude,
+        'lon': longitude,
+        'addressdetails': 1,
+        'zoom': 18,
+        'accept-language': 'en',
+    })
+    geocoder_url = (os.getenv('GEOCODER_URL') or '').strip().rstrip('/')
+    url = (
+        f'{geocoder_url}/reverse?{query}'
+        if geocoder_url
+        else f'https://nominatim.openstreetmap.org/reverse?{query}'
+    )
+    try:
+        label = _GEOCODE_EXECUTOR.submit(_fetch_nominatim_label, url).result(timeout=3.5)
+        if label:
+            if len(_GEOCODE_CACHE) >= 512:
+                _GEOCODE_CACHE.clear()
+            _GEOCODE_CACHE[cache_key] = label
+            return label
+    except Exception:
+        return None
+    return None
+
+
+def _format_manila_watermark_time(dt: datetime.datetime) -> str:
+    manila = _to_manila_aware(dt)
+    hour_12 = manila.strftime('%I:%M %p').lstrip('0')
+    return f"{manila.strftime('%b')} {manila.day}, {manila.year} | {hour_12} PHT"
+
+
+def _load_watermark_fonts(size: int):
+    from PIL import ImageFont
+    bold_candidates = (
+        '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+        '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf',
+        'C:/Windows/Fonts/arialbd.ttf',
+    )
+    reg_candidates = (
+        '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+        '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
+        'C:/Windows/Fonts/arial.ttf',
+    )
+    bold_font = reg_font = None
+    for candidate in bold_candidates:
+        if os.path.isfile(candidate):
+            try:
+                bold_font = ImageFont.truetype(candidate, size)
+                break
+            except OSError:
+                pass
+    for candidate in reg_candidates:
+        if os.path.isfile(candidate):
+            try:
+                reg_font = ImageFont.truetype(candidate, max(12, int(size * 0.88)))
+                break
+            except OSError:
+                pass
+    if bold_font and reg_font:
+        return bold_font, reg_font, True
+    try:
+        return (
+            bold_font or ImageFont.load_default(size=size),
+            reg_font or ImageFont.load_default(size=max(12, int(size * 0.88))),
+            True,
+        )
+    except TypeError:
+        default_font = ImageFont.load_default()
+        return bold_font or default_font, reg_font or default_font, False
+
+
+def _wrap_watermark_text(draw, text_value: str, font, max_width: int, max_lines: int = 2) -> List[str]:
+    words = text_value.split()
+    if not words:
+        return []
+    lines: List[str] = []
+    idx = 0
+    while idx < len(words) and len(lines) < max_lines:
+        line = words[idx]
+        idx += 1
+        while idx < len(words):
+            candidate = f'{line} {words[idx]}'
+            if draw.textlength(candidate, font=font) <= max_width:
+                line = candidate
+                idx += 1
+            else:
+                break
+        if len(lines) == max_lines - 1 and idx < len(words):
+            line = f"{line} {' '.join(words[idx:])}"
+            while len(line) > 4 and draw.textlength(line + '...', font=font) > max_width:
+                line = line[:-1].rstrip()
+            line = line + '...'
+            idx = len(words)
+        lines.append(line)
+    return lines
+
+
+def _apply_photo_watermark(
+    image_path: Path,
+    ext: str,
+    *,
+    employee_name: str,
+    photo_title: str,
+    verified_dt: datetime.datetime,
+    location_name: Optional[str],
+    latitude: float,
+    longitude: float,
+    source: str,
+    has_exif: bool = False,
+) -> int:
+    try:
+        from PIL import Image, ImageDraw, ImageOps
+    except ImportError:
+        return image_path.stat().st_size
+    try:
+        with Image.open(image_path) as opened:
+            img = ImageOps.exif_transpose(opened)
+            base = img.convert('RGBA')
+        width, height = base.size
+        if width < 64 or height < 64:
+            return image_path.stat().st_size
+        font_size = max(14, min(32, int(width * 0.023)))
+        bold_font, reg_font, unicode_ok = _load_watermark_fonts(font_size)
+        sep = ' | '
+        time_text = _format_manila_watermark_time(verified_dt)
+        header_text = f'{employee_name}{sep}{photo_title}'
+        if source == 'camera':
+            meta_text = f'{time_text}{sep}Camera Photo'
+            coords_text = f'GPS: {latitude:.6f}, {longitude:.6f}'
+            loc_text = f'{location_name}{sep}{coords_text}' if location_name else coords_text
+        else:
+            time_prefix = 'Taken (EXIF): ' if has_exif else 'Selected: '
+            meta_text = f'{time_prefix}{time_text}{sep}Gallery Upload'
+            loc_text = 'Capture location unverified'
+        if not unicode_ok:
+            header_text = header_text.encode('latin-1', 'replace').decode('latin-1')
+            meta_text = meta_text.encode('latin-1', 'replace').decode('latin-1')
+            loc_text = loc_text.encode('latin-1', 'replace').decode('latin-1')
+
+        overlay = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(overlay)
+        pad_x = max(14, int(width * 0.025))
+        pad_y = max(12, int(height * 0.018))
+        max_text_w = max(40, width - 2 * pad_x)
+
+        rows: List[tuple[str, object, tuple[int, int, int, int]]] = []
+        for line in _wrap_watermark_text(draw, header_text, bold_font, max_text_w, max_lines=2):
+            rows.append((line, bold_font, (255, 255, 255, 255)))
+        for line in _wrap_watermark_text(draw, meta_text, reg_font, max_text_w, max_lines=2):
+            rows.append((line, reg_font, (226, 238, 252, 255)))
+        for line in _wrap_watermark_text(draw, loc_text, reg_font, max_text_w, max_lines=2):
+            rows.append((line, reg_font, (210, 226, 246, 255)))
+
+        line_gap = max(4, int(font_size * 0.25))
+        measured: List[tuple[str, object, tuple[int, int, int, int], int]] = []
+        total_h = 0
+        for text_line, font_obj, color in rows:
+            bbox = draw.textbbox((0, 0), text_line, font=font_obj)
+            lh = max(font_size, bbox[3] - bbox[1])
+            measured.append((text_line, font_obj, color, lh))
+            total_h += lh
+        total_h += line_gap * max(0, len(measured) - 1)
+
+        banner_h = min(height, total_h + 2 * pad_y)
+        banner_top = height - banner_h
+        draw.rectangle([(0, banner_top), (width, height)], fill=(15, 29, 48, 198))
+        draw.rectangle([(0, banner_top), (width, min(height, banner_top + 3))], fill=(49, 137, 206, 230))
+
+        y = banner_top + pad_y
+        for text_line, font_obj, color, lh in measured:
+            draw.text((pad_x, y), text_line, font=font_obj, fill=color)
+            y += lh + line_gap
+
+        composited = Image.alpha_composite(base, overlay)
+        if ext in ('.jpg', '.jpeg'):
+            composited.convert('RGB').save(image_path, format='JPEG', quality=88)
+        elif ext == '.png':
+            composited.save(image_path, format='PNG')
+        elif ext == '.webp':
+            composited.convert('RGB').save(image_path, format='WEBP', quality=88)
+        return image_path.stat().st_size
+    except Exception:
+        return image_path.stat().st_size
 
 
 class MobileMetadata(BaseModel):
@@ -1418,6 +1770,7 @@ class MobileMetadata(BaseModel):
     location_at: AwareDatetime
     selected_at: AwareDatetime
     source: str = Field(pattern='^(camera|gallery)$')
+    exif_taken_at: Optional[datetime.datetime] = None
     # Optional for compatibility with older installed APKs. New outbox clients send all three.
     expected_tracker_id: int | None = Field(default=None, gt=0)
     expected_employee_id: int | None = Field(default=None, gt=0)
@@ -1469,18 +1822,40 @@ def mobile_upload(request: Request, file: UploadFile = File(...),
     path = UPLOAD_DIR / name
     size = save_upload(file, str(path), MAX_UPLOAD_BYTES)
     now = datetime.datetime.now(datetime.timezone.utc)
-    local = meta.selected_at.astimezone(ZoneInfo('Asia/Manila'))
+    now_manila = now.astimezone(MANILA_TZ)
+    local = meta.selected_at.astimezone(MANILA_TZ)
+    exif_taken_manila = (
+        _to_manila_aware(meta.exif_taken_at)
+        if meta.exif_taken_at is not None
+        else _extract_pillow_exif_taken_at(path)
+    )
+    effective_taken_manila = (
+        exif_taken_manila
+        if meta.source == 'gallery' and exif_taken_manila is not None
+        else local
+    )
+    resolved_location = _resolve_location_name(db, meta.latitude, meta.longitude)
+    size = _apply_photo_watermark(
+        path, ext,
+        employee_name=info['full_name'], photo_title=photo_title,
+        verified_dt=effective_taken_manila, location_name=resolved_location,
+        latitude=meta.latitude, longitude=meta.longitude, source=meta.source, has_exif=(exif_taken_manila is not None),
+    )
     label = 'Camera photo selected' if meta.source == 'camera' else 'Gallery photo selected'
-    details = {**meta.model_dump(mode='json'), **info, 'uploaded_at': now.isoformat(), 'context_radius_m': 250}
+    details = {**meta.model_dump(mode='json'), **info,
+               'exif_taken_at': exif_taken_manila.isoformat() if exif_taken_manila else None,
+               'uploaded_at': now.isoformat(), 'context_radius_m': 250}
+    exif_line = f"Original photo time (EXIF): {exif_taken_manila:%d %b %Y, %I:%M:%S %p} (Philippine time)\n" if exif_taken_manila else ''
     description = (f"Uploaded by: {info['full_name']}\n{label}: {local:%d %b %Y, %I:%M:%S %p} (Philippine time)\n"
+                   f"{exif_line}"
                    f"Location when selected: {meta.latitude:.6f}, {meta.longitude:.6f}\n"
                    f"GPS accuracy: ±{meta.accuracy_m:.0f} m. Context radius: 250 m.\n"
-                   f"Received: {now.astimezone(ZoneInfo('Asia/Manila')):%d %b %Y, %I:%M:%S %p} (Philippine time)")
-    record = PhotoRecord(title=photo_title, owner_name=info['full_name'], filename=name, filepath=f'uploads/{name}',
+                   f"Uploaded: {now_manila:%d %b %Y, %I:%M:%S %p} (Philippine time)")
+    record = PhotoRecord(title=photo_title, location_name=resolved_location, owner_name=info['full_name'], filename=name, filepath=f'uploads/{name}',
                          original_filename=Path(file.filename).name, display_name=info['full_name'],
                          description=description, tags='Mobile upload', size_bytes=size,
                          content_type={'.jpg':'image/jpeg','.jpeg':'image/jpeg','.png':'image/png','.webp':'image/webp'}[ext],
-                         timestamp=now.astimezone(ZoneInfo('Asia/Manila')).replace(tzinfo=None),
+                         timestamp=effective_taken_manila.replace(tzinfo=None),
                          mobile_metadata=json.dumps(details, ensure_ascii=False), upload_key=key)
     try:
         db.add(record)

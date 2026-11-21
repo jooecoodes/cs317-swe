@@ -1,7 +1,9 @@
 import math, time, datetime, statistics
+import sqlite3
 import threading
 import os
 
+from contextlib import closing
 from pathlib import Path
 from zoneinfo import ZoneInfo
 from fastapi import FastAPI, Depends, Header, HTTPException
@@ -252,18 +254,72 @@ def get_live(dev: str):
     online = time.time() - d["last_seen"] < ONLINE_SECONDS
     return {"status": "online" if online else "disconnected", "lat": d["lat"], "lon": d["lon"]}
 
+def _resolve_employee_names(trackers: set[str]) -> dict[str, str]:
+    """Read-only lookup mapping tracker usernames to linked employee full names."""
+    names = [t for t in trackers if isinstance(t, str) and t.strip()]
+    if not names:
+        return {}
+    auth_path = Path(os.getenv("AUTH_DB_PATH") or BASE_DIR.parent / "auth" / "auth.db").resolve()
+    app1_path = Path(os.getenv("APP1_DB_PATH") or BASE_DIR.parent / "data" / "app1" / "app.db").resolve()
+    if not auth_path.is_file() or not app1_path.is_file():
+        return {}
+    tracker_to_emp: dict[str, int] = {}
+    try:
+        with closing(sqlite3.connect(auth_path.as_uri() + "?mode=ro", uri=True, timeout=1)) as conn:
+            for i in range(0, len(names), 500):
+                chunk = names[i:i + 500]
+                placeholders = ",".join("?" for _ in chunk)
+                rows = conn.execute(
+                    f"SELECT username, employee_id FROM trackers "
+                    f"WHERE username IN ({placeholders}) AND employee_id IS NOT NULL",
+                    chunk,
+                ).fetchall()
+                for username, emp_id in rows:
+                    if isinstance(emp_id, int):
+                        tracker_to_emp[username] = emp_id
+    except (sqlite3.Error, OSError):
+        return {}
+    if not tracker_to_emp:
+        return {}
+    emp_ids = list(set(tracker_to_emp.values()))
+    emp_names: dict[int, str] = {}
+    try:
+        with closing(sqlite3.connect(app1_path.as_uri() + "?mode=ro", uri=True, timeout=1)) as conn:
+            for i in range(0, len(emp_ids), 500):
+                chunk = emp_ids[i:i + 500]
+                placeholders = ",".join("?" for _ in chunk)
+                rows = conn.execute(
+                    f"SELECT id, first_name, last_name FROM employees WHERE id IN ({placeholders})",
+                    chunk,
+                ).fetchall()
+                for emp_id, first_name, last_name in rows:
+                    full = f"{first_name or ''} {last_name or ''}".strip()
+                    if full:
+                        emp_names[emp_id] = full
+    except (sqlite3.Error, OSError):
+        return {}
+    return {
+        username: emp_names[emp_id]
+        for username, emp_id in tracker_to_emp.items()
+        if emp_id in emp_names
+    }
+
 @gps_service.get("/devices")
 def devices(include_offline: bool = False):
     now = time.time()
+    snapshot = list(live.items())
+    employee_names = _resolve_employee_names({d.get("tracker") for _, d in snapshot})
     out = []
-    for dev, d in list(live.items()):
+    for dev, d in snapshot:
         age = now - d["last_seen"]
         online = age < ONLINE_SECONDS
         if not online and not include_offline:
             continue
+        tracker = d.get("tracker")
         out.append({
             "device_id": dev,
-            "tracker": d.get("tracker"),
+            "tracker": tracker,
+            "employee_name": employee_names.get(tracker),
             "status": "online" if online else "disconnected",
             "lat": d["lat"], "lon": d["lon"],
             "accuracy_m": d.get("acc"),

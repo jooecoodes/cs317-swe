@@ -24,7 +24,7 @@ services:
 
   app3:
     <<: *dev
-    environment: [TZ=Asia/Manila, GPS_DB_PATH=/app/data/app3/tracking.db]
+    environment: [TZ=Asia/Manila, GPS_DB_PATH=/app/data/app3/tracking.db, AUTH_DB_PATH=/app/data/auth/auth.db, APP1_DB_PATH=/app/data/app1/app.db]
 
   nginx:
     image: nginx:alpine

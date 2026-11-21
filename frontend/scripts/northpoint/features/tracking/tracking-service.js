@@ -5,7 +5,7 @@ export async function readTrackingDevices(signal){
  if(!raw||!Array.isArray(raw.devices)||!Number.isSafeInteger(raw.count)||raw.count!==raw.devices.length)throw Error('The tracking service returned an invalid device list.');
  const ids=new Set();
  for(const d of raw.devices){
-  if(typeof d.device_id!=='string'||!d.device_id.trim()||ids.has(d.device_id)||d.tracker!=null&&typeof d.tracker!=='string'||!['online','disconnected'].includes(d.status)||!validLocation(d.lat,d.lon)||!Number.isSafeInteger(d.last_seen_seconds_ago)||d.last_seen_seconds_ago<0||d.accuracy_m!=null&&(!Number.isFinite(d.accuracy_m)||d.accuracy_m<0))throw Error('The tracking service returned invalid device details.');
+  if(typeof d.device_id!=='string'||!d.device_id.trim()||ids.has(d.device_id)||d.tracker!=null&&typeof d.tracker!=='string'||d.employee_name!=null&&typeof d.employee_name!=='string'||!['online','disconnected'].includes(d.status)||!validLocation(d.lat,d.lon)||!Number.isSafeInteger(d.last_seen_seconds_ago)||d.last_seen_seconds_ago<0||d.accuracy_m!=null&&(!Number.isFinite(d.accuracy_m)||d.accuracy_m<0))throw Error('The tracking service returned invalid device details.');
   ids.add(d.device_id);
  }
  return raw.devices;
