@@ -10,6 +10,10 @@ from contextlib import closing
 from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import or_, select, text, update
+from sqlalchemy.exc import IntegrityError
+
+from auth.db import AuthSession, Device, SessionLocal, Tracker, User
 
 router = APIRouter()
 
@@ -40,17 +44,26 @@ def employee(employee_id: int, *, active=False, supervisor=False):
 
 def browser_user(request: Request):
     a = auth()
-    with closing(a.db()) as c:
-        row = c.execute('SELECT u.id, u.username, u.role, u.employee_id FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>? AND u.disabled=0',
-                        (a.hash_token(request.cookies.get(a.COOKIE, '')), int(time.time()))).fetchone()
+    with SessionLocal() as session:
+        row = session.execute(
+            select(User.id, User.username, User.role, User.employee_id)
+            .join(AuthSession, AuthSession.user_id == User.id)
+            .where(
+                AuthSession.token_hash == a.hash_token(
+                    request.cookies.get(a.COOKIE, '')
+                ),
+                AuthSession.expires_at > int(time.time()),
+                User.disabled == 0,
+            )
+        ).first()
     if not row:
         raise HTTPException(401, 'Please sign in to the HR website again.')
-    if row['role'] != 'hr':
+    if row.role != 'hr':
         raise HTTPException(403, 'Only HR can manage mobile tracker access.')
     # Custom header + JSON prevents cross-origin form submissions; no CORS grant.
     if request.method != 'GET' and request.headers.get('x-requested-with') != 'Northpoint':
         raise HTTPException(403, 'Please use Mobile App Access on the HR website.')
-    return dict(row)
+    return dict(row._mapping)
 
 
 def tracker_identity(request: Request):
@@ -59,21 +72,37 @@ def tracker_identity(request: Request):
     if not bearer.lower().startswith('bearer '):
         raise HTTPException(401, 'Please sign in to the mobile app again.')
     now = int(time.time())
-    with closing(a.db()) as c, c:
-        row = c.execute('''SELECT d.id, t.id AS tracker_id, t.username, t.employee_id,
-                   t.employee_code FROM devices d JOIN trackers t ON t.id=d.tracker_id
-                   WHERE d.token_hash=? AND d.revoked=0 AND t.disabled=0
-                   AND (d.expires_at IS NULL OR d.expires_at>?)''',
-                   (a.hash_token(bearer[7:].strip()), now)).fetchone()
+    with SessionLocal() as session:
+        row = session.execute(
+            select(
+                Device.id,
+                Tracker.id.label('tracker_id'),
+                Tracker.username,
+                Tracker.employee_id,
+                Tracker.employee_code,
+            )
+            .join(Tracker, Tracker.id == Device.tracker_id)
+            .where(
+                Device.token_hash == a.hash_token(bearer[7:].strip()),
+                Device.revoked == 0,
+                Tracker.disabled == 0,
+                or_(Device.expires_at.is_(None), Device.expires_at > now),
+            )
+        ).first()
         if not row:
             raise HTTPException(401, 'Your mobile session has expired or was disabled. Please sign in again.')
-        if not row['employee_id']:
+        if not row.employee_id:
             raise HTTPException(403, 'Your account is not linked to an employee. Ask HR to open Mobile App Access.')
-        info = employee(row['employee_id'], active=True, supervisor=True)
-        if info['employee_code'] != row['employee_code']:
+        info = employee(row.employee_id, active=True, supervisor=True)
+        if info['employee_code'] != row.employee_code:
             raise HTTPException(403, 'The employee record has changed. Ask HR to check your mobile access.')
-        c.execute('UPDATE devices SET last_used=?, expires_at=? WHERE id=?', (now, now+a.DEVICE_TTL, row['id']))
-    return {**info, 'tracker_id': row['tracker_id'], 'username': row['username']}
+        session.execute(
+            update(Device)
+            .where(Device.id == row.id)
+            .values(last_used=now, expires_at=now + a.DEVICE_TTL)
+        )
+        session.commit()
+    return {**info, 'tracker_id': row.tracker_id, 'username': row.username}
 
 
 class AccountCreate(BaseModel):
@@ -98,8 +127,11 @@ def device_me(response: Response, info=Depends(tracker_identity)):
 def access_status(employee_id: int, response: Response, user=Depends(browser_user)):
     info = employee(employee_id)
     response.headers['Cache-Control'] = 'no-store'
-    with closing(auth().db()) as c:
-        row = c.execute('SELECT username, disabled FROM trackers WHERE employee_id=?', (employee_id,)).fetchone()
+    with SessionLocal() as session:
+        row = session.execute(
+            select(Tracker.username, Tracker.disabled)
+            .where(Tracker.employee_id == employee_id)
+        ).mappings().first()
     return {**info, 'eligible': info['employee_type'] == 'supervisor',
             'account': dict(row) if row else None}
 
@@ -109,10 +141,16 @@ def create_access(employee_id: int, body: AccountCreate, response: Response, use
     info = employee(employee_id, active=True, supervisor=True)
     a = auth()
     try:
-        with closing(a.db()) as c, c:
-            c.execute('INSERT INTO trackers(username,password_hash,created_at,employee_id,employee_code) VALUES(?,?,?,?,?)',
-                      (body.username, a.hash_password(body.password), int(time.time()), employee_id, info['employee_code']))
-    except sqlite3.IntegrityError:
+        with SessionLocal() as session:
+            session.add(Tracker(
+                username=body.username,
+                password_hash=a.hash_password(body.password),
+                created_at=int(time.time()),
+                employee_id=employee_id,
+                employee_code=info['employee_code'],
+            ))
+            session.commit()
+    except IntegrityError:
         raise HTTPException(409, 'This username or employee already has a mobile account. Refresh Mobile App Access or choose another username.')
     response.headers['Cache-Control'] = 'no-store'
     return {**info, 'account': {'username': body.username, 'disabled': False},
@@ -125,17 +163,33 @@ def link_existing(employee_id: int, body: AccountCreate, response: Response, use
     info = employee(employee_id, active=True, supervisor=True)
     a = auth()
     try:
-        with closing(a.db()) as c, c:
-            c.execute('BEGIN IMMEDIATE')
-            row = c.execute('SELECT id, employee_id FROM trackers WHERE username=?', (body.username,)).fetchone()
+        with SessionLocal() as session:
+            session.execute(text('BEGIN IMMEDIATE'))
+            row = session.execute(
+                select(Tracker.id, Tracker.employee_id)
+                .where(Tracker.username == body.username)
+            ).first()
             if not row:
                 raise HTTPException(404, 'That mobile username does not exist. Use Create Mobile Account instead.')
-            if row['employee_id'] is not None:
+            if row.employee_id is not None:
                 raise HTTPException(409, 'That account is already linked. Open the linked employee profile instead.')
-            c.execute('UPDATE trackers SET employee_id=?, employee_code=?, password_hash=?, disabled=0 WHERE id=?',
-                      (employee_id, info['employee_code'], a.hash_password(body.password), row['id']))
-            c.execute('UPDATE devices SET revoked=1 WHERE tracker_id=?', (row['id'],))
-    except sqlite3.IntegrityError:
+            session.execute(
+                update(Tracker)
+                .where(Tracker.id == row.id)
+                .values(
+                    employee_id=employee_id,
+                    employee_code=info['employee_code'],
+                    password_hash=a.hash_password(body.password),
+                    disabled=0,
+                )
+            )
+            session.execute(
+                update(Device)
+                .where(Device.tracker_id == row.id)
+                .values(revoked=1)
+            )
+            session.commit()
+    except IntegrityError:
         raise HTTPException(409, 'This employee already has a mobile account. Refresh this section.')
     response.headers['Cache-Control'] = 'no-store'
     return {'message': 'Existing account linked and password reset. Ask the employee to sign in again.'}
@@ -147,14 +201,29 @@ def change_access(employee_id: int, body: AccountChange, user=Depends(browser_us
     if body.password is None and body.disabled is None:
         raise HTTPException(422, 'Enter a new password or choose an access status.')
     a = auth()
-    with closing(a.db()) as c, c:
-        row = c.execute('SELECT id FROM trackers WHERE employee_id=?', (employee_id,)).fetchone()
+    with SessionLocal() as session:
+        row = session.execute(
+            select(Tracker.id).where(Tracker.employee_id == employee_id)
+        ).first()
         if not row:
             raise HTTPException(404, 'Create a mobile account for this employee first.')
         if body.password is not None:
-            c.execute('UPDATE trackers SET password_hash=? WHERE id=?', (a.hash_password(body.password), row['id']))
+            session.execute(
+                update(Tracker)
+                .where(Tracker.id == row.id)
+                .values(password_hash=a.hash_password(body.password))
+            )
         if body.disabled is not None:
-            c.execute('UPDATE trackers SET disabled=? WHERE id=?', (int(body.disabled), row['id']))
+            session.execute(
+                update(Tracker)
+                .where(Tracker.id == row.id)
+                .values(disabled=int(body.disabled))
+            )
         if body.password is not None or body.disabled:
-            c.execute('UPDATE devices SET revoked=1 WHERE tracker_id=?', (row['id'],))
+            session.execute(
+                update(Device)
+                .where(Device.tracker_id == row.id)
+                .values(revoked=1)
+            )
+        session.commit()
     return {'message': 'Mobile access updated. Password changes or disabling access sign out existing phones.'}
