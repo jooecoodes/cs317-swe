@@ -7,11 +7,12 @@ from pathlib import Path
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response, JSONResponse
 from pydantic import BaseModel
+from sqlalchemy import delete, or_, select, update
 
+from auth.db import DB_PATH, AuthSession, Device, SessionLocal, Tracker, User
 from auth.security import hash_password, check_password, hash_token
 
 BASE_DIR = Path(__file__).resolve().parent
-DB_PATH = Path(os.getenv("AUTH_DB_PATH", BASE_DIR / "auth.db"))
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 PREFIX = "/auth"
 COOKIE = "auth_session"
@@ -49,20 +50,21 @@ CREATE TABLE IF NOT EXISTS devices(
 
 _login_cache: dict = {"mtime": None, "html": None}
 
-def db():
+def _connect():
+    """Raw connection used only for schema creation and migration."""
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys=ON")
     return conn
 
 
-with closing(db()) as _c:
+with closing(_connect()) as _c:
     _c.executescript(SCHEMA)
 
 DEVICE_TTL = 7 * 24 * 3600   # sliding inactivity window
 RENEW_AFTER = 24 * 3600      # extend at most once a day
 
-with closing(db()) as _c, _c:
+with closing(_connect()) as _c, _c:
     _c.execute("""CREATE TABLE IF NOT EXISTS trackers(
         id INTEGER PRIMARY KEY, username TEXT UNIQUE NOT NULL,
         password_hash TEXT NOT NULL, disabled INTEGER NOT NULL DEFAULT 0,
@@ -72,7 +74,7 @@ with closing(db()) as _c, _c:
         if col not in cols:
             _c.execute(f"ALTER TABLE devices ADD COLUMN {col} INTEGER")
 
-with closing(db()) as _c, _c:
+with closing(_connect()) as _c, _c:
     ucols = {r["name"] for r in _c.execute("PRAGMA table_info(users)")}
     for col, ddl in (
         ("first_name", "TEXT"), ("last_name", "TEXT"),
@@ -101,8 +103,8 @@ DUMMY_HASH = hash_password("dummy")  # keeps timing similar for unknown users
 
 # ---------- helpers ----------
 def full_name(row) -> str:
-    n = f"{row['first_name'] or ''} {row['last_name'] or ''}".strip()
-    return n or row["username"]          # old accounts fall back to the username
+    n = f"{row.first_name or ''} {row.last_name or ''}".strip()
+    return n or row.username          # old accounts fall back to the username
 
 
 def header_safe(s: str) -> str:
@@ -193,21 +195,27 @@ def login_page(next: str = "/"):
 @auth_app.post("/login")
 def login(username: str = Form(...), password: str = Form(...),
           next_url: str = Form("/", alias="next")):
-    with closing(db()) as c, c:
-        row = c.execute(
-            "SELECT id, password_hash, role FROM users "
-            "WHERE username=? AND disabled=0",
-            (username.strip(),)).fetchone()
-        ok = check_password(password, row["password_hash"] if row else DUMMY_HASH)
+    with SessionLocal() as session:
+        row = session.execute(
+            select(User.id, User.password_hash, User.role)
+            .where(User.username == username.strip(), User.disabled == 0)
+        ).first()
+        ok = check_password(password, row.password_hash if row else DUMMY_HASH)
         if not (row and ok):
             return HTMLResponse(render_login(next_url, "Wrong username or password."),
                                 status_code=401)
-        role = normalize_role(row["role"])
+        role = normalize_role(row.role)
         token = secrets.token_urlsafe(32)
         now = int(time.time())
-        c.execute("DELETE FROM sessions WHERE expires_at < ?", (now,))
-        c.execute("INSERT INTO sessions VALUES (?,?,?)",
-                  (hash_token(token), row["id"], now + SESSION_TTL))
+        session.execute(
+            delete(AuthSession).where(AuthSession.expires_at < now)
+        )
+        session.add(AuthSession(
+            token_hash=hash_token(token),
+            user_id=row.id,
+            expires_at=now + SESSION_TTL,
+        ))
+        session.commit()
     target = safe_next(next_url)
     wanted = role_for_path(target.split("?", 1)[0].split("#", 1)[0])
     if target in ("/", "/index.html") or (wanted and wanted != role):
@@ -222,8 +230,13 @@ def login(username: str = Form(...), password: str = Form(...),
 def logout(request: Request):
     token = request.cookies.get(COOKIE)
     if token:
-        with closing(db()) as c, c:
-            c.execute("DELETE FROM sessions WHERE token_hash=?", (hash_token(token),))
+        with SessionLocal() as session:
+            session.execute(
+                delete(AuthSession).where(
+                    AuthSession.token_hash == hash_token(token)
+                )
+            )
+            session.commit()
     resp = RedirectResponse(f"{PREFIX}/login", status_code=303)
     resp.delete_cookie(COOKIE, path="/")
     return resp
@@ -239,47 +252,59 @@ def verify(request: Request):
         method == DEVICE_ALLOWED_METHOD and path.startswith(DEVICE_ALLOWED_PREFIX)
     )
     now = int(time.time())
-    with closing(db()) as c:
+    with SessionLocal() as session:
         token = request.cookies.get(COOKIE)
         if token and not device_only:
-            row = c.execute(
-                "SELECT u.username, u.first_name, u.last_name, u.role, "
-                "u.employee_id "
-                "FROM sessions s JOIN users u ON u.id=s.user_id "
-                "WHERE s.token_hash=? AND s.expires_at>? AND u.disabled=0",
-                (hash_token(token), now)).fetchone()
+            row = session.execute(
+                select(
+                    User.username, User.first_name, User.last_name,
+                    User.role, User.employee_id,
+                )
+                .join(AuthSession, AuthSession.user_id == User.id)
+                .where(
+                    AuthSession.token_hash == hash_token(token),
+                    AuthSession.expires_at > now,
+                    User.disabled == 0,
+                )
+            ).first()
             if row:
-                role = normalize_role(row["role"])
+                role = normalize_role(row.role)
                 wanted = role_for_path(normalized)
                 if wanted and wanted != role:
                     return Response(status_code=403)
-                if not app1_allowed(role, row["employee_id"], method, path):
+                if not app1_allowed(role, row.employee_id, method, path):
                     return Response(status_code=403)
                 headers = {
                     "X-User": header_safe(full_name(row)),
-                    "X-Username": row["username"],
+                    "X-Username": row.username,
                     "X-Role": role,
                 }
-                if row["employee_id"] is not None:
-                    headers["X-Employee-Id"] = str(row["employee_id"])
+                if row.employee_id is not None:
+                    headers["X-Employee-Id"] = str(row.employee_id)
                 return Response(status_code=200, headers=headers)
 
         bearer = request.headers.get("authorization", "")
         if bearer.lower().startswith("bearer "):
-            dev = c.execute(
-                "SELECT d.id, d.name, d.last_used FROM devices d "
-                "LEFT JOIN trackers t ON t.id = d.tracker_id "
-                "WHERE d.token_hash=? AND d.revoked=0 "
-                "AND (d.expires_at IS NULL OR d.expires_at>?) "
-                "AND (d.tracker_id IS NULL OR t.disabled=0)",
-                (hash_token(bearer[7:].strip()), now)).fetchone()
+            dev = session.execute(
+                select(Device.id, Device.name, Device.last_used)
+                .outerjoin(Tracker, Tracker.id == Device.tracker_id)
+                .where(
+                    Device.token_hash == hash_token(bearer[7:].strip()),
+                    Device.revoked == 0,
+                    or_(Device.expires_at.is_(None), Device.expires_at > now),
+                    or_(Device.tracker_id.is_(None), Tracker.disabled == 0),
+                )
+            ).first()
             allowed = (method, path) in DEVICE_ALLOWED or (method == 'PATCH' and re.fullmatch(r'/app2/mobile-photos/[1-9][0-9]*/title', path) is not None)
             if dev and allowed:
-                if now - (dev["last_used"] or 0) > RENEW_AFTER:
-                    with c:
-                        c.execute("UPDATE devices SET last_used=?, expires_at=? WHERE id=?",
-                                  (now, now + DEVICE_TTL, dev["id"]))
-                return Response(status_code=200, headers={"X-Device": dev["name"]})    
+                if now - (dev.last_used or 0) > RENEW_AFTER:
+                    session.execute(
+                        update(Device)
+                        .where(Device.id == dev.id)
+                        .values(last_used=now, expires_at=now + DEVICE_TTL)
+                    )
+                    session.commit()
+                return Response(status_code=200, headers={"X-Device": dev.name})
     return Response(status_code=401)
 
 
@@ -293,21 +318,29 @@ class TrackerLogin(BaseModel):
 
 @auth_app.post("/device-login")
 def device_login(body: TrackerLogin):
-    with closing(db()) as c, c:
-        row = c.execute(
-            "SELECT id, password_hash FROM trackers WHERE username=? AND disabled=0",
-            (body.username.strip(),)).fetchone()
-        ok = check_password(body.password, row["password_hash"] if row else DUMMY_HASH)
+    with SessionLocal() as session:
+        row = session.execute(
+            select(Tracker.id, Tracker.password_hash)
+            .where(Tracker.username == body.username.strip(), Tracker.disabled == 0)
+        ).first()
+        ok = check_password(body.password, row.password_hash if row else DUMMY_HASH)
         if not (row and ok):
             return JSONResponse({"detail": "Wrong username or password."}, status_code=401)
         token = secrets.token_urlsafe(32)
         now = int(time.time())
         name = f"{body.username.strip()}:{body.device_id[:64]}"
-        c.execute("DELETE FROM devices WHERE name=?", (name,))  # one token per tracker+phone
-        c.execute(
-            "INSERT INTO devices(name,token_hash,created_at,tracker_id,expires_at,last_used) "
-            "VALUES(?,?,?,?,?,?)",
-            (name, hash_token(token), now, row["id"], now + DEVICE_TTL, now))
+        session.execute(
+            delete(Device).where(Device.name == name)
+        )  # one token per tracker+phone
+        session.add(Device(
+            name=name,
+            token_hash=hash_token(token),
+            created_at=now,
+            tracker_id=row.id,
+            expires_at=now + DEVICE_TTL,
+            last_used=now,
+        ))
+        session.commit()
     return {"token": token, "expires_at": now + DEVICE_TTL}
 
 
@@ -315,36 +348,46 @@ def device_login(body: TrackerLogin):
 def device_logout(request: Request):
     bearer = request.headers.get("authorization", "")
     if bearer.lower().startswith("bearer "):
-        with closing(db()) as c, c:
-            c.execute("UPDATE devices SET revoked=1 WHERE token_hash=?",
-                      (hash_token(bearer[7:].strip()),))
+        with SessionLocal() as session:
+            session.execute(
+                update(Device)
+                .where(Device.token_hash == hash_token(bearer[7:].strip()))
+                .values(revoked=1)
+            )
+            session.commit()
     return {"status": "ok"}
 
 @auth_app.get("/me")
 def me(request: Request):
     token = request.cookies.get(COOKIE)
     if token:
-        with closing(db()) as c:
-            row = c.execute(
-                "SELECT u.id, u.username, u.first_name, u.last_name, u.role, "
-                "u.employee_id, u.employee_code "
-                "FROM sessions s JOIN users u ON u.id=s.user_id "
-                "WHERE s.token_hash=? AND s.expires_at>? AND u.disabled=0",
-                (hash_token(token), int(time.time()))).fetchone()
+        with SessionLocal() as session:
+            row = session.execute(
+                select(
+                    User.id, User.username, User.first_name, User.last_name,
+                    User.role, User.employee_id, User.employee_code,
+                )
+                .join(AuthSession, AuthSession.user_id == User.id)
+                .where(
+                    AuthSession.token_hash == hash_token(token),
+                    AuthSession.expires_at > int(time.time()),
+                    User.disabled == 0,
+                )
+            ).first()
         if row:
-            role = normalize_role(row["role"])
+            role = normalize_role(row.role)
             return JSONResponse(
-                {"id": row["id"], "username": row["username"],
-                 "first_name": row["first_name"], "last_name": row["last_name"],
+                {"id": row.id, "username": row.username,
+                 "first_name": row.first_name, "last_name": row.last_name,
                  "full_name": full_name(row), "role": role,
-                 "employee_id": row["employee_id"],
-                 "employee_code": row["employee_code"],
+                 "employee_id": row.employee_id,
+                 "employee_code": row.employee_code,
                  "role_home": role_home(role)},
                 headers={"Cache-Control": "no-store"})
     return JSONResponse({"detail": "Not signed in"}, status_code=401)
 
 # Additive migration: old trackers keep GPS access until HR links them.
-with closing(db()) as _c, _c:
+with closing(_connect()) as _c, _c:
     _cols = {r['name'] for r in _c.execute('PRAGMA table_info(trackers)')}
     for _name, _type in [('employee_id', 'INTEGER'), ('employee_code', 'TEXT')]:
         if _name not in _cols:
