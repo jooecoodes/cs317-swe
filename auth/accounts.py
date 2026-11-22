@@ -2,18 +2,20 @@
 
 The auth service remains the owner of the users table. app1 uses these helpers
 when HR creates or edits an employee so the browser login and employee record
-stay linked. SQLite is used directly because both services already share the
-same data volume; calls are short and guarded by uniqueness constraints.
+stay linked. The store is still SQLite; routine CRUD goes through SQLAlchemy
+while the schema DDL remains raw SQLite.
 """
-import os
 import sqlite3
 import time
 from contextlib import closing
 from pathlib import Path
 
+from sqlalchemy import delete, select, update
+from sqlalchemy.exc import IntegrityError
+
+from auth.db import DB_PATH, AuthSession, Device, SessionLocal, Tracker, User
 from auth.security import hash_password
 
-BASE_DIR = Path(__file__).resolve().parent
 ROLES = ("c_manager", "employee", "hr", "supervisor")
 _SCHEMA_READY: set[Path] = set()
 
@@ -31,7 +33,7 @@ class EmployeeAlreadyLinked(AccountError):
 
 
 def db_path() -> Path:
-    return Path(os.getenv("AUTH_DB_PATH", BASE_DIR / "auth.db"))
+    return DB_PATH
 
 
 def _connect() -> sqlite3.Connection:
@@ -94,18 +96,23 @@ def create_account(*, employee_id: int, employee_code: str, username: str,
     if role not in ROLES:
         raise AccountError(f"Unknown role: {role}")
     ensure_schema()
+    user = User(
+        username=username.strip(),
+        password_hash=hash_password(password),
+        first_name=first_name,
+        last_name=last_name,
+        created_at=int(time.time()),
+        role=role,
+        employee_id=employee_id,
+        employee_code=employee_code,
+    )
     try:
-        with closing(_connect()) as conn, conn:
-            cur = conn.execute(
-                "INSERT INTO users(username,password_hash,first_name,last_name,"
-                "created_at,role,employee_id,employee_code) "
-                "VALUES(?,?,?,?,?,?,?,?)",
-                (username.strip(), hash_password(password), first_name,
-                 last_name, int(time.time()), role, employee_id,
-                 employee_code))
-            return int(cur.lastrowid)
-    except sqlite3.IntegrityError as exc:
-        message = str(exc).lower()
+        with SessionLocal() as session:
+            session.add(user)
+            session.commit()
+            return int(user.id)
+    except IntegrityError as exc:
+        message = str(exc.orig).lower()
         if "employee_id" in message:
             raise EmployeeAlreadyLinked(
                 "This employee already has a login account.") from exc
@@ -120,65 +127,85 @@ def update_account(employee_id: int, *, role: str | None = None,
     if role is not None and role not in ROLES:
         raise AccountError(f"Unknown role: {role}")
     ensure_schema()
-    changes: dict[str, object] = {}
-    for key, value in (("role", role), ("first_name", first_name),
-                       ("last_name", last_name),
-                       ("employee_code", employee_code)):
-        if value is not None:
-            changes[key] = value
-    if disabled is not None:
-        changes["disabled"] = int(disabled)
-    with closing(_connect()) as conn, conn:
-        row = conn.execute(
-            "SELECT id FROM users WHERE employee_id=?", (employee_id,)
-        ).fetchone()
-        if row is None:
+    with SessionLocal() as session:
+        user = session.scalar(
+            select(User).where(User.employee_id == employee_id)
+        )
+        if user is None:
             return False
-        if changes:
-            assignments = ", ".join(f"{key}=?" for key in changes)
-            conn.execute(
-                f"UPDATE users SET {assignments} WHERE id=?",
-                (*changes.values(), row["id"]))
+        if role is not None:
+            user.role = role
+        if first_name is not None:
+            user.first_name = first_name
+        if last_name is not None:
+            user.last_name = last_name
+        if employee_code is not None:
+            user.employee_code = employee_code
+        if disabled is not None:
+            user.disabled = int(disabled)
         if disabled:
-            conn.execute("DELETE FROM sessions WHERE user_id=?", (row["id"],))
+            session.execute(
+                delete(AuthSession).where(AuthSession.user_id == user.id)
+            )
+        session.commit()
     return True
 
 
 def account_for_employee(employee_id: int) -> dict | None:
     ensure_schema()
-    with closing(_connect()) as conn:
-        row = conn.execute(
-            "SELECT id, username, role, disabled FROM users WHERE employee_id=?",
-            (employee_id,)).fetchone()
+    with SessionLocal() as session:
+        row = session.execute(
+            select(User.id, User.username, User.role, User.disabled)
+            .where(User.employee_id == employee_id)
+        ).mappings().first()
     return dict(row) if row else None
 
 
 def delete_account(employee_id: int) -> None:
     ensure_schema()
-    with closing(_connect()) as conn, conn:
-        row = conn.execute(
-            "SELECT id FROM users WHERE employee_id=?", (employee_id,)
-        ).fetchone()
-        if row:
-            conn.execute("DELETE FROM devices WHERE tracker_id IN "
-                         "(SELECT id FROM trackers WHERE employee_id=?)",
-                         (employee_id,))
-            conn.execute("DELETE FROM trackers WHERE employee_id=?",
-                         (employee_id,))
-            conn.execute("DELETE FROM users WHERE id=?", (row["id"],))
+    with SessionLocal() as session:
+        user = session.scalar(
+            select(User).where(User.employee_id == employee_id)
+        )
+        if user is None:
+            return
+        tracker_ids = select(Tracker.id).where(
+            Tracker.employee_id == employee_id
+        )
+        session.execute(
+            delete(Device).where(Device.tracker_id.in_(tracker_ids))
+        )
+        session.execute(
+            delete(Tracker).where(Tracker.employee_id == employee_id)
+        )
+        session.execute(delete(User).where(User.id == user.id))
+        session.commit()
 
 
 def delete_account_by_id(user_id: int) -> None:
     ensure_schema()
-    with closing(_connect()) as conn, conn:
-        conn.execute("DELETE FROM users WHERE id=?", (user_id,))
+    with SessionLocal() as session:
+        session.execute(delete(User).where(User.id == user_id))
+        session.commit()
 
 
 def disable_employee_trackers(employee_id: int) -> None:
     ensure_schema()
-    with closing(_connect()) as conn, conn:
-        conn.execute("UPDATE trackers SET disabled=1 WHERE employee_id=?",
-                     (employee_id,))
-        conn.execute(
-            "UPDATE devices SET revoked=1 WHERE tracker_id IN "
-            "(SELECT id FROM trackers WHERE employee_id=?)", (employee_id,))
+    with SessionLocal() as session:
+        session.execute(
+            update(Tracker)
+            .where(Tracker.employee_id == employee_id)
+            .values(disabled=1)
+        )
+        session.execute(
+            update(Device)
+            .where(
+                Device.tracker_id.in_(
+                    select(Tracker.id).where(
+                        Tracker.employee_id == employee_id
+                    )
+                )
+            )
+            .values(revoked=1)
+        )
+        session.commit()
