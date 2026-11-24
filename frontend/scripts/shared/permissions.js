@@ -79,7 +79,7 @@ export function allowsRequest({service = 'hr', method = 'GET', path}) {
 }
 
 const commonActions = new Set(['sign-out','toggle-nav','close-modal','dismiss-toast','close-record-filter']);
-const staffActions = new Set(['profile','case-details','retry-profile','profile-record-tab','retry-profile-history','retry-employees','retry-employee-labels','refresh-data']);
+const staffActions = new Set(['profile','case-details','retry-profile','profile-record-tab','retry-profile-history','retry-employees','refresh-data']);
 const recordActions = new Set(['record','record-back','confirm-record','check-mutation']);
 const managementActions = new Set(['add-employee','edit-employee','add-type','edit-type','toggle-type','delete-type','confirm-type','remove-violation','restore-company-rules']);
 const photoActions = new Set(['photo-author','photo-clear','photo-details','photo-page','photo-refresh','photo-retry','photo-view']);

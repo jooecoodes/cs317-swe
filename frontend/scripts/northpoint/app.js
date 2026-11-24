@@ -44,10 +44,6 @@ import {
   handleTrackingChange,
 } from "./features/tracking/map-tracking.js";
 import {
-  ensureEmployeeDates,
-  retryEmployeeDates,
-} from "./features/employees/employee-new.js";
-import {
   handleRecordFilterToggle,
   closeRecordFilters,
 } from "./shared/record-ui.js";
@@ -689,10 +685,6 @@ function employeeList() {
       employeeDirectory,
       visibleEmployees,
       employeeSummary,
-      ensureCreationDates: (shown) =>
-        ensureEmployeeDates(shown, () => {
-          if (page === "employees") render();
-        }),
       page: employeePage,
       setPage: (value) => (employeePage = value),
     }) +
@@ -1504,10 +1496,6 @@ document.addEventListener("click", async (event) => {
         break;
       case "remove-violation":
         removeViolation(id);
-        break;
-      case "retry-employee-labels":
-        retryEmployeeDates();
-        render();
         break;
       case "close-record-filter":
         el.closest(".record-filter").open = false;
