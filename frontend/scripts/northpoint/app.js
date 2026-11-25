@@ -119,6 +119,7 @@ import {
   fetchEmployeeDirectorySnapshot,
 } from "./features/employees/employee-api.js";
 import { bindMobileAccess, mobileAccessPanel } from "./features/employees/mobile-access.js";
+import { bindLoginPassword, loginPasswordPanel } from "./features/employees/login-password.js";
 import { loadingSkeleton } from "./shared/loading.js";
 import {
   renderEmployees,
@@ -149,11 +150,16 @@ import {
 } from "./features/settings/secondary.js";
 
 const app = document.querySelector("#app");
-bindMobileAccess(app, () => {
+const mobileAccessController = bindMobileAccess(app, () => {
   if (page !== "profile" || employeeProfile.status !== "ready") return null;
   const id = profileApiId();
   return id && id === employeeProfile.apiId ? employeeProfile.employee : null;
-}, esc);
+}, esc, { openModal, closeModal, toast });
+const loginPasswordController = bindLoginPassword(app, () => {
+  if (page !== "profile" || employeeProfile.status !== "ready") return null;
+  const id = profileApiId();
+  return id && id === employeeProfile.apiId ? employeeProfile.employee : null;
+}, esc, { openModal, closeModal, toast });
 const dialog = document.querySelector("#modal");
 let displayedWeek = startOfWeek(localDate()),
   displayedMonth = localDate().slice(0, 7),
@@ -793,9 +799,10 @@ function profile() {
         ? "For review"
         : "No active violations";
   const activeCount = latestProfileViolations(vs).length;
+  const loginPassword = loginPasswordPanel(e, esc);
   const mobileAccess = mobileAccessPanel(e, esc);
   return `<section class="panel" style="margin-bottom:23px"><div class="profile-top">${avatar(e)}<div class="profile-info"><h2>${esc(e.name)}</h2><div class="profile-meta"><span>${esc(e.id)}</span><span>${esc(roleLabels[e.employeeType] || "Employee")}</span><span>${esc(e.department || "Unassigned")}</span><span>${esc(e.position || "Not provided")}</span>${badge(e.status)}</div></div>${canManage() ? `<button class="button secondary" data-action="edit-employee" data-id="${esc(e.apiId)}">${icon("edit", 16)} Edit Employee</button>` : ""}</div><div class="profile-stats"><div class="profile-stat"><span>Active Violations</span><strong>${activeCount}</strong></div><div class="profile-stat"><span>Total Offenses</span><strong>${offenses ?? "—"}</strong></div><div class="profile-stat"><span>Highest Offense</span><strong>${resources.removals.status === "ready" ? highest || "—" : "—"}</strong></div><div class="profile-stat"><span>Disciplinary Status</span><strong class="text">${badge(standing)}</strong></div></div></section>${highest >= 2 ? `<div class="callout warning">${icon("alert")}<p><strong>Repeated offenses need a closer look.</strong> ${esc(e.name)} has reached offense ${highest} on a specific violation. Review the history and employee explanation before deciding on further action.</p></div>` : ""}
-  ${renderProfileRecords(ctx(), e, vs)}${mobileAccess}`;
+  ${renderProfileRecords(ctx(), e, vs)}${loginPassword}${mobileAccess}`;
 }
 
 function render() {
@@ -844,6 +851,10 @@ function render() {
   enhanceSearchSuggestions(ctx());
   enhancePhoneLayout({ icon });
   syncNavigation();
+  if (page === "profile" && employeeProfile.status === "ready") {
+    loginPasswordController.load();
+    mobileAccessController.load();
+  }
   if (page === "tracking") mountMapTracking(ctx());
   else stopMapTracking();
   document.title = `${pageInfo[page][0]} · Northpoint`;
