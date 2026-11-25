@@ -124,6 +124,32 @@ def test_login_password_change_is_hr_only(app1_client, auth_client):
     assert auth_client.get("/me").json()["employee_id"] == employee["id"]
 
 
+def test_delete_employee_is_hr_only(app1_client, auth_client):
+    employee, username = _create_employee(app1_client)
+    _login(auth_client, username)
+    assert _verify(
+        auth_client, "DELETE",
+        f"/app1/employees/{employee['id']}").status_code == 403
+    auth_client.cookies.clear()
+
+    target, _ = _create_employee(app1_client)
+    suffix = secrets.token_hex(4)
+    accounts.create_account(
+        employee_id=900000 + int(suffix[:4], 16),
+        employee_code=f"HR-{suffix}",
+        username=f"hr.{suffix}",
+        password="verysecret123",
+        role="hr",
+        first_name="Harriet",
+        last_name="Reyes",
+    )
+    _login(auth_client, f"hr.{suffix}")
+
+    assert _verify(
+        auth_client, "DELETE",
+        f"/app1/employees/{target['id']}").status_code == 200
+
+
 def test_tracker_access_is_hr_only_and_supervisor_only(
         app1_client, auth_client, monkeypatch):
     from db import engine
