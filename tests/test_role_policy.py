@@ -77,6 +77,53 @@ def test_supervisor_can_read_and_issue_but_not_manage(app1_client, auth_client):
                    f"/app1/employees/{employee['id']}").status_code == 403
 
 
+def test_login_password_change_is_hr_only(app1_client, auth_client):
+    for role in ("employee", "supervisor", "c_manager"):
+        employee, username = _create_employee(
+            app1_client, employee_type=role)
+        _login(auth_client, username)
+        assert auth_client.get(
+            f"/employees/{employee['id']}/login-account").status_code == 403
+        assert auth_client.patch(
+            f"/employees/{employee['id']}/password",
+            json={"password": "newsecret123"},
+            headers={"X-Requested-With": "Northpoint"}).status_code == 403
+        auth_client.cookies.clear()
+
+    employee, username = _create_employee(app1_client, employee_type="employee")
+    suffix = secrets.token_hex(4)
+    accounts.create_account(
+        employee_id=900000 + int(suffix[:4], 16),
+        employee_code=f"HR-{suffix}",
+        username=f"hr.{suffix}",
+        password="verysecret123",
+        role="hr",
+        first_name="Harriet",
+        last_name="Reyes",
+    )
+    _login(auth_client, f"hr.{suffix}")
+
+    r = auth_client.get(f"/employees/{employee['id']}/login-account")
+    assert r.status_code == 200
+    assert r.json() == {"username": username, "disabled": False}
+
+    r = auth_client.patch(
+        f"/employees/{employee['id']}/password",
+        json={"password": "newsecret123"},
+        headers={"X-Requested-With": "Northpoint"})
+    assert r.status_code == 200, r.text
+
+    auth_client.cookies.clear()
+    r = auth_client.post(
+        "/login",
+        data={"username": username, "password": "verysecret123"},
+        follow_redirects=False,
+    )
+    assert r.status_code == 401
+    _login(auth_client, username, "newsecret123")
+    assert auth_client.get("/me").json()["employee_id"] == employee["id"]
+
+
 def test_tracker_access_is_hr_only_and_supervisor_only(
         app1_client, auth_client, monkeypatch):
     from db import engine
