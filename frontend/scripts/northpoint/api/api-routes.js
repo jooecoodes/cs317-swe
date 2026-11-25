@@ -19,9 +19,15 @@ export function isMobileAccessRoute(path, method) {
   return ['GET', 'POST', 'PATCH'].includes(method) && /^\/employees\/[1-9]\d*\/mobile-access$/.test(path);
 }
 
+export function isLoginPasswordRoute(path, method) {
+  return (method === 'GET' && /^\/employees\/[1-9]\d*\/login-account$/.test(path)) ||
+    (method === 'PATCH' && /^\/employees\/[1-9]\d*\/password$/.test(path));
+}
+
 export function apiRoute(path,method,service='hr'){
  if (service === 'session') {
-  if ((path === '/me' && method === 'GET') || isMobileAccessRoute(path, method)) return {actor: false};
+  if ((path === '/me' && method === 'GET') || isMobileAccessRoute(path, method) ||
+      isLoginPasswordRoute(path, method)) return {actor: false};
   throw new Error('Unknown session endpoint.');
  }
  if(service==='tracking'){if(method==='GET'&&/^\/(?:devices|(?:live|route)\/[^/?#\s]+)$/.test(path))return {actor:false};throw new Error('This action is not defined in the tracking API contract.');}
