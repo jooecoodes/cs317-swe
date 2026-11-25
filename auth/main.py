@@ -396,3 +396,6 @@ with closing(_connect()) as _c, _c:
 
 from auth.mobile_access import router as mobile_access_router
 auth_app.include_router(mobile_access_router)
+
+from auth.passwords import router as passwords_router
+auth_app.include_router(passwords_router)
