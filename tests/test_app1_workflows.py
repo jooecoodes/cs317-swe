@@ -116,6 +116,24 @@ def test_activity_survives_hard_delete(app1_client):
     assert body["items"][0]["employee_id"] == emp["id"]
 
 
+def test_hard_delete_erases_employee_violations_and_removals(app1_client):
+    emp = _emp(app1_client, "ERASE")
+    subsection = _punishable_subsection(app1_client, _vtype(app1_client, "Erase"))
+    _assign(app1_client, emp["id"], subsection["id"])
+    removed = _assign(app1_client, emp["id"], subsection["id"])
+    r = app1_client.post(
+        f"/violations/{removed['id']}/remove",
+        json={"reason": "Before erasure"}, headers=ACTOR)
+    assert r.status_code == 201
+
+    r = app1_client.delete(f"/employees/{emp['id']}", headers=ACTOR)
+    assert r.status_code == 204
+
+    assert app1_client.get(f"/employees/{emp['id']}").status_code == 404
+    assert app1_client.get(
+        f"/violation-removals?employee_id={emp['id']}").json()["total"] == 0
+
+
 # ---------------- bulk create ----------------
 
 def test_bulk_create_employees(app1_client):
