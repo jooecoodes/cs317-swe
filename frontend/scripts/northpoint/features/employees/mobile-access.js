@@ -44,9 +44,9 @@ function renderStatus(content, status, esc) {
     return;
   }
   const toggle = account.disabled ? 'enable' : 'disable';
-  content.innerHTML = `<p><strong>${esc(account.username)}</strong> — ${account.disabled ? 'Access disabled' : 'Account enabled'}</p>
+  content.innerHTML = `<p>Username: <strong>${esc(account.username)}</strong> — ${account.disabled ? 'Access disabled' : 'Account enabled'}</p>
     ${inactiveNotice}<form data-mobile-form="reset">
-      ${passwordField}<button class="button secondary" type="submit">Reset Password</button>
+      ${passwordField}<button class="button secondary" type="submit">Change Password</button>
     </form>${!account.disabled || active ? `<button class="button secondary" type="button" data-mobile-action="${toggle}">${account.disabled ? 'Enable' : 'Disable'} Mobile Access</button>` : ''}${refreshButton()}`;
 }
 
@@ -59,9 +59,21 @@ function actionAvailable(action, status) {
   return action === 'disable' && status.account?.disabled === false;
 }
 
-export function bindMobileAccess(root, getProfileEmployee, esc) {
+export function bindMobileAccess(root, getProfileEmployee, esc, ui = {}) {
   const statuses = new WeakMap();
   const busy = new WeakSet();
+
+  function showResult(ok, message, username) {
+    if (typeof ui.openModal !== 'function') return;
+    const details = username
+      ? `<p class="muted">Username: <strong>${esc(username)}</strong></p>`
+      : '';
+    ui.openModal(
+      ok ? 'Updated successfully' : 'Update failed',
+      `<p>${esc(message)}</p>${details}`,
+      `<button class="button ${ok ? 'primary' : 'secondary'}" data-action="close-modal">${ok ? 'Done' : 'Close'}</button>`,
+    );
+  }
 
   function getEmployee(section) {
     const employee = getProfileEmployee();
@@ -108,8 +120,10 @@ export function bindMobileAccess(root, getProfileEmployee, esc) {
 
       const result = await requestMobileAccess(target, action, values);
       const message = typeof result?.message === 'string' ? result.message : 'Mobile access saved.';
+      const username = result?.account?.username || status?.account?.username || values?.username;
       form?.reset();
       if (!getEmployee(section)) return;
+      showResult(true, message, username);
       statuses.delete(section);
       content.innerHTML = refreshButton();
       try {
@@ -119,13 +133,15 @@ export function bindMobileAccess(root, getProfileEmployee, esc) {
         announce(section, message + ' Could not refresh the account. ' + mobileAccessError(error), true);
       }
     } catch (error) {
+      const message = mobileAccessError(error);
       if (action === 'load' || error.uncertain || error.accepted ||
           [401, 403, 409].includes(error.status) || (error.status === 404 && action !== 'link')) {
         form?.reset();
         statuses.delete(section);
         content.innerHTML = refreshButton('Try again');
       }
-      announce(section, mobileAccessError(error), true);
+      announce(section, message, true);
+      if (action !== 'load') showResult(false, message, status?.account?.username || values?.username);
     } finally {
       busy.delete(section);
       content.removeAttribute('aria-busy');
@@ -152,5 +168,12 @@ export function bindMobileAccess(root, getProfileEmployee, esc) {
     const password = checkbox.form?.elements.namedItem('password');
     if (password) password.type = checkbox.checked ? 'text' : 'password';
   });
+
+  return {
+    load() {
+      const section = root.querySelector('.mobile-access:not(.login-password)');
+      if (section) void run(section, 'load');
+    },
+  };
 }
 
