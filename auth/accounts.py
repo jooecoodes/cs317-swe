@@ -195,6 +195,9 @@ def delete_account(employee_id: int) -> None:
         session.execute(
             delete(Tracker).where(Tracker.employee_id == employee_id)
         )
+        session.execute(
+            delete(AuthSession).where(AuthSession.user_id == user.id)
+        )
         session.execute(delete(User).where(User.id == user.id))
         session.commit()
 
@@ -202,6 +205,9 @@ def delete_account(employee_id: int) -> None:
 def delete_account_by_id(user_id: int) -> None:
     ensure_schema()
     with SessionLocal() as session:
+        session.execute(
+            delete(AuthSession).where(AuthSession.user_id == user_id)
+        )
         session.execute(delete(User).where(User.id == user_id))
         session.commit()
 
