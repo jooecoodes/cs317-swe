@@ -112,7 +112,7 @@ Issuing a violation snapshots the subsection and penalty text onto the `Violatio
 
 Main route groups:
 
-- `/employees` — create/bulk update, search, filter, deactivate/reactivate, by-code lookup, totals, violation history. Each employee carries an `employee_type` of `hr`, `supervisor`, `c_manager`, or `employee`.
+- `/employees` — create/bulk update, search, filter, deactivate/reactivate, HR-only hard delete (erases the employee, violation records, removal history, browser login, tracker account, devices, and sessions), by-code lookup, totals, violation history. Each employee carries an `employee_type` of `hr`, `supervisor`, `c_manager`, or `employee`.
 - `/violation-types` — categories
 - `/violation-types/{id}/subsections` — specific violations and their penalty tiers
 - `/employees/{id}/violations` — issue/list, clear all, remove one, offense summary
