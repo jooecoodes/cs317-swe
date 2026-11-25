@@ -56,6 +56,13 @@ A session cookie is ignored for those device-only requests, so a browser session
 
 For mobile photos, [auth/mobile_access.py](auth/mobile_access.py#L51) resolves the bearer token to a tracker, requires that tracker to be linked to an **active employee whose type is Supervisor**, and returns the employee id/code/name to app2. Only HR can call the `/auth/employees/{id}/mobile-access` endpoints, and only a Supervisor employee is eligible for a tracker account. Legacy `add-device` tokens are not tracker-linked and remain GPS-only.
 
+Only HR can change passwords for either account type. Website login accounts use
+`GET /auth/employees/{id}/login-account` and
+`PATCH /auth/employees/{id}/password` ([auth/passwords.py](auth/passwords.py));
+a login password change also signs out that employee's browser sessions. Tracker
+passwords are reset through the existing HR-only mobile-access endpoints, which
+revoke the tracker's phones.
+
 `X-Actor` is required by app1 writes and by app2 mutation endpoints; reads are generally public behind the nginx gate. app3 uses `X-Device`, not `X-Actor`.
 
 Browser users have one role: `c_manager`, `employee`, `hr`, or `supervisor`. Creating an
