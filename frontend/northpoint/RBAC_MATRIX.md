@@ -28,6 +28,8 @@ Each role has specific permissions that determine which features they can access
 | View proof photos | Yes | Yes | No | No |
 | View location data and paths | Yes | No | No | No |
 | Issue mobile tracker accounts | Yes | No | No | No |
+| Change website login passwords | Yes | No | No | No |
+| Reset mobile tracker passwords | Yes | No | No | No |
 
 ## Role Permissions
 
@@ -44,6 +46,7 @@ Each role has specific permissions that determine which features they can access
 - View proof photos
 - View location data and paths
 - Issue mobile tracker accounts to Supervisor employees
+- Change website login passwords and reset mobile tracker passwords
 
 ### Supervisor
 - View the dashboard
