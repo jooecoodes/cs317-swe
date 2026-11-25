@@ -17,6 +17,7 @@ Each role has specific permissions that determine which features they can access
 |---|---|---|---|---|
 | View the dashboard | Yes | Yes | Yes | No |
 | Add and edit employees | Yes | No | No | No |
+| Permanently remove employees | Yes | No | No | No |
 | Manage violation types | Yes | No | No | No |
 | Log a violation | Yes | Yes | No | No |
 | View all violations | Yes | Yes | Yes | No |
@@ -36,6 +37,7 @@ Each role has specific permissions that determine which features they can access
 ### HR
 - View the dashboard
 - Add and edit employees
+- Permanently remove employees and erase their linked records
 - Manage violation types
 - Log violations
 - View all violations

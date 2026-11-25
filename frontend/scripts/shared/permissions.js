@@ -76,7 +76,8 @@ export function allowsRequest({service = 'hr', method = 'GET', path}) {
   return (method === 'POST' && (path === '/employees' ||
     /^\/employees\/\d+\/(?:deactivate|reactivate)$/.test(path) ||
     /^\/violations\/\d+\/remove$/.test(path))) ||
-    (method === 'PATCH' && /^\/employees\/\d+$/.test(path));
+    (method === 'PATCH' && /^\/employees\/\d+$/.test(path)) ||
+    (method === 'DELETE' && /^\/employees\/\d+$/.test(path));
 }
 
 const commonActions = new Set(['sign-out','toggle-nav','close-modal','dismiss-toast','close-record-filter']);
@@ -95,7 +96,7 @@ export function allowsAction(action, data, page) {
   if (staffActions.has(action)) return canOpen('profile');
   if (recordActions.has(action)) return mayRecord();
   if (managementActions.has(action)) return mayManage();
-  if (action === 'employee-state') return mayManage() && ['deactivate','reactivate'].includes(data.mode);
+  if (action === 'employee-state') return mayManage() && ['deactivate','reactivate','delete'].includes(data.mode);
   if (action.startsWith('rulebook-')) return canOpen('types');
   if (action.startsWith('tracking-')) return page === 'tracking';
   if (photoActions.has(action)) return page === 'photos';
@@ -123,6 +124,6 @@ export function allowsForm(form, page) {
   if (form.id === 'photo-filters') return page === 'photos';
   if (form.id === 'photo-activity-filters') return page === 'photos' && canOpen('history');
   if (form.id === 'record-form') return mayRecord();
-  if (form.id === 'employee-state-form') return mayManage() && ['deactivate','reactivate'].includes(form.dataset.mode);
+  if (form.id === 'employee-state-form') return mayManage() && ['deactivate','reactivate','delete'].includes(form.dataset.mode);
   return mayManage() && ['employee-form','type-form','rule-editor-form','remove-form'].includes(form.id);
 }

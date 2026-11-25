@@ -1016,7 +1016,7 @@ async function employeeForm(id) {
     <div class="field span-full"><label for="emp-position">Position <span class="muted">(optional)</span></label><input id="emp-position" name="position" maxlength="100" value="${esc(e.position || "")}"></div>
     ${id ? "" : `<div class="field"><label for="emp-account-username">Login username</label><input id="emp-account-username" name="accountUsername" required minlength="3" maxlength="50" pattern="[A-Za-z0-9][A-Za-z0-9._\\-]{2,49}" autocomplete="off" spellcheck="false" value="${esc(e.id)}"><small>3–50 letters, numbers, dots, underscores or hyphens.</small></div><div class="field"><label for="emp-account-password">Initial password</label><input id="emp-account-password" name="accountPassword" type="password" required minlength="10" maxlength="128" autocomplete="new-password"><small>At least 10 characters. Give it to the employee securely.</small></div>`}
     </div>${!id ? '<p class="form-intro" style="margin:20px 0 0">New employees are automatically active and receive the login account above.</p>' : ""}</form>
-    ${id ? `<div style="margin-top:22px;padding-top:18px;border-top:1px solid #e1e7ef"><p class="form-intro" style="margin-bottom:12px">Employment status: ${badge(e.status)}</p><div class="row-actions" style="flex-wrap:wrap;gap:10px"><button class="button secondary" data-action="employee-state" data-id="${esc(e.apiId)}" data-mode="${e.status === "Active" ? "deactivate" : "reactivate"}">${e.status === "Active" ? "Deactivate" : "Reactivate"} Employee</button></div></div>` : ""}`,
+    ${id ? `<div style="margin-top:22px;padding-top:18px;border-top:1px solid #e1e7ef"><p class="form-intro" style="margin-bottom:12px">Employment status: ${badge(e.status)}</p><div class="row-actions" style="flex-wrap:wrap;gap:10px"><button class="button secondary" data-action="employee-state" data-id="${esc(e.apiId)}" data-mode="${e.status === "Active" ? "deactivate" : "reactivate"}">${e.status === "Active" ? "Deactivate" : "Reactivate"} Employee</button><button class="button danger" data-action="employee-state" data-id="${esc(e.apiId)}" data-mode="delete">Remove Employee</button></div><p class="form-intro" style="margin:10px 0 0">Removing an employee permanently erases their login account, mobile access, and violation records.</p></div>` : ""}`,
     `<button class="button secondary" data-action="close-modal">Cancel</button><button class="button primary" type="submit" form="employee-form">${icon("check", 17)} ${id ? "Save Changes" : pending ? "Check save status" : "Add Employee"}</button>`,
   );
   if (pending) {
@@ -1042,13 +1042,13 @@ function confirmEmployeeState(id, mode) {
   const e = editingEmployee,
     deleting = mode === "delete",
     label = deleting
-      ? "Permanently Delete"
+      ? "Permanently Remove"
       : mode === "deactivate"
         ? "Deactivate"
         : "Reactivate";
   openModal(
     label + " Employee",
-    `<div class="callout ${deleting ? "warning" : ""}">${icon(deleting ? "alert" : "info")}<p>${deleting ? `Permanently delete <strong>${esc(e.name)}</strong> (${esc(e.id)}) and all their violation records? This cannot be undone and bypasses the violation removal audit trail.` : mode === "deactivate" ? `Deactivate <strong>${esc(e.name)}</strong>? Their status becomes Inactive and their violation history stays on the backend.` : `Reactivate <strong>${esc(e.name)}</strong>? Their status becomes Active again.`}</p></div><form id="employee-state-form" data-id="${esc(id)}" data-mode="${mode}"><p class="form-error" role="alert"></p>${deleting ? `<div class="field"><label for="employee-delete-code">Type ${esc(e.id)} to confirm</label><input id="employee-delete-code" name="code" required autocomplete="off"></div><label class="confirm-check" style="margin-top:18px"><input type="checkbox" name="confirmed" required>I understand that the employee and their violation records will be permanently deleted.</label>` : ""}</form>`,
+    `<div class="callout ${deleting ? "warning" : ""}">${icon(deleting ? "alert" : "info")}<p>${deleting ? `Permanently remove <strong>${esc(e.name)}</strong> (${esc(e.id)}) and erase their login account, mobile access, and violation records? This cannot be undone.` : mode === "deactivate" ? `Deactivate <strong>${esc(e.name)}</strong>? Their status becomes Inactive and their violation history stays on the backend.` : `Reactivate <strong>${esc(e.name)}</strong>? Their status becomes Active again.`}</p></div><form id="employee-state-form" data-id="${esc(id)}" data-mode="${mode}"><p class="form-error" role="alert"></p>${deleting ? `<div class="field"><label for="employee-delete-code">Type ${esc(e.id)} to confirm</label><input id="employee-delete-code" name="code" required autocomplete="off"></div><label class="confirm-check" style="margin-top:18px"><input type="checkbox" name="confirmed" required>I understand that the employee and all linked records will be permanently erased.</label>` : ""}</form>`,
     `<button class="button secondary" data-action="edit-employee" data-id="${esc(id)}">Cancel</button><button class="button ${deleting ? "danger" : "primary"}" type="submit" form="employee-state-form">${label} Employee</button>`,
   );
 }
@@ -1782,7 +1782,7 @@ document.addEventListener("submit", async (event) => {
           {
             message:
               mode === "delete"
-                ? "Employee permanently deleted."
+                ? "Employee permanently removed."
                 : mode === "deactivate"
                   ? "Employee deactivated."
                   : "Employee reactivated.",
