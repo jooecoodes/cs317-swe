@@ -145,7 +145,7 @@ From `frontend/`, edit the role entries in their folders, common startup and per
 - `assets/`: company logo and bundled fonts.
 - `preview/`: retained preview helpers, excluded from the live website build.
 
-Account controls: the top-right account name opens a Sign out dropdown. Settings also offers Sign out and the text-size preference. Users & Roles and local role/department workspace views have been removed; backend authentication remains unchanged.
+Account controls: the top-right account name opens a Sign out dropdown. Settings also offers Sign out and the text-size preference. Users & Roles and local role/department workspace views have been removed; backend authentication remains unchanged. HR can change an employee’s website login password from the employee profile and reset a Supervisor’s mobile tracker password under Mobile App Access. Those password actions are unavailable to Supervisors, Chief Managers and Concerned Employees.
 
 Photo Library, Photo Activity, History and report periods use the same compact dropdown filter components as the record lists.
 
