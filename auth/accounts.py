@@ -161,6 +161,23 @@ def account_for_employee(employee_id: int) -> dict | None:
     return dict(row) if row else None
 
 
+def change_password(employee_id: int, password: str) -> bool:
+    """Set a linked browser login password and sign out its current sessions."""
+    ensure_schema()
+    with SessionLocal() as session:
+        user = session.scalar(
+            select(User).where(User.employee_id == employee_id)
+        )
+        if user is None:
+            return False
+        user.password_hash = hash_password(password)
+        session.execute(
+            delete(AuthSession).where(AuthSession.user_id == user.id)
+        )
+        session.commit()
+    return True
+
+
 def delete_account(employee_id: int) -> None:
     ensure_schema()
     with SessionLocal() as session:
