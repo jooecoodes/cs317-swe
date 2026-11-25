@@ -288,6 +288,9 @@ def delete_employee(session: Session, employee_id: int, *, actor: str, commit: b
         summary=f"Hard-deleted {employee.employee_code} ({employee.full_name})",
         metadata={"employee_code": employee.employee_code, "full_name": employee.full_name},
     )
+    session.execute(
+        delete(ViolationRemoval).where(ViolationRemoval.employee_id == employee_id)
+    )
     session.delete(employee)
     if commit:
         session.commit()
